@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const ageGroup = searchParams.get('ageGroup')
 
-    const athletes = await prisma.athlete.findMany({
+    const athletes = await db.athlete.findMany({
       where: ageGroup ? { ageGroup: ageGroup as never } : {},
       orderBy: [{ ageGroup: 'asc' }, { number: 'asc' }],
       include: {
@@ -26,7 +26,13 @@ export async function GET(req: Request) {
           },
         },
       },
-    })
+    }) as unknown as Array<{
+      number: number; name: string; ageGroup: string;
+      attendanceRecords: Array<{
+        present: boolean;
+        session: { date: Date; primaryAgeGroup: string; sessionType: string };
+      }>;
+    }>
 
     const headers = ['Nº', 'Nome', 'Escalão', 'Total Sessões', 'Presenças', 'Faltas', '% Assiduidade', 'Treinos Próprios (Presenças)', 'Outros Escalões (Presenças)']
 

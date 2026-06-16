@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
@@ -16,8 +16,9 @@ const quotaSchema = z.object({
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user } = ctx
     if (!hasPermission(user.permissions, 'viewMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -40,8 +41,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -53,13 +55,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { month, year, paid, notes } = parsed.data
 
-    const member = await prisma.member.findUnique({ where: { id } })
+    const member = await db.member.findUnique({ where: { id } })
     if (!member) return NextResponse.json({ error: 'Sócio não encontrado' }, { status: 404 })
+
+    const memberQuota = (member as { monthlyQuota: number }).monthlyQuota
 
     const quota = await prisma.quota.upsert({
       where: { memberId_month_year: { memberId: id, month, year } },
-      update: { paid, paidAt: paid ? new Date() : null, amount: paid ? member.monthlyQuota : null, notes: notes ?? null },
-      create: { memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? member.monthlyQuota : null, notes: notes ?? null },
+      update: { paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
+      create: { memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
     })
 
     await logAudit(req, user.id, user.email, 'UPDATE', 'Quota', quota.id, { month, year, paid })

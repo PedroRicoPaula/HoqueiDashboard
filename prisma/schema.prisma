@@ -7,20 +7,68 @@ datasource db {
 }
 
 // ─────────────────────────────────────────
+// Platform — Multi-Tenant
+// ─────────────────────────────────────────
+
+model Club {
+  id                     String            @id @default(uuid())
+  name                   String
+  slug                   String            @unique
+  email                  String
+  country                String            @default("pt")
+  language               String            @default("pt")
+  status                 ClubStatus        @default(PENDING_PAYMENT)
+  stripeCustomerId       String?           @unique
+  stripeSubscriptionId   String?           @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  users                  User[]
+  athletes               Athlete[]
+  members                Member[]
+  sponsors               Sponsor[]
+  materials              Material[]
+  travels                Travel[]
+  directionMembers       DirectionMember[]
+  trainings              Training[]
+  trainingSchedules      TrainingSchedule[]
+  trainingSessions       TrainingSession[]
+  textileItems           TextileItem[]
+  auditLogs              AuditLog[]
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum ClubStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+}
+
+// ─────────────────────────────────────────
 // Auth & Permissions
 // ─────────────────────────────────────────
 
 model User {
   id           String      @id @default(uuid())
+  clubId       String?
+  club         Club?       @relation(fields: [clubId], references: [id], onDelete: Cascade)
   name         String
   email        String      @unique
   password     String
+  isSuperAdmin Boolean     @default(false)
   tokenVersion Int         @default(0)
   lastLoginAt  DateTime?
   permissions  Permission?
   auditLogs    AuditLog[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+
+  @@index([clubId])
 }
 
 model Permission {
@@ -67,6 +115,8 @@ model Permission {
 
 model AuditLog {
   id        String   @id @default(uuid())
+  clubId    String?
+  club      Club?    @relation(fields: [clubId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   userEmail String?
@@ -77,6 +127,7 @@ model AuditLog {
   ip        String?
   createdAt DateTime @default(now())
 
+  @@index([clubId])
   @@index([entity])
   @@index([userId])
   @@index([createdAt])
@@ -88,7 +139,9 @@ model AuditLog {
 
 model Athlete {
   id                String             @id @default(uuid())
-  number            Int                @unique
+  clubId            String
+  club              Club               @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  number            Int
   name              String
   ageGroup          AgeGroup
   birthDate         DateTime
@@ -110,8 +163,10 @@ model Athlete {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  @@index([name])
-  @@index([ageGroup])
+  @@unique([clubId, number])
+  @@index([clubId])
+  @@index([clubId, name])
+  @@index([clubId, ageGroup])
 }
 
 // ─────────────────────────────────────────
@@ -149,7 +204,9 @@ enum AgeGroup {
 
 model Member {
   id           String   @id @default(uuid())
-  number       Int      @unique @default(autoincrement())
+  clubId       String
+  club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  number       Int      @default(autoincrement())
   name         String
   phone        String?
   email        String?
@@ -159,7 +216,9 @@ model Member {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([name])
+  @@unique([clubId, number])
+  @@index([clubId])
+  @@index([clubId, name])
 }
 
 model Quota {
@@ -182,21 +241,24 @@ model Quota {
 // ─────────────────────────────────────────
 
 model Material {
-  id        String           @id @default(uuid())
-  name      String
-  category  MaterialCategory
-  type      String
-  state     MaterialState    @default(FREE)
-  athleteId String?
-  athlete   Athlete?         @relation(fields: [athleteId], references: [id], onDelete: SetNull)
+  id            String           @id @default(uuid())
+  clubId        String
+  club          Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name          String
+  category      MaterialCategory
+  type          String
+  state         MaterialState    @default(FREE)
+  athleteId     String?
+  athlete       Athlete?         @relation(fields: [athleteId], references: [id], onDelete: SetNull)
   notes         String?
   paidByAthlete Boolean          @default(false)
   paidAmount    Float?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  @@index([state])
-  @@index([category])
+  @@index([clubId])
+  @@index([clubId, state])
+  @@index([clubId, category])
   @@index([athleteId])
 }
 
@@ -218,6 +280,8 @@ enum MaterialState {
 
 model Sponsor {
   id                 String   @id @default(uuid())
+  clubId             String
+  club               Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   name               String
   website            String?
   phone              String?
@@ -227,6 +291,7 @@ model Sponsor {
   contractEnd        DateTime
   notes              String?
   logoUrl            String?
+  logoKey            String?
   sponsorTypes       String[] @default([])
   equipmentZones     Int[]    @default([])
   bannerCount        Int?
@@ -235,8 +300,8 @@ model Sponsor {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  @@index([name])
-  @@index([contractEnd])
+  @@index([clubId])
+  @@index([clubId, contractEnd])
 }
 
 // ─────────────────────────────────────────
@@ -245,6 +310,8 @@ model Sponsor {
 
 model Travel {
   id                  String    @id @default(uuid())
+  clubId              String
+  club                Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   opponent            String
   pavilionUrl         String?
   departureDate       DateTime
@@ -262,7 +329,8 @@ model Travel {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  @@index([departureDate])
+  @@index([clubId])
+  @@index([clubId, departureDate])
 }
 
 // ─────────────────────────────────────────
@@ -271,6 +339,8 @@ model Travel {
 
 model DirectionMember {
   id                  String                   @id @default(uuid())
+  clubId              String
+  club                Club                     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   name                String
   roles               String[]
   phone               String?
@@ -284,7 +354,7 @@ model DirectionMember {
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
 
-  @@index([name])
+  @@index([clubId])
 }
 
 model DirectionSalaryPayment {
@@ -308,6 +378,8 @@ model DirectionSalaryPayment {
 
 model Training {
   id        String    @id @default(uuid())
+  clubId    String
+  club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   date      DateTime
   title     String
   notes     String?
@@ -315,7 +387,8 @@ model Training {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  @@index([date])
+  @@index([clubId])
+  @@index([clubId, date])
 }
 
 model Playbook {
@@ -331,7 +404,9 @@ model Playbook {
 // ─────────────────────────────────────────
 
 model TrainingSchedule {
-  id          String      @id @default(uuid())
+  id          String            @id @default(uuid())
+  clubId      String
+  club        Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
   season      String
   seasonStart DateTime?
   ageGroup    AgeGroup
@@ -339,18 +414,21 @@ model TrainingSchedule {
   startTime   String
   endTime     String?
   location    String?
-  sessionType SessionType @default(GENERAL)
-  active      Boolean     @default(true)
+  sessionType SessionType       @default(GENERAL)
+  active      Boolean           @default(true)
   sessions    TrainingSession[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  @@index([season])
-  @@index([ageGroup])
+  @@index([clubId])
+  @@index([clubId, season])
+  @@index([clubId, ageGroup])
 }
 
 model TrainingSession {
   id                 String            @id @default(uuid())
+  clubId             String
+  club               Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
   date               DateTime
   time               String?
   primaryAgeGroup    AgeGroup
@@ -365,8 +443,9 @@ model TrainingSession {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  @@index([date])
-  @@index([primaryAgeGroup])
+  @@index([clubId])
+  @@index([clubId, date])
+  @@index([clubId, primaryAgeGroup])
   @@index([scheduleId])
 }
 
@@ -400,6 +479,8 @@ enum SessionType {
 
 model TextileItem {
   id                     String          @id @default(uuid())
+  clubId                 String
+  club                   Club            @relation(fields: [clubId], references: [id], onDelete: Cascade)
   category               TextileCategory
   type                   TextileType
   size                   String
@@ -419,10 +500,11 @@ model TextileItem {
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
 
+  @@index([clubId])
+  @@index([clubId, state])
+  @@index([clubId, category])
+  @@index([clubId, season])
   @@index([athleteId])
-  @@index([state])
-  @@index([category])
-  @@index([season])
 }
 
 enum TextileCategory {

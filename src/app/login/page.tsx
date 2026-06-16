@@ -26,7 +26,7 @@ function LoginForm() {
   const { setAuth } = useAuthStore()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const setupOk = searchParams.get('setup') === 'ok'
+  const registered = searchParams.get('registered') === '1'
 
   useEffect(() => {
     fetch('/api/setup')
@@ -64,7 +64,8 @@ function LoginForm() {
       }
 
       setAuth(json.user, json.permissions)
-      router.push('/')
+      // Super admin → platform, club users → dashboard
+      router.push(json.redirectTo ?? '/')
     } catch {
       toast({
         title: 'Erro',
@@ -78,9 +79,9 @@ function LoginForm() {
 
   return (
     <>
-      {setupOk && (
+      {registered && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Conta criada com sucesso. Pode agora entrar.
+          Conta criada! Verifique o email para a senha temporária e entre aqui.
         </div>
       )}
 
@@ -96,7 +97,7 @@ function LoginForm() {
               <Input
                 id="email"
                 type="email"
-                placeholder="nome@hcpdl.pt"
+                placeholder="admin@clube.com"
                 autoComplete="email"
                 {...register('email')}
               />
@@ -135,11 +136,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center mx-auto mb-4">
-            <span className="text-black font-bold text-xl">HC</span>
+          <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-lg">HM</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Hóquei Clube PDL</h1>
-          <p className="text-gray-500 mt-1">Sistema de Gestão</p>
+          <h1 className="text-2xl font-bold text-gray-900">HoqueiManager</h1>
+          <p className="text-gray-500 mt-1">Gestão para clubes de hóquei em patins</p>
         </div>
 
         <Suspense fallback={<div className="h-64" />}>

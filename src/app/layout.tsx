@@ -15,13 +15,13 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Gestão HCPDL',
-  description: 'Sistema de gestão do Hóquei Clube PDL',
+  title: 'HoqueiManager',
+  description: 'Gestão completa para clubes de hóquei em patins',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'HCPDL',
+    title: 'HoqueiManager',
   },
 }
 

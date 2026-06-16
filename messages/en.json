@@ -1,0 +1,120 @@
+{
+  "nav": {
+    "login": "Sign in",
+    "register": "Get started"
+  },
+  "hero": {
+    "badge": "Roller hockey club management",
+    "title": "Your club,\nwell managed",
+    "subtitle": "Athletes, members, equipment, travel, training and more — all in one platform built for roller hockey clubs.",
+    "cta": "Start free for 14 days",
+    "ctaSub": "No credit card required. Cancel anytime.",
+    "demo": "View demo"
+  },
+  "features": {
+    "title": "Everything your club needs",
+    "subtitle": "12 integrated modules, built specifically for roller hockey.",
+    "items": {
+      "athletes": {
+        "title": "Athletes",
+        "desc": "Complete profiles, monthly fee history, attendance tracking by season and age group."
+      },
+      "members": {
+        "title": "Members",
+        "desc": "Monthly membership fee management with visual calendar and payment tracking."
+      },
+      "materials": {
+        "title": "Equipment",
+        "desc": "Inventory by category, condition and assigned athlete."
+      },
+      "training": {
+        "title": "Training & Tactics",
+        "desc": "Attendance calendar and digital tactical board with animations."
+      },
+      "travel": {
+        "title": "Travel",
+        "desc": "Full logistics: transport, drivers, meals and squad list."
+      },
+      "finance": {
+        "title": "Finance",
+        "desc": "Dashboard with revenue, expenses and net balance in real time."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Simple, transparent pricing",
+    "subtitle": "One plan. Everything included. No surprises.",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "monthlyPrice": "59",
+    "yearlyPrice": "590",
+    "yearlyNote": "Equivalent to 2 months free",
+    "perMonth": "/month",
+    "perYear": "/year",
+    "includes": "What's included:",
+    "features": [
+      "Unlimited users",
+      "All 12 modules",
+      "5 languages (PT, ES, EN, FR, IT)",
+      "Email support",
+      "Automatic backups",
+      "Updates included"
+    ],
+    "cta": "Get started",
+    "guarantee": "14-day money-back guarantee. Not satisfied? Full refund."
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "items": [
+      {
+        "q": "Can I cancel at any time?",
+        "a": "Yes. No contracts. You can cancel your subscription at any time and access remains until the end of the paid period."
+      },
+      {
+        "q": "Is my data secure?",
+        "a": "Yes. Each club's data is completely isolated. We use PostgreSQL with encryption and automatic daily backups."
+      },
+      {
+        "q": "Does it work on mobile?",
+        "a": "Yes. The platform is responsive and can be installed as a PWA app on your phone."
+      },
+      {
+        "q": "Can I change the language later?",
+        "a": "Yes. The dashboard language can be changed at any time in the club settings."
+      }
+    ]
+  },
+  "footer": {
+    "rights": "All rights reserved.",
+    "language": "Language"
+  },
+  "register": {
+    "title": "Create account",
+    "step1": "Club details",
+    "step2": "Choose plan",
+    "clubName": "Club name",
+    "email": "Admin email",
+    "country": "Country",
+    "language": "Dashboard language",
+    "next": "Continue",
+    "back": "Back",
+    "monthly": "Monthly — €59/month",
+    "yearly": "Yearly — €590/year (2 months free)",
+    "checkout": "Go to payment",
+    "processing": "Processing...",
+    "countries": {
+      "pt": "Portugal",
+      "es": "Spain",
+      "fr": "France",
+      "it": "Italy",
+      "other": "Other"
+    },
+    "languages": {
+      "pt": "Português",
+      "es": "Español",
+      "en": "English",
+      "fr": "Français",
+      "it": "Italiano"
+    }
+  }
+}

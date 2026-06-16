@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createTravelSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,13 +7,14 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const travels = await prisma.travel.findMany({ orderBy: { departureDate: 'desc' } })
+    const travels = await db.travel.findMany({ orderBy: { departureDate: 'desc' } })
     return NextResponse.json(travels)
   } catch (error) {
     logger.error('Travel GET error:', error)
@@ -24,8 +24,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     const { departureDate, returnDate, ...rest } = parsed.data
-    const travel = await prisma.travel.create({
+    const travel = await db.travel.create({
       data: {
         ...rest,
         departureDate: new Date(departureDate),
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'Travel', travel.id, { opponent: travel.opponent })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Travel', (travel as { id: string }).id, { opponent: (travel as { opponent: string }).opponent })
     return NextResponse.json(travel, { status: 201 })
   } catch (error) {
     logger.error('Travel POST error:', error)

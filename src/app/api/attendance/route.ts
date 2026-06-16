@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createTrainingSessionSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,8 +7,9 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     const safeAgeGroup = VALID_AGE_GROUPS.includes(ageGroup as AgeGroupEnum) ? ageGroup as AgeGroupEnum : undefined
     const safeSessionType = VALID_SESSION_TYPES.includes(sessionType as SessionTypeEnum) ? sessionType as SessionTypeEnum : undefined
 
-    const sessions = await prisma.trainingSession.findMany({
+    const sessions = await db.trainingSession.findMany({
       where: {
         ...(safeAgeGroup ? { primaryAgeGroup: safeAgeGroup } : {}),
         ...(safeSessionType ? { sessionType: safeSessionType } : {}),
@@ -44,7 +44,13 @@ export async function GET(req: Request) {
         _count: { select: { records: true } },
         records: { select: { present: true } },
       },
-    })
+    }) as unknown as Array<{
+      id: string; date: Date; time: string; primaryAgeGroup: string; sessionType: string;
+      title: string | null; notes: string | null; cancelled: boolean; cancellationReason: string | null;
+      scheduleId: string | null; createdAt: Date;
+      _count: { records: number };
+      records: { present: boolean }[];
+    }>
 
     const result = sessions.map((s) => ({
       id: s.id,
@@ -71,8 +77,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -84,7 +91,7 @@ export async function POST(req: Request) {
     }
 
     const { date, time, primaryAgeGroup, sessionType, title, notes, scheduleId } = parsed.data
-    const session = await prisma.trainingSession.create({
+    const session = await db.trainingSession.create({
       data: {
         date: new Date(date),
         time,
@@ -96,7 +103,7 @@ export async function POST(req: Request) {
       },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'TrainingSession', session.id, { date: session.date, primaryAgeGroup })
+    await logAudit(req, user.id, user.email, 'CREATE', 'TrainingSession', (session as { id: string }).id, { date: (session as { date: Date }).date, primaryAgeGroup })
     return NextResponse.json(session, { status: 201 })
   } catch (error) {
     logger.error('Attendance POST error:', error)

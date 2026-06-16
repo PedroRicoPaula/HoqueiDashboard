@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
@@ -17,8 +17,9 @@ const paymentSchema = z.object({
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user } = ctx
     if (!hasPermission(user.permissions, 'viewFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -43,8 +44,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -57,14 +59,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { month, year, paid, amount, notes } = parsed.data
 
-    const athlete = await prisma.athlete.findUnique({ where: { id } })
+    const athlete = await db.athlete.findUnique({ where: { id } })
     if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 404 })
 
     const payment = await prisma.athletePayment.upsert({
       where: { athleteId_month_year: { athleteId: id, month, year } },
       update: {
         paid,
-        amount: paid ? (amount ?? athlete.monthlyFee) : null,
+        amount: paid ? (amount ?? (athlete as { monthlyFee: number }).monthlyFee) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
       },
@@ -73,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         month,
         year,
         paid,
-        amount: paid ? (amount ?? athlete.monthlyFee) : null,
+        amount: paid ? (amount ?? (athlete as { monthlyFee: number }).monthlyFee) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
       },

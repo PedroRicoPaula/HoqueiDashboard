@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { bulkAttendanceSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,14 +7,15 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    const records = await prisma.attendanceRecord.findMany({
+    const records = await db.attendanceRecord.findMany({
       where: { sessionId: id },
       include: {
         athlete: { select: { id: true, name: true, number: true, ageGroup: true } },
@@ -33,8 +33,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 // Upsert all attendance records for a session at once
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -47,13 +48,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     // Verify session exists
-    const session = await prisma.trainingSession.findUnique({ where: { id: sessionId } })
+    const session = await db.trainingSession.findUnique({ where: { id: sessionId } })
     if (!session) return NextResponse.json({ error: 'Sessão não encontrada' }, { status: 404 })
 
     // Upsert each record
     await Promise.all(
-      parsed.data.records.map((r) =>
-        prisma.attendanceRecord.upsert({
+      parsed.data.records.map((r: { athleteId: string; present: boolean; notes?: string | null; paidByAthlete?: boolean | null; paidAmount?: number | null }) =>
+        db.attendanceRecord.upsert({
           where: { sessionId_athleteId: { sessionId, athleteId: r.athleteId } },
           create: {
             sessionId, athleteId: r.athleteId, present: r.present, notes: r.notes,
@@ -73,7 +74,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       count: parsed.data.records.length,
     })
 
-    const updated = await prisma.attendanceRecord.findMany({
+    const updated = await db.attendanceRecord.findMany({
       where: { sessionId },
       include: {
         athlete: { select: { id: true, name: true, number: true, ageGroup: true } },

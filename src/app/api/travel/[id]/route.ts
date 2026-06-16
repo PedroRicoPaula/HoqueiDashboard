@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { updateTravelSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -9,13 +8,14 @@ import { logAudit } from '@/lib/audit'
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const travel = await prisma.travel.findUnique({ where: { id } })
+    const travel = await db.travel.findUnique({ where: { id } })
     if (!travel) return NextResponse.json({ error: 'Viagem não encontrada' }, { status: 404 })
     return NextResponse.json(travel)
   } catch (error) {
@@ -27,8 +27,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -40,7 +41,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { departureDate, returnDate, ...rest } = parsed.data
-    const travel = await prisma.travel.update({
+    const travel = await db.travel.update({
       where: { id },
       data: {
         ...rest,
@@ -49,7 +50,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     })
 
-    await logAudit(req, user.id, user.email, 'UPDATE', 'Travel', travel.id, { opponent: travel.opponent })
+    await logAudit(req, user.id, user.email, 'UPDATE', 'Travel', (travel as { id: string }).id, { opponent: (travel as { opponent: string }).opponent })
     return NextResponse.json(travel)
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2025') {
@@ -63,13 +64,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    await prisma.travel.delete({ where: { id } })
+    await db.travel.delete({ where: { id } })
     await logAudit(req, user.id, user.email, 'DELETE', 'Travel', id)
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

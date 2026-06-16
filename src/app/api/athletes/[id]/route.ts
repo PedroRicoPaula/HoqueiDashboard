@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { updateAthleteSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -9,13 +8,14 @@ import { logAudit } from '@/lib/audit'
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const athlete = await prisma.athlete.findUnique({
+    const athlete = await db.athlete.findUnique({
       where: { id },
       include: { materials: true, directionRole: true },
     })
@@ -31,8 +31,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -44,12 +45,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { birthDate, ...rest } = parsed.data
-    const athlete = await prisma.athlete.update({
+    const athlete = await db.athlete.update({
       where: { id },
       data: { ...rest, ...(birthDate ? { birthDate: new Date(birthDate) } : {}) },
     })
 
-    await logAudit(req, user.id, user.email, 'UPDATE', 'Athlete', athlete.id, { name: athlete.name })
+    await logAudit(req, user.id, user.email, 'UPDATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name })
     return NextResponse.json(athlete)
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2025') {
@@ -63,13 +64,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    await prisma.athlete.delete({ where: { id } })
+    await db.athlete.delete({ where: { id } })
     await logAudit(req, user.id, user.email, 'DELETE', 'Athlete', id)
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

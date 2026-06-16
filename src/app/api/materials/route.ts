@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createMaterialSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -9,8 +8,9 @@ import type { MaterialState, MaterialCategory } from '@prisma/client'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewMaterials')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     const category = searchParams.get('category') || ''
     const search = searchParams.get('search') || ''
 
-    const materials = await prisma.material.findMany({
+    const materials = await db.material.findMany({
       where: {
         AND: [
           state ? { state: state as MaterialState } : {},
@@ -44,8 +44,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editMaterials')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -56,12 +57,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const material = await prisma.material.create({
+    const material = await db.material.create({
       data: parsed.data,
       include: { athlete: { select: { id: true, name: true, number: true } } },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'Material', material.id, { name: material.name })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Material', (material as { id: string }).id, { name: (material as { name: string }).name })
     return NextResponse.json(material, { status: 201 })
   } catch (error) {
     logger.error('Materials POST error:', error)

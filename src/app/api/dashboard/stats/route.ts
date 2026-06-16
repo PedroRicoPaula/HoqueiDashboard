@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
 function getCurrentSeasonStart(): number {
@@ -12,8 +12,9 @@ function getCurrentSeasonStart(): number {
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { db } = ctx
 
     const now = new Date()
     const currentMonth = now.getMonth() + 1
@@ -49,18 +50,18 @@ export async function GET(req: Request) {
       textileClubCostAgg,
       directionSalariesAgg,
     ] = await Promise.all([
-      prisma.athlete.count(),
-      prisma.member.count(),
-      prisma.sponsor.count(),
-      prisma.material.count(),
-      prisma.athlete.groupBy({ by: ['ageGroup'], _count: { id: true } }),
-      prisma.material.groupBy({ by: ['state'], _count: { id: true } }),
-      prisma.travel.findMany({
+      db.athlete.count(),
+      db.member.count(),
+      db.sponsor.count(),
+      db.material.count(),
+      db.athlete.groupBy({ by: ['ageGroup'], _count: { id: true } }),
+      db.material.groupBy({ by: ['state'], _count: { id: true } }),
+      db.travel.findMany({
         where: { departureDate: { gte: now } },
         orderBy: { departureDate: 'asc' },
         take: 5,
       }),
-      prisma.sponsor.findMany({
+      db.sponsor.findMany({
         where: { contractEnd: { lte: thirtyDaysFromNow, gte: now } },
         orderBy: { contractEnd: 'asc' },
       }),
@@ -75,7 +76,7 @@ export async function GET(req: Request) {
       }),
       // Athletes with late payments (current year, excluding seniors)
       currentMonth > 1
-        ? prisma.athlete.findMany({
+        ? db.athlete.findMany({
             where: { feeExempt: false, monthlyFee: { gt: 0 }, ageGroup: { not: 'SENIORS' } },
             select: {
               id: true,
@@ -103,25 +104,25 @@ export async function GET(req: Request) {
         select: { amount: true, member: { select: { monthlyQuota: true } } },
       }),
       // Active sponsor annual contributions
-      prisma.sponsor.aggregate({
+      db.sponsor.aggregate({
         _sum: { annualContribution: true },
         where: { contractEnd: { gte: now } },
       }),
       // Total material cost (all materials with a value set)
-      prisma.material.aggregate({
+      db.material.aggregate({
         _sum: { paidAmount: true },
       }),
       // Material savings (paid by athlete)
-      prisma.material.aggregate({
+      db.material.aggregate({
         _sum: { paidAmount: true },
         where: { paidByAthlete: true },
       }),
       // Attendance: sessions in last 30 days
-      prisma.trainingSession.count({
+      db.trainingSession.count({
         where: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
       }),
       // Attendance: records in last 30 days
-      prisma.attendanceRecord.aggregate({
+      db.attendanceRecord.aggregate({
         _count: { id: true },
         where: {
           present: true,
@@ -129,14 +130,14 @@ export async function GET(req: Request) {
         },
       }),
       // Textile: total count assigned
-      prisma.textileItem.count({ where: { state: 'ASSIGNED' } }),
+      db.textileItem.count({ where: { state: 'ASSIGNED' } }),
       // Textile: savings (paid by athlete)
-      prisma.textileItem.aggregate({
+      db.textileItem.aggregate({
         _sum: { paidAmount: true },
         where: { paidByAthlete: true },
       }),
       // Textile: cost paid by club (not by athlete)
-      prisma.textileItem.aggregate({
+      db.textileItem.aggregate({
         _sum: { paidAmount: true },
         where: { paidByAthlete: false, paidAmount: { not: null } },
       }),
@@ -149,28 +150,28 @@ export async function GET(req: Request) {
 
     // Compute athletes with late payments
     const pastMonthsThisYear = currentMonth - 1
-    const athletesWithLatePayments = athletePaymentData.filter(
+    const athletesWithLatePayments = (athletePaymentData as { id: string; payments: { id: string }[] }[]).filter(
       (a) => a.payments.length < pastMonthsThisYear
     ).length
 
     // Compute total member quotas collected (use stored amount; fallback to current monthlyQuota for old records)
-    const totalMemberQuotaRevenue = paidQuotasWithMembers.reduce(
+    const totalMemberQuotaRevenue = (paidQuotasWithMembers as { amount: number | null; member: { monthlyQuota: number } }[]).reduce(
       (sum, q) => sum + (q.amount ?? q.member.monthlyQuota),
       0
     )
 
-    const totalCost = materialTotalCostAgg._sum.paidAmount ?? 0
-    const totalSavings = materialSavingsAgg._sum.paidAmount ?? 0
+    const totalCost = (materialTotalCostAgg as { _sum: { paidAmount: number | null } })._sum.paidAmount ?? 0
+    const totalSavings = (materialSavingsAgg as { _sum: { paidAmount: number | null } })._sum.paidAmount ?? 0
 
     return NextResponse.json({
       attendance: {
         sessionsLast30Days: attendanceSessionsRecent,
-        presencesLast30Days: attendanceRecordsRecent._count.id,
+        presencesLast30Days: (attendanceRecordsRecent as { _count: { id: number } })._count.id,
       },
       textiles: {
         assignedCount: textileCount,
-        savedByAthletes: textileSavingsAgg._sum.paidAmount ?? 0,
-        clubCost: textileClubCostAgg._sum.paidAmount ?? 0,
+        savedByAthletes: (textileSavingsAgg as { _sum: { paidAmount: number | null } })._sum.paidAmount ?? 0,
+        clubCost: (textileClubCostAgg as { _sum: { paidAmount: number | null } })._sum.paidAmount ?? 0,
       },
       counts: {
         athletes: athleteCount,
@@ -178,17 +179,17 @@ export async function GET(req: Request) {
         sponsors: sponsorCount,
         materials: materialCount,
       },
-      athletesByAgeGroup: athletesByAgeGroup.map((g) => ({ ageGroup: g.ageGroup, count: g._count.id })),
-      materialsByState: materialsByState.map((g) => ({ state: g.state, count: g._count.id })),
+      athletesByAgeGroup: (athletesByAgeGroup as { ageGroup: string; _count: { id: number } }[]).map((g) => ({ ageGroup: g.ageGroup, count: g._count.id })),
+      materialsByState: (materialsByState as { state: string; _count: { id: number } }[]).map((g) => ({ state: g.state, count: g._count.id })),
       upcomingTravels,
       expiringSponsors,
       lateQuotas,
       athletesWithLatePayments,
       revenue: {
         seasonLabel: `${seasonStart}/${(seasonStart + 1).toString().slice(-2)}`,
-        athleteFees: athleteFeeRevenue._sum.amount ?? 0,
+        athleteFees: (athleteFeeRevenue as { _sum: { amount: number | null } })._sum.amount ?? 0,
         memberQuotas: totalMemberQuotaRevenue,
-        sponsors: sponsorRevenueAgg._sum.annualContribution ?? 0,
+        sponsors: (sponsorRevenueAgg as { _sum: { annualContribution: number | null } })._sum.annualContribution ?? 0,
       },
       materialCosts: {
         total: totalCost,
@@ -198,8 +199,8 @@ export async function GET(req: Request) {
       expenses: {
         year: currentYear,
         materialsClubCost: totalCost - totalSavings,
-        textilesClubCost: textileClubCostAgg._sum.paidAmount ?? 0,
-        directionSalaries: directionSalariesAgg._sum.amount ?? 0,
+        textilesClubCost: (textileClubCostAgg as { _sum: { paidAmount: number | null } })._sum.paidAmount ?? 0,
+        directionSalaries: (directionSalariesAgg as { _sum: { amount: number | null } })._sum.amount ?? 0,
       },
     })
   } catch (error) {

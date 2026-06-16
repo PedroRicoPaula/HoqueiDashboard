@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -16,10 +16,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const ageGroup = searchParams.get('ageGroup') ?? ''
 
-    const athletes = await prisma.athlete.findMany({
+    const athletes = await db.athlete.findMany({
       where: ageGroup ? { ageGroup: ageGroup as never } : {},
       orderBy: [{ ageGroup: 'asc' }, { number: 'asc' }],
-    })
+    }) as unknown as Array<{
+      number: number; name: string; ageGroup: string; birthDate: Date;
+      phone: string | null; email: string | null; nif: string | null; idCard: string | null;
+      address: string | null; school: string | null; parentName: string | null; parentPhone: string | null;
+      monthlyFee: number; feeExempt: boolean;
+    }>
 
     const AGE_LABELS: Record<string, string> = {
       SUB11: 'Sub-11', SUB13: 'Sub-13', SUB15: 'Sub-15',

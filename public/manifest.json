@@ -1,7 +1,7 @@
 {
-  "name": "Gestão HCPDL",
-  "short_name": "HCPDL",
-  "description": "Sistema de Gestão do Hóquei Clube Ponta Delgada",
+  "name": "HoqueiManager",
+  "short_name": "HoqueiManager",
+  "description": "Gestão completa para clubes de hóquei em patins",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/uploads/pdlLogo.png",
+      "src": "/logo.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any maskable"

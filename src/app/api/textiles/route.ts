@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createTextileSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -9,8 +8,9 @@ import type { TextileCategory, TextileState } from '@prisma/client'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     const season = searchParams.get('season')
     const athleteId = searchParams.get('athleteId')
 
-    const items = await prisma.textileItem.findMany({
+    const items = await db.textileItem.findMany({
       where: {
         ...(search ? {
           OR: [
@@ -50,8 +50,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -71,8 +72,8 @@ export async function POST(req: Request) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const item = await prisma.textileItem.create({ data: data as any })
-    await logAudit(req, user.id, user.email, 'CREATE', 'TextileItem', item.id, { type: item.type, season: item.season })
+    const item = await db.textileItem.create({ data: data as any })
+    await logAudit(req, user.id, user.email, 'CREATE', 'TextileItem', (item as { id: string }).id, { type: (item as { type: string }).type, season: (item as { season: string }).season })
     return NextResponse.json(item, { status: 201 })
   } catch (error) {
     logger.error('Textiles POST error:', error)

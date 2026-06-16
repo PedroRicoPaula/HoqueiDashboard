@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { updateTextileSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,14 +7,15 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    const item = await prisma.textileItem.findUnique({
+    const item = await db.textileItem.findUnique({
       where: { id },
       include: { athlete: { select: { id: true, name: true, number: true } } },
     })
@@ -30,8 +30,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -55,7 +56,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const item = await prisma.textileItem.update({ where: { id }, data: data as any })
+    const item = await db.textileItem.update({ where: { id }, data: data as any })
     await logAudit(req, user.id, user.email, 'UPDATE', 'TextileItem', id, {})
     return NextResponse.json(item)
   } catch (error: unknown) {
@@ -69,14 +70,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    await prisma.textileItem.delete({ where: { id } })
+    await db.textileItem.delete({ where: { id } })
     await logAudit(req, user.id, user.email, 'DELETE', 'TextileItem', id, {})
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {

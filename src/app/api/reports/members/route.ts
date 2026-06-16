@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
@@ -10,8 +9,9 @@ const MONTH_NAMES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Jun
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()))
 
-    const members = await prisma.member.findMany({
+    const members = await db.member.findMany({
       orderBy: { number: 'asc' },
       include: {
         quotas: {
@@ -27,7 +27,11 @@ export async function GET(req: Request) {
           select: { month: true, paid: true, amount: true },
         },
       },
-    })
+    }) as unknown as Array<{
+      number: number; name: string; phone: string | null; email: string | null;
+      address: string | null; monthlyQuota: number;
+      quotas: Array<{ month: number; paid: boolean; amount: number | null }>;
+    }>
 
     const now = new Date()
     const currentMonth = now.getMonth() + 1

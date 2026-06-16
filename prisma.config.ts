@@ -10,6 +10,6 @@ export default defineConfig({
     seed: "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] ?? "postgresql://postgres:postgresql123@localhost:5432/hcpdl",
+    url: process.env["DATABASE_URL"] ?? "postgresql://postgres:postgresql123@localhost:5432/hoqueimanager",
   },
 });

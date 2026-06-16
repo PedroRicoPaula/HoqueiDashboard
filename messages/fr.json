@@ -1,0 +1,120 @@
+{
+  "nav": {
+    "login": "Se connecter",
+    "register": "Commencer maintenant"
+  },
+  "hero": {
+    "badge": "Gestion de hockey sur patins",
+    "title": "Votre club,\nbien géré",
+    "subtitle": "Athlètes, membres, matériel, voyages, entraînements et plus encore — tout sur une plateforme conçue pour les clubs de hockey sur patins.",
+    "cta": "Essayer gratuitement 14 jours",
+    "ctaSub": "Sans carte bancaire. Annulez quand vous voulez.",
+    "demo": "Voir la démo"
+  },
+  "features": {
+    "title": "Tout ce dont votre club a besoin",
+    "subtitle": "12 modules intégrés, conçus spécifiquement pour le hockey sur patins.",
+    "items": {
+      "athletes": {
+        "title": "Athlètes",
+        "desc": "Profils complets, historique des cotisations mensuelles, assiduité par saison et catégorie."
+      },
+      "members": {
+        "title": "Membres",
+        "desc": "Gestion des cotisations mensuelles avec calendrier visuel et suivi des paiements."
+      },
+      "materials": {
+        "title": "Matériel",
+        "desc": "Inventaire des équipements par catégorie, état et athlète attribué."
+      },
+      "training": {
+        "title": "Entraînements & Tactique",
+        "desc": "Calendrier d'assiduité et tableau tactique numérique avec animations."
+      },
+      "travel": {
+        "title": "Voyages",
+        "desc": "Logistique complète : transport, chauffeurs, repas et liste de convoqués."
+      },
+      "finance": {
+        "title": "Finance",
+        "desc": "Tableau de bord avec revenus, dépenses et solde net en temps réel."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Tarif simple et transparent",
+    "subtitle": "Un seul plan. Tout inclus. Sans surprises.",
+    "monthly": "Mensuel",
+    "yearly": "Annuel",
+    "monthlyPrice": "59",
+    "yearlyPrice": "590",
+    "yearlyNote": "Équivalent à 2 mois offerts",
+    "perMonth": "/mois",
+    "perYear": "/an",
+    "includes": "Ce qui est inclus :",
+    "features": [
+      "Utilisateurs illimités",
+      "Les 12 modules complets",
+      "5 langues (PT, ES, EN, FR, IT)",
+      "Support par email",
+      "Sauvegardes automatiques",
+      "Mises à jour incluses"
+    ],
+    "cta": "Commencer maintenant",
+    "guarantee": "Garantie 14 jours. Pas satisfait ? Remboursement intégral."
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "items": [
+      {
+        "q": "Puis-je annuler à tout moment ?",
+        "a": "Oui. Pas de contrat. Vous pouvez annuler votre abonnement à tout moment et l'accès est maintenu jusqu'à la fin de la période payée."
+      },
+      {
+        "q": "Les données sont-elles sécurisées ?",
+        "a": "Oui. Les données de chaque club sont complètement isolées. Nous utilisons PostgreSQL avec chiffrement et sauvegardes quotidiennes automatiques."
+      },
+      {
+        "q": "Fonctionne-t-il sur mobile ?",
+        "a": "Oui. La plateforme est responsive et peut être installée comme application PWA sur votre téléphone."
+      },
+      {
+        "q": "Puis-je changer de langue ensuite ?",
+        "a": "Oui. La langue du tableau de bord peut être modifiée à tout moment dans les paramètres du club."
+      }
+    ]
+  },
+  "footer": {
+    "rights": "Tous droits réservés.",
+    "language": "Langue"
+  },
+  "register": {
+    "title": "Créer un compte",
+    "step1": "Données du club",
+    "step2": "Choisir un plan",
+    "clubName": "Nom du club",
+    "email": "Email de l'administrateur",
+    "country": "Pays",
+    "language": "Langue du tableau de bord",
+    "next": "Continuer",
+    "back": "Retour",
+    "monthly": "Mensuel — 59 €/mois",
+    "yearly": "Annuel — 590 €/an (2 mois offerts)",
+    "checkout": "Aller au paiement",
+    "processing": "Traitement en cours...",
+    "countries": {
+      "pt": "Portugal",
+      "es": "Espagne",
+      "fr": "France",
+      "it": "Italie",
+      "other": "Autre"
+    },
+    "languages": {
+      "pt": "Português",
+      "es": "Español",
+      "en": "English",
+      "fr": "Français",
+      "it": "Italiano"
+    }
+  }
+}

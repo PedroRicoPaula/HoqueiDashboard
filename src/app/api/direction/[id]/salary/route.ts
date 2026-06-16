@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
@@ -17,8 +17,9 @@ const salaryPaymentSchema = z.object({
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user } = ctx
     if (!hasPermission(user.permissions, 'viewDirection')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -41,8 +42,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editDirection')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -55,15 +57,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { month, year, paid, amount, notes } = parsed.data
 
-    const member = await prisma.directionMember.findUnique({ where: { id } })
+    const member = await db.directionMember.findUnique({ where: { id } })
     if (!member) return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
+
+    const memberSalary = (member as { salary: number | null }).salary
 
     const payment = await prisma.directionSalaryPayment.upsert({
       where: { memberId_month_year: { memberId: id, month, year } },
       update: {
         paid,
         paidAt: paid ? new Date() : null,
-        amount: amount ?? (paid ? member.salary : null),
+        amount: amount ?? (paid ? memberSalary : null),
         notes: notes ?? null,
       },
       create: {
@@ -72,7 +76,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         year,
         paid,
         paidAt: paid ? new Date() : null,
-        amount: amount ?? (paid ? member.salary : null),
+        amount: amount ?? (paid ? memberSalary : null),
         notes: notes ?? null,
       },
     })

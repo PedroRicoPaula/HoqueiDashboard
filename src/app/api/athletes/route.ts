@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createAthleteSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -11,8 +10,9 @@ const PAGE_SIZE = 50
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -38,21 +38,21 @@ export async function GET(req: Request) {
     }
 
     if (all) {
-      const athletes = await prisma.athlete.findMany({ where, orderBy: { number: 'asc' } })
-      return NextResponse.json({ athletes, total: athletes.length, page: 1, pages: 1 })
+      const athletes = await db.athlete.findMany({ where, orderBy: { number: 'asc' } })
+      return NextResponse.json({ athletes, total: (athletes as unknown[]).length, page: 1, pages: 1 })
     }
 
     const [athletes, total] = await Promise.all([
-      prisma.athlete.findMany({
+      db.athlete.findMany({
         where,
         orderBy: { number: 'asc' },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
       }),
-      prisma.athlete.count({ where }),
+      db.athlete.count({ where }),
     ])
 
-    return NextResponse.json({ athletes, total, page, pages: Math.ceil(total / PAGE_SIZE) })
+    return NextResponse.json({ athletes, total, page, pages: Math.ceil((total as number) / PAGE_SIZE) })
   } catch (error) {
     logger.error('Athletes GET error:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
@@ -61,8 +61,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -81,11 +82,11 @@ export async function POST(req: Request) {
         }
         const { birthDate, ...rest } = parsed.data
         try {
-          const athlete = await prisma.athlete.create({
+          const athlete = await db.athlete.create({
             data: { ...rest, birthDate: new Date(birthDate) },
           })
           results.push(athlete)
-          await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', athlete.id, { name: athlete.name, import: true })
+          await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name, import: true })
         } catch (e: unknown) {
           if ((e as { code?: string })?.code === 'P2002') {
             errors.push({ item, error: 'Número de atleta já existe' })
@@ -103,11 +104,11 @@ export async function POST(req: Request) {
     }
 
     const { birthDate, ...rest } = parsed.data
-    const athlete = await prisma.athlete.create({
+    const athlete = await db.athlete.create({
       data: { ...rest, birthDate: new Date(birthDate) },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', athlete.id, { name: athlete.name })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name })
     return NextResponse.json(athlete, { status: 201 })
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2002') {

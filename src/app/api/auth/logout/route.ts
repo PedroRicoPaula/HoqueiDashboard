@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   }
 
   const response = NextResponse.json({ success: true })
-  response.cookies.set('hcpdl_token', '', {
+  response.cookies.set('hm_token', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',

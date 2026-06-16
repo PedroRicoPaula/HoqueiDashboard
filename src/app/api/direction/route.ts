@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createDirectionSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,13 +7,14 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewDirection')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const members = await prisma.directionMember.findMany({ orderBy: { name: 'asc' } })
+    const members = await db.directionMember.findMany({ orderBy: { name: 'asc' } })
     return NextResponse.json(members)
   } catch (error) {
     logger.error('Direction GET error:', error)
@@ -24,8 +24,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editDirection')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -36,9 +37,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const member = await prisma.directionMember.create({ data: parsed.data })
+    const member = await db.directionMember.create({ data: parsed.data })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'DirectionMember', member.id, { name: member.name })
+    await logAudit(req, user.id, user.email, 'CREATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name })
     return NextResponse.json(member, { status: 201 })
   } catch (error) {
     logger.error('Direction POST error:', error)

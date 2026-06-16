@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const { email, password } = parsed.data
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { permissions: true },
+      include: { permissions: true, club: { select: { status: true } } },
     })
 
     if (!user || !(await comparePassword(password, user.password))) {
@@ -37,11 +37,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
     }
 
+    // Block login for clubs that are not active (unless super admin)
+    if (!user.isSuperAdmin && user.club && user.club.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { error: 'Subscrição inativa. Verifique o seu plano em hoqueimanager.com.' },
+        { status: 403 }
+      )
+    }
+
     const perms = user.permissions
     const token = await signToken({
       userId: user.id,
       email: user.email,
       name: user.name,
+      clubId: user.clubId ?? null,
+      isSuperAdmin: user.isSuperAdmin,
       tokenVersion: user.tokenVersion,
       permissions: perms
         ? {
@@ -67,7 +77,7 @@ export async function POST(req: Request) {
             editTextiles: perms.editTextiles,
             isAdmin: perms.isAdmin,
           }
-        : {},
+        : null,
     })
 
     await Promise.all([
@@ -76,11 +86,12 @@ export async function POST(req: Request) {
     ])
 
     const response = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, isSuperAdmin: user.isSuperAdmin },
       permissions: user.permissions,
+      redirectTo: user.isSuperAdmin ? '/platform' : '/',
     })
 
-    response.cookies.set('hcpdl_token', token, {
+    response.cookies.set('hm_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',

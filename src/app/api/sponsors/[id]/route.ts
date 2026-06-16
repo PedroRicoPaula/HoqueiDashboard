@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { updateSponsorSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -9,13 +8,14 @@ import { logAudit } from '@/lib/audit'
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const sponsor = await prisma.sponsor.findUnique({ where: { id } })
+    const sponsor = await db.sponsor.findUnique({ where: { id } })
     if (!sponsor) return NextResponse.json({ error: 'Patrocinador não encontrado' }, { status: 404 })
     return NextResponse.json(sponsor)
   } catch (error) {
@@ -27,8 +27,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'manageSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -40,7 +41,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { contractStart, contractEnd, ...rest } = parsed.data
-    const sponsor = await prisma.sponsor.update({
+    const sponsor = await db.sponsor.update({
       where: { id },
       data: {
         ...rest,
@@ -49,7 +50,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       },
     })
 
-    await logAudit(req, user.id, user.email, 'UPDATE', 'Sponsor', sponsor.id, { name: sponsor.name })
+    await logAudit(req, user.id, user.email, 'UPDATE', 'Sponsor', (sponsor as { id: string }).id, { name: (sponsor as { name: string }).name })
     return NextResponse.json(sponsor)
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2025') {
@@ -63,13 +64,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'manageSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    await prisma.sponsor.delete({ where: { id } })
+    await db.sponsor.delete({ where: { id } })
     await logAudit(req, user.id, user.email, 'DELETE', 'Sponsor', id)
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

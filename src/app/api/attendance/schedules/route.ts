@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
@@ -20,8 +19,9 @@ const scheduleSchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const season = searchParams.get('season')
 
-    const schedules = await prisma.trainingSchedule.findMany({
+    const schedules = await db.trainingSchedule.findMany({
       where: season ? { season } : {},
       orderBy: [{ ageGroup: 'asc' }, { dayOfWeek: 'asc' }, { startTime: 'asc' }],
     })
@@ -43,8 +43,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -56,12 +57,13 @@ export async function POST(req: Request) {
     }
 
     const { seasonStart, ...rest } = parsed.data
-    const schedule = await prisma.trainingSchedule.create({
+    const schedule = await db.trainingSchedule.create({
       data: { ...rest, seasonStart: seasonStart ? new Date(seasonStart) : null },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'TrainingSchedule', schedule.id, {
-      season: schedule.season, ageGroup: schedule.ageGroup,
+    await logAudit(req, user.id, user.email, 'CREATE', 'TrainingSchedule', (schedule as { id: string }).id, {
+      season: (schedule as { season: string }).season,
+      ageGroup: (schedule as { ageGroup: string }).ageGroup,
     })
     return NextResponse.json(schedule, { status: 201 })
   } catch (error) {

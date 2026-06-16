@@ -67,7 +67,7 @@ export async function comparePassword(plain: string, stored: string): Promise<bo
 
 export function getTokenFromCookies(cookieHeader: string | null): string | null {
   if (!cookieHeader) return null
-  const match = cookieHeader.match(/hcpdl_token=([^;]+)/)
+  const match = cookieHeader.match(/hm_token=([^;]+)/)
   return match ? match[1] : null
 }
 

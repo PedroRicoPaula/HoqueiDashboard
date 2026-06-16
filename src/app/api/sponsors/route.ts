@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createSponsorSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,13 +7,14 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const sponsors = await prisma.sponsor.findMany({ orderBy: { name: 'asc' } })
+    const sponsors = await db.sponsor.findMany({ orderBy: { name: 'asc' } })
     return NextResponse.json(sponsors)
   } catch (error) {
     logger.error('Sponsors GET error:', error)
@@ -24,8 +24,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'manageSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -37,11 +38,11 @@ export async function POST(req: Request) {
     }
 
     const { contractStart, contractEnd, ...rest } = parsed.data
-    const sponsor = await prisma.sponsor.create({
+    const sponsor = await db.sponsor.create({
       data: { ...rest, contractStart: new Date(contractStart), contractEnd: new Date(contractEnd) },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'Sponsor', sponsor.id, { name: sponsor.name })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Sponsor', (sponsor as { id: string }).id, { name: (sponsor as { name: string }).name })
     return NextResponse.json(sponsor, { status: 201 })
   } catch (error) {
     logger.error('Sponsors POST error:', error)

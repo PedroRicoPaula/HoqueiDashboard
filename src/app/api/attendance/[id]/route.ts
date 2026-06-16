@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { updateTrainingSessionSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
@@ -8,14 +7,15 @@ import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    const session = await prisma.trainingSession.findUnique({
+    const session = await db.trainingSession.findUnique({
       where: { id },
       include: {
         records: {
@@ -37,8 +37,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -51,7 +52,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { date, ...rest } = parsed.data
-    const session = await prisma.trainingSession.update({
+    const session = await db.trainingSession.update({
       where: { id },
       data: { ...rest, ...(date ? { date: new Date(date) } : {}) },
     })
@@ -69,14 +70,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    await prisma.trainingSession.delete({ where: { id } })
+    await db.trainingSession.delete({ where: { id } })
     await logAudit(req, user.id, user.email, 'DELETE', 'TrainingSession', id, {})
     return NextResponse.json({ ok: true })
   } catch (error: unknown) {

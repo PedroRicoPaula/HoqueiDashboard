@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
@@ -8,8 +7,9 @@ import { SEASON_MONTHS, MONTH_LABELS, AGE_GROUP_LABELS as AGE_LABELS } from '@/l
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     const defaultSeason = currentMonth >= 9 ? now.getFullYear() : now.getFullYear() - 1
     const season = parseInt(searchParams.get('season') ?? String(defaultSeason))
 
-    const athletes = await prisma.athlete.findMany({
+    const athletes = await db.athlete.findMany({
       where: { ageGroup: { not: 'SENIORS' } },
       include: {
         payments: {
@@ -33,9 +33,12 @@ export async function GET(req: Request) {
         },
       },
       orderBy: [{ ageGroup: 'asc' }, { number: 'asc' }],
-    })
+    }) as unknown as Array<{
+      number: number; name: string; ageGroup: string; feeExempt: boolean; monthlyFee: number;
+      payments: Array<{ month: number; year: number; paid: boolean; amount: number | null }>;
+    }>
 
-    const monthHeaders = SEASON_MONTHS.map((m) => {
+    const monthHeaders = SEASON_MONTHS.map((m: number) => {
       const year = m >= 9 ? season : season + 1
       return `${MONTH_LABELS[m]} ${year}`
     })
@@ -43,7 +46,7 @@ export async function GET(req: Request) {
     const headers = ['N.º', 'Nome', 'Escalão', 'Isento', 'Mensalidade (€)', ...monthHeaders, 'Total Pago (€)', 'Em Falta (€)']
 
     const rows = athletes.map((a) => {
-      const paidMonths = SEASON_MONTHS.map((m) => {
+      const paidMonths = SEASON_MONTHS.map((m: number) => {
         const year = m >= 9 ? season : season + 1
         const p = a.payments.find((pay) => pay.month === m && pay.year === year)
         return p?.paid ? (p.amount ?? a.monthlyFee) : null

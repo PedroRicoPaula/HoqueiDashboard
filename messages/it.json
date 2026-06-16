@@ -1,0 +1,120 @@
+{
+  "nav": {
+    "login": "Accedi",
+    "register": "Inizia ora"
+  },
+  "hero": {
+    "badge": "Gestione hockey su pattini",
+    "title": "Il tuo club,\nben gestito",
+    "subtitle": "Atleti, soci, materiali, viaggi, allenamenti e altro — tutto in una piattaforma costruita per i club di hockey su pattini.",
+    "cta": "Inizia gratis per 14 giorni",
+    "ctaSub": "Nessuna carta di credito richiesta. Annulla quando vuoi.",
+    "demo": "Guarda la demo"
+  },
+  "features": {
+    "title": "Tutto ciò di cui il tuo club ha bisogno",
+    "subtitle": "12 moduli integrati, costruiti appositamente per l'hockey su pattini.",
+    "items": {
+      "athletes": {
+        "title": "Atleti",
+        "desc": "Profili completi, storico delle quote mensili, presenze per stagione e categoria."
+      },
+      "members": {
+        "title": "Soci",
+        "desc": "Gestione delle quote mensili con calendario visivo e controllo dei pagamenti."
+      },
+      "materials": {
+        "title": "Materiali",
+        "desc": "Inventario delle attrezzature per categoria, stato e atleta assegnato."
+      },
+      "training": {
+        "title": "Allenamenti & Tattica",
+        "desc": "Calendario presenze e lavagna tattica digitale con animazioni."
+      },
+      "travel": {
+        "title": "Viaggi",
+        "desc": "Logistica completa: trasporto, autisti, pasti e lista dei convocati."
+      },
+      "finance": {
+        "title": "Finanze",
+        "desc": "Dashboard con entrate, spese e saldo netto in tempo reale."
+      }
+    }
+  },
+  "pricing": {
+    "title": "Prezzo semplice e trasparente",
+    "subtitle": "Un piano. Tutto incluso. Nessuna sorpresa.",
+    "monthly": "Mensile",
+    "yearly": "Annuale",
+    "monthlyPrice": "59",
+    "yearlyPrice": "590",
+    "yearlyNote": "Equivale a 2 mesi gratuiti",
+    "perMonth": "/mese",
+    "perYear": "/anno",
+    "includes": "Cosa è incluso:",
+    "features": [
+      "Utenti illimitati",
+      "Tutti i 12 moduli",
+      "5 lingue (PT, ES, EN, FR, IT)",
+      "Supporto via email",
+      "Backup automatici",
+      "Aggiornamenti inclusi"
+    ],
+    "cta": "Inizia ora",
+    "guarantee": "Garanzia 14 giorni. Non soddisfatto? Rimborso completo."
+  },
+  "faq": {
+    "title": "Domande frequenti",
+    "items": [
+      {
+        "q": "Posso cancellare in qualsiasi momento?",
+        "a": "Sì. Nessun contratto. Puoi cancellare l'abbonamento in qualsiasi momento e l'accesso rimane fino alla fine del periodo pagato."
+      },
+      {
+        "q": "I dati sono al sicuro?",
+        "a": "Sì. I dati di ogni club sono completamente isolati. Utilizziamo PostgreSQL con crittografia e backup automatici giornalieri."
+      },
+      {
+        "q": "Funziona su mobile?",
+        "a": "Sì. La piattaforma è responsive e può essere installata come app PWA sul telefono."
+      },
+      {
+        "q": "Posso cambiare la lingua dopo?",
+        "a": "Sì. La lingua della dashboard può essere modificata in qualsiasi momento nelle impostazioni del club."
+      }
+    ]
+  },
+  "footer": {
+    "rights": "Tutti i diritti riservati.",
+    "language": "Lingua"
+  },
+  "register": {
+    "title": "Crea account",
+    "step1": "Dati del club",
+    "step2": "Scegli piano",
+    "clubName": "Nome del club",
+    "email": "Email dell'amministratore",
+    "country": "Paese",
+    "language": "Lingua della dashboard",
+    "next": "Continua",
+    "back": "Indietro",
+    "monthly": "Mensile — €59/mese",
+    "yearly": "Annuale — €590/anno (2 mesi gratuiti)",
+    "checkout": "Vai al pagamento",
+    "processing": "Elaborazione...",
+    "countries": {
+      "pt": "Portogallo",
+      "es": "Spagna",
+      "fr": "Francia",
+      "it": "Italia",
+      "other": "Altro"
+    },
+    "languages": {
+      "pt": "Português",
+      "es": "Español",
+      "en": "English",
+      "fr": "Français",
+      "it": "Italiano"
+    }
+  }
+}

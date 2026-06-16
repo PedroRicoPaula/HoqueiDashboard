@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 
@@ -15,10 +14,17 @@ function getCurrentSeasonStart(): number {
   return month >= 9 ? year : year - 1
 }
 
+type AthleteWithPayments = {
+  id: string; number: number; name: string; ageGroup: string;
+  monthlyFee: number; feeExempt: boolean;
+  payments: { year: number; month: number; paid: boolean; amount: number | null }[]
+}
+
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -44,7 +50,7 @@ export async function GET(req: Request) {
       year < currentYear || (year === currentYear && month < currentMonth)
 
     // Get summary from ALL athletes (not paginated)
-    const allAthletes = await prisma.athlete.findMany({
+    const allAthletes = await db.athlete.findMany({
       where,
       include: {
         payments: {
@@ -56,7 +62,7 @@ export async function GET(req: Request) {
           },
         },
       },
-    })
+    }) as unknown as AthleteWithPayments[]
 
     let totalCollected = 0
     let totalPending = 0
@@ -93,7 +99,7 @@ export async function GET(req: Request) {
     const pages = Math.ceil(total / PAGE_SIZE)
 
     // Get paginated athletes with payments
-    const athletes = await prisma.athlete.findMany({
+    const athletes = await db.athlete.findMany({
       where,
       include: {
         payments: {
@@ -109,7 +115,7 @@ export async function GET(req: Request) {
       orderBy: { number: 'asc' },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-    })
+    }) as unknown as AthleteWithPayments[]
 
     const athletesData = athletes.map((athlete) => ({
       id: athlete.id,

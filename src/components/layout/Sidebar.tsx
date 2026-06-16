@@ -51,8 +51,9 @@ const NAV_GROUPS = [
     id: 'gestao',
     label: 'Gestão',
     items: [
-      { href: '/reports',           label: 'Relatórios', icon: FileBarChart, permission: 'viewAthletes' },
-      { href: '/admin/permissions', label: 'Admin',      icon: Settings,     permission: 'isAdmin' },
+      { href: '/reports',           label: 'Relatórios', icon: FileBarChart,  permission: 'viewAthletes' },
+      { href: '/settings',          label: 'Definições', icon: Settings,      permission: 'isAdmin' },
+      { href: '/admin/permissions', label: 'Permissões', icon: Settings,      permission: 'isAdmin' },
       { href: '/admin/audit',       label: 'Atividade',  icon: ClipboardList, permission: 'isAdmin' },
     ],
   },

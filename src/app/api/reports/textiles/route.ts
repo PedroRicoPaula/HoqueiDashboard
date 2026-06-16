@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
@@ -8,8 +7,9 @@ import { TEXTILE_TYPE_LABELS, TEXTILE_CATEGORY_LABELS, TEXTILE_STATE_LABELS } fr
 
 export async function GET(req: Request) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewTextiles')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -17,11 +17,16 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const season = searchParams.get('season')
 
-    const items = await prisma.textileItem.findMany({
+    const items = await db.textileItem.findMany({
       where: season ? { season } : {},
       orderBy: [{ season: 'desc' }, { category: 'asc' }, { type: 'asc' }],
       include: { athlete: { select: { number: true, name: true } } },
-    })
+    }) as unknown as Array<{
+      season: string; category: string; type: string; size: string;
+      jerseyNumber: string | null; personalized: boolean; state: string;
+      totalCost: number | null; paidAmount: number | null; paidByAthlete: boolean;
+      athlete: { number: number; name: string } | null;
+    }>
 
     const headers = ['Época', 'Categoria', 'Tipo', 'Tamanho', 'Nº Camisola', 'Personalizado', 'Estado', 'Atleta', 'Custo Total (€)', 'Pago Atleta (€)', 'Pago Pelo Atleta']
 

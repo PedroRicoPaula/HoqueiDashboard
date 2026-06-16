@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 
+type SessionInfo = { id: string; date: Date; time: string; primaryAgeGroup: string; sessionType: string; title: string | null; cancelled: boolean }
+type AttendanceRecord = { sessionId: string; athleteId: string; present: boolean; paidByAthlete: boolean; paidAmount: number | null; notes: string | null; session: SessionInfo }
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id: athleteId } = await params
 
-    const records = await prisma.attendanceRecord.findMany({
+    const records = await db.attendanceRecord.findMany({
       where: { athleteId },
       include: {
         session: {
@@ -22,9 +25,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         },
       },
       orderBy: { session: { date: 'desc' } },
-    })
+    }) as unknown as AttendanceRecord[]
 
-    const athlete = await prisma.athlete.findUnique({ where: { id: athleteId }, select: { ageGroup: true } })
+    const athlete = await db.athlete.findUnique({ where: { id: athleteId }, select: { ageGroup: true } })
 
     // Derive season from date
     function dateToSeason(d: Date): string {
@@ -60,8 +63,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       total: specificRecords.length,
       attended: specificRecords.filter((r) => r.present).length,
       paid: specificRecords.filter((r) => r.present && r.paidByAthlete).length,
-      totalPaid: specificRecords.filter((r) => r.present && r.paidByAthlete)
-        .reduce((sum, r) => sum + (r.paidAmount ?? 0), 0),
+      totalPaid: specificRecords
+        .filter((r) => r.present && r.paidByAthlete)
+        .reduce((sum: number, r) => sum + (r.paidAmount ?? 0), 0),
       sessions: specificRecords.filter((r) => r.present).map((r) => ({
         sessionId: r.sessionId,
         date: r.session.date,
