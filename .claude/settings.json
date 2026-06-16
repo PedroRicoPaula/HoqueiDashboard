@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Antes de terminar: verifica se as alterações feitas nesta sessão requerem atualização de documentação. Percorre mentalmente os ficheiros modificados e para cada categoria aplica:\n- Feature adicionada/alterada/removida → docs/MODULES.md\n- Rota de API nova/alterada → docs/MODULES.md (secção APIs do módulo)\n- Schema ou migration → docs/DATABASE.md\n- Auth, permissões, segurança, CSP, rate limit → docs/AUTH-SECURITY.md\n- Novo padrão ou convenção → docs/CONVENTIONS.md\n- Bug corrigido → mover para ✅ Resolvido em docs/ISSUES-BACKLOG.md\n- Bug novo encontrado → adicionar a docs/ISSUES-BACKLOG.md\n- Facto crítico ou regra quebrada → CLAUDE.md\nSe nada se aplicar, não faças nada."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,463 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// Auth & Permissions
+// ─────────────────────────────────────────
+
+model User {
+  id           String      @id @default(uuid())
+  name         String
+  email        String      @unique
+  password     String
+  tokenVersion Int         @default(0)
+  lastLoginAt  DateTime?
+  permissions  Permission?
+  auditLogs    AuditLog[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Permission {
+  id               String  @id @default(uuid())
+  userId           String  @unique
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  viewAthletes     Boolean @default(true)
+  editAthletes     Boolean @default(false)
+
+  viewMembers      Boolean @default(true)
+  editMembers      Boolean @default(false)
+
+  viewMaterials    Boolean @default(false)
+  editMaterials    Boolean @default(false)
+
+  viewSponsors     Boolean @default(false)
+  manageSponsors   Boolean @default(false)
+
+  viewTraining     Boolean @default(true)
+  editTraining     Boolean @default(false)
+
+  viewTravel       Boolean @default(true)
+  editTravel       Boolean @default(false)
+
+  viewDirection    Boolean @default(false)
+  editDirection    Boolean @default(false)
+
+  viewFees         Boolean @default(false)
+  editFees         Boolean @default(false)
+
+  viewAttendance   Boolean @default(true)
+  editAttendance   Boolean @default(false)
+
+  viewTextiles     Boolean @default(false)
+  editTextiles     Boolean @default(false)
+
+  isAdmin          Boolean @default(false)
+}
+
+// ─────────────────────────────────────────
+// Audit Log
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userEmail String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────
+// Athletes
+// ─────────────────────────────────────────
+
+model Athlete {
+  id                String             @id @default(uuid())
+  number            Int                @unique
+  name              String
+  ageGroup          AgeGroup
+  birthDate         DateTime
+  phone             String?
+  email             String?
+  nif               String?
+  address           String?
+  school            String?
+  idCard            String?
+  parentName        String?
+  parentPhone       String?
+  monthlyFee        Float              @default(0)
+  feeExempt         Boolean            @default(false)
+  materials         Material[]
+  payments          AthletePayment[]
+  directionRole     DirectionMember?
+  attendanceRecords AttendanceRecord[]
+  textileItems      TextileItem[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([name])
+  @@index([ageGroup])
+}
+
+// ─────────────────────────────────────────
+// Mensalidades (athlete monthly fees)
+// ─────────────────────────────────────────
+
+model AthletePayment {
+  id        String    @id @default(uuid())
+  athleteId String
+  athlete   Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  month     Int
+  year      Int
+  paid      Boolean   @default(false)
+  amount    Float?
+  paidAt    DateTime?
+  notes     String?
+
+  @@unique([athleteId, month, year])
+  @@index([athleteId, year])
+  @@index([year, month])
+}
+
+enum AgeGroup {
+  SUB11
+  SUB13
+  SUB15
+  SUB17
+  SUB19
+  SENIORS
+}
+
+// ─────────────────────────────────────────
+// Members & Quotas
+// ─────────────────────────────────────────
+
+model Member {
+  id           String   @id @default(uuid())
+  number       Int      @unique @default(autoincrement())
+  name         String
+  phone        String?
+  email        String?
+  address      String?
+  monthlyQuota Float    @default(0)
+  quotas       Quota[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Quota {
+  id       String    @id @default(uuid())
+  memberId String
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  month    Int
+  year     Int
+  paid     Boolean   @default(false)
+  amount   Float?
+  paidAt   DateTime?
+  notes    String?
+
+  @@unique([memberId, month, year])
+  @@index([memberId, year])
+}
+
+// ─────────────────────────────────────────
+// Materials / Inventory
+// ─────────────────────────────────────────
+
+model Material {
+  id        String           @id @default(uuid())
+  name      String
+  category  MaterialCategory
+  type      String
+  state     MaterialState    @default(FREE)
+  athleteId String?
+  athlete   Athlete?         @relation(fields: [athleteId], references: [id], onDelete: SetNull)
+  notes         String?
+  paidByAthlete Boolean          @default(false)
+  paidAmount    Float?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([state])
+  @@index([category])
+  @@index([athleteId])
+}
+
+enum MaterialCategory {
+  ATHLETE
+  GOALKEEPER
+  SMALL
+}
+
+enum MaterialState {
+  FREE
+  ASSIGNED
+  DAMAGED
+}
+
+// ─────────────────────────────────────────
+// Sponsors
+// ─────────────────────────────────────────
+
+model Sponsor {
+  id                 String   @id @default(uuid())
+  name               String
+  website            String?
+  phone              String?
+  email              String?
+  annualContribution Float    @default(0)
+  contractStart      DateTime
+  contractEnd        DateTime
+  notes              String?
+  logoUrl            String?
+  sponsorTypes       String[] @default([])
+  equipmentZones     Int[]    @default([])
+  bannerCount        Int?
+  includesSticks     Boolean  @default(false)
+  includesShinguards Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([name])
+  @@index([contractEnd])
+}
+
+// ─────────────────────────────────────────
+// Travel / Logistics
+// ─────────────────────────────────────────
+
+model Travel {
+  id                  String    @id @default(uuid())
+  opponent            String
+  pavilionUrl         String?
+  departureDate       DateTime
+  returnDate          DateTime?
+  departureTime       String?
+  transport           String?
+  drivers             String[]
+  meal                String?
+  notes               String?
+  convocados          String[]  @default([])
+  budgetTransport     Float?
+  budgetMeal          Float?
+  budgetAccommodation Float?
+  checklistItems      String[]  @default([])
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([departureDate])
+}
+
+// ─────────────────────────────────────────
+// Direction Board
+// ─────────────────────────────────────────
+
+model DirectionMember {
+  id                  String                   @id @default(uuid())
+  name                String
+  roles               String[]
+  phone               String?
+  email               String?
+  salary              Float?
+  trainerAgeGroups    String[]
+  sectionistAgeGroups String[]
+  athleteId           String?                  @unique
+  athlete             Athlete?                 @relation(fields: [athleteId], references: [id], onDelete: SetNull)
+  salaryPayments      DirectionSalaryPayment[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([name])
+}
+
+model DirectionSalaryPayment {
+  id        String          @id @default(uuid())
+  memberId  String
+  member    DirectionMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  month     Int
+  year      Int
+  paid      Boolean         @default(false)
+  amount    Float?
+  paidAt    DateTime?
+  notes     String?
+
+  @@unique([memberId, month, year])
+  @@index([memberId, year])
+}
+
+// ─────────────────────────────────────────
+// Training & Tactical Board
+// ─────────────────────────────────────────
+
+model Training {
+  id        String    @id @default(uuid())
+  date      DateTime
+  title     String
+  notes     String?
+  playbook  Playbook?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([date])
+}
+
+model Playbook {
+  id         String   @id @default(uuid())
+  trainingId String   @unique
+  training   Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  frames     Json     @default("{\"elements\":[],\"frames\":[]}")
+  updatedAt  DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────
+// Attendance
+// ─────────────────────────────────────────
+
+model TrainingSchedule {
+  id          String      @id @default(uuid())
+  season      String
+  seasonStart DateTime?
+  ageGroup    AgeGroup
+  dayOfWeek   Int
+  startTime   String
+  endTime     String?
+  location    String?
+  sessionType SessionType @default(GENERAL)
+  active      Boolean     @default(true)
+  sessions    TrainingSession[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([season])
+  @@index([ageGroup])
+}
+
+model TrainingSession {
+  id                 String            @id @default(uuid())
+  date               DateTime
+  time               String?
+  primaryAgeGroup    AgeGroup
+  sessionType        SessionType       @default(GENERAL)
+  title              String?
+  notes              String?
+  cancelled          Boolean           @default(false)
+  cancellationReason String?
+  scheduleId         String?
+  schedule           TrainingSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  records            AttendanceRecord[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([date])
+  @@index([primaryAgeGroup])
+  @@index([scheduleId])
+}
+
+model AttendanceRecord {
+  id            String          @id @default(uuid())
+  sessionId     String
+  session       TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  athleteId     String
+  athlete       Athlete         @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  present       Boolean         @default(false)
+  notes         String?
+  paidByAthlete Boolean         @default(false)
+  paidAmount    Float?
+  createdAt     DateTime        @default(now())
+
+  @@unique([sessionId, athleteId])
+  @@index([athleteId])
+  @@index([sessionId])
+}
+
+enum SessionType {
+  GENERAL
+  GOALKEEPERS
+  FIELD_PLAYERS
+  SPECIFIC
+}
+
+// ─────────────────────────────────────────
+// Textile Materials
+// ─────────────────────────────────────────
+
+model TextileItem {
+  id                     String          @id @default(uuid())
+  category               TextileCategory
+  type                   TextileType
+  size                   String
+  jerseyNumber           Int?
+  personalized           Boolean         @default(false)
+  personalizationDetails String?
+  season                 String
+  state                  TextileState    @default(STOCK)
+  athleteId              String?
+  athlete                Athlete?        @relation(fields: [athleteId], references: [id], onDelete: SetNull)
+  isPartOfKit            Boolean         @default(false)
+  kitRef                 String?
+  paidByAthlete          Boolean         @default(false)
+  paidAmount             Float?
+  totalCost              Float?
+  notes                  String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  @@index([athleteId])
+  @@index([state])
+  @@index([category])
+  @@index([season])
+}
+
+enum TextileCategory {
+  GAME
+  TRAINING
+  OTHER
+}
+
+enum TextileType {
+  GAME_SHIRT
+  GAME_SHORTS
+  GAME_SOCKS
+  GK_SHIRT
+  TRAINING_TOP
+  TRAINING_PANTS
+  TRAINING_KIT
+  JACKET
+  TSHIRT
+  OTHER
+}
+
+enum TextileState {
+  STOCK
+  ASSIGNED
+  DAMAGED
+  LOST
+}
+
+// ─────────────────────────────────────────
+// Rate Limiting (distributed, DB-backed)
+// ─────────────────────────────────────────
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}

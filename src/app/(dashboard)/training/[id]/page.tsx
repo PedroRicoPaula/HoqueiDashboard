@@ -1,0 +1,140 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { TacticalBoard } from '@/components/training/tactical/TacticalBoard'
+import { BoardToolbar } from '@/components/training/tactical/BoardToolbar'
+import { FrameTimeline } from '@/components/training/tactical/FrameTimeline'
+import { useTacticalStore } from '@/store/tacticalStore'
+import { usePermissions } from '@/hooks/usePermissions'
+import { useToast } from '@/hooks/use-toast'
+import { Button } from '@/components/ui/button'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { format } from 'date-fns'
+import { pt } from 'date-fns/locale'
+import type { PlaybookData } from '@/types/training.types'
+
+interface Training {
+  id: string
+  title: string
+  date: string
+  notes?: string
+  playbook?: {
+    id: string
+    frames: PlaybookData
+  } | null
+}
+
+export default function TrainingDetailPage() {
+  const params = useParams()
+  const id = params.id as string
+  const router = useRouter()
+  const { can } = usePermissions()
+  const { toast } = useToast()
+  const { loadPlaybook, toPlaybook, reset, setTacticName } = useTacticalStore()
+
+  const [training, setTraining] = useState<Training | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const canEdit = can('editTraining')
+
+  const fetchTraining = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch(`/api/training/${id}`)
+    if (res.ok) {
+      const data: Training = await res.json()
+      setTraining(data)
+      if (data.playbook?.frames) {
+        const pbData = data.playbook.frames as unknown as PlaybookData
+        if (pbData.elements && pbData.frames) {
+          loadPlaybook(pbData)
+        } else {
+          reset()
+          setTacticName(data.title)
+        }
+      } else {
+        reset()
+        setTacticName(data.title)
+      }
+    }
+    setLoading(false)
+  }, [id, loadPlaybook, reset, setTacticName])
+
+  useEffect(() => {
+    fetchTraining()
+    return () => { reset() }
+  }, [fetchTraining, reset])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const playbookData = toPlaybook()
+      const res = await fetch(`/api/training/${id}/playbook`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(playbookData),
+      })
+      if (res.ok) {
+        toast({ title: 'Quadro tático guardado' })
+      } else {
+        toast({ title: 'Erro ao guardar', variant: 'destructive' })
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!training) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <p className="text-muted-foreground">Treino não encontrado</p>
+        <Button onClick={() => router.push('/training')}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full -m-6">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-gray-900 border-b border-gray-700 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-gray-300 hover:text-white hover:bg-gray-700 h-8 w-8"
+          onClick={() => router.push('/training')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h2 className="font-semibold text-white text-sm">{training.title}</h2>
+          <p className="text-xs text-gray-400">
+            {format(new Date(training.date), "d 'de' MMMM 'de' yyyy", { locale: pt })}
+          </p>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <BoardToolbar onSave={handleSave} saving={saving} canEdit={canEdit} />
+
+      {/* Board */}
+      <div className="flex-1 overflow-hidden min-h-0">
+        <TacticalBoard canEdit={canEdit} />
+      </div>
+
+      {/* Timeline */}
+      <FrameTimeline canEdit={canEdit} />
+    </div>
+  )
+}
