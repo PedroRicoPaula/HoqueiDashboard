@@ -1,5 +1,62 @@
-# Modules — Gestão HCPDL
+# Modules — HoqueiManager
 > Um bloco por módulo. Atualizar sempre que adicionar features, APIs ou encontrar problemas.
+
+---
+
+## 0. Landing Page & Registo (público)
+**Status:** ✅ funcional  
+**Páginas:** `/{locale}` (landing), `/{locale}/register` (registo)  
+**Permissão:** pública (sem autenticação)  
+**APIs:** `POST /api/register`
+
+### Funcionalidades
+- Landing page marketing em 5 idiomas (PT/ES/EN/FR/IT) via `next-intl`
+- Seletor de idioma no nav (muda para `/{locale}`)
+- Secções: Hero, 6 features, Pricing toggle (mensal/anual), FAQ accordion, CTA final, footer
+- Registo 2 passos: (1) dados do clube, (2) seleção de plano
+- `POST /api/register` → cria `Club` (PENDING_PAYMENT) + `User` admin + `Stripe Checkout Session`
+- Stripe Checkout redireciona para `/login?registered=1` em sucesso
+- Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento
+
+### Ficheiros chave
+- `src/app/[locale]/layout.tsx` — NextIntlClientProvider
+- `src/app/[locale]/page.tsx` — landing page (Server Component)
+- `src/app/[locale]/register/page.tsx` — wizard 2 passos (Client Component)
+- `src/components/landing/LanguageSwitcher.tsx`
+- `src/components/landing/PricingToggle.tsx`
+- `src/components/landing/FaqAccordion.tsx`
+- `messages/{pt,es,en,fr,it}.json` — traduções
+- `src/i18n/routing.ts` + `src/i18n/request.ts` — config next-intl
+
+---
+
+## 0b. Platform Backoffice (super admin)
+**Status:** ✅ funcional  
+**Páginas:** `/platform`  
+**Permissão:** `isSuperAdmin: true` no JWT (verificado no middleware)  
+**APIs:** usa `prisma` diretamente (super admin tem acesso global)
+
+### Funcionalidades
+- Stats: clubes ativos, utilizadores, MRR estimado
+- Tabela de todos os clubes: nome, email, país, utilizadores, estado, data de registo
+- Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
+
+### Ficheiros chave
+- `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
+- `src/app/platform/page.tsx` — Server Component, lê `prisma.club.findMany`
+
+---
+
+## 0c. Definições do Clube
+**Status:** ✅ funcional  
+**Página:** `/settings`  
+**Permissão:** `isAdmin`  
+**APIs:** `GET /api/settings`, `PATCH /api/settings`
+
+### Funcionalidades
+- Atualizar nome do clube, país, idioma do dashboard
+- Idioma guardado em `Club.language` — a mudança requer novo login para ter efeito no JWT
+- Audit log em cada PATCH
 
 ---
 

@@ -1,4 +1,4 @@
-# Database — Gestão HCPDL
+# Database — HoqueiManager
 
 ## Config Prisma 7
 - Schema em `prisma/schema.prisma`
@@ -16,15 +16,41 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter })
 
 ## Schema — Modelos
 
+### Club (multi-tenant root)
+```prisma
+Club {
+  id                     String     @id @default(uuid())
+  name                   String
+  slug                   String     @unique   ← URL-friendly, gerado no registo
+  email                  String               ← email do admin
+  country                String     @default("pt")
+  language               String     @default("pt")   ← idioma do dashboard
+  status                 ClubStatus @default(PENDING_PAYMENT)
+  stripeCustomerId       String?    @unique
+  stripeSubscriptionId   String?    @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+  // relações inversas para todos os modelos tenanted
+  indexes: slug, status
+}
+enum ClubStatus { PENDING_PAYMENT ACTIVE PAST_DUE CANCELLED SUSPENDED }
+```
+**Ciclo de vida:** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed) → `CANCELLED` (subscription.deleted).
+
+Bloco de login se `club.status !== 'ACTIVE'` (exceto super admin).
+
 ### User
 ```prisma
 User {
   id           String      @id @default(uuid())
+  clubId       String?     FK → Club (onDelete: Cascade) — null para super admin
   name, email (unique), password (PBKDF2)
+  isSuperAdmin Boolean     @default(false)  ← acesso a /platform, sem clubId
   tokenVersion Int @default(0)  ← incrementa em logout e quando admin redefine password
-  lastLoginAt  DateTime?         ← atualizado em cada login bem-sucedido
+  lastLoginAt  DateTime?
   permissions  Permission? (1-to-1)
   auditLogs    AuditLog[]
+  index: clubId
 }
 ```
 
@@ -50,15 +76,17 @@ Permission {
 ### AuditLog
 ```prisma
 AuditLog {
+  clubId? FK → Club (onDelete: Cascade)  ← scoped por tenant
   userId?, userEmail?, action, entity, entityId?, details (Json?), ip?
-  indexes: entity, userId, createdAt
+  indexes: clubId, entity, userId, createdAt
 }
 ```
 
 ### Athlete
 ```prisma
 Athlete {
-  number (unique), name, ageGroup (AgeGroup enum)
+  clubId FK → Club (onDelete: Cascade)  ← TENANTED
+  number, name, ageGroup (AgeGroup enum)
   birthDate (DateTime), phone?, email?, nif?, address?
   school?, idCard?, parentName?, parentPhone?
   monthlyFee Float @default(0), feeExempt Boolean @default(false)
@@ -334,7 +362,15 @@ O `resolve --applied` marca a 001 como "já aplicada" sem correr. O `|| true` ga
 ```bash
 npx prisma db seed
 # Ficheiro: prisma/seed.ts
-# Cria: admin@hcpdl.pt / admin123 com isAdmin=true
+# Cria: superadmin@hoqueimanager.com / superadmin123 (isSuperAdmin=true, clubId=null)
+# Clubes são criados pelo fluxo de registo (/api/register), não pelo seed
+```
+
+## Migration inicial HoqueiManager
+Schema foi completamente reescrito para multi-tenant. Correr sempre do zero:
+```bash
+npx prisma migrate dev --name init   # primeira vez
+npx prisma migrate deploy            # deploy em produção
 ```
 
 ---

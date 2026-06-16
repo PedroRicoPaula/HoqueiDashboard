@@ -37,17 +37,22 @@ src/app/api/novo-modelo/route.ts          ← GET (lista) + POST (criar)
 src/app/api/novo-modelo/[id]/route.ts     ← GET + PUT + DELETE
 ```
 
-**Template de route handler:**
+**Template de route handler (multi-tenant obrigatório):**
 ```typescript
+import { getDbForRequest } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params                              // ← Next.js 15 obrigatório
-    const user = await getUserFromRequest(req)
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const ctx = await getDbForRequest(req)                   // ← SEMPRE usar getDbForRequest
+    if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { user, db } = ctx                                 // db = tenant-scoped client
     if (!hasPermission(user.permissions, 'viewXxx')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
-    const item = await prisma.novoModelo.findUnique({ where: { id } })
+    // db.novoModelo.findUnique injeta clubId automaticamente
+    const item = await db.novoModelo.findFirst({ where: { id } })
     if (!item) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
     return NextResponse.json(item)
   } catch (error) {
@@ -55,6 +60,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }
 }
+```
+
+**Regra multi-tenant:**
+- Usar `db` (de `getDbForRequest`) para modelos TENANTED: Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog
+- Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord, RateLimit
+- **Nunca adicionar `where: { clubId }` manualmente** — a extension injeta automaticamente
 ```
 
 **Template PUT/POST com audit:**

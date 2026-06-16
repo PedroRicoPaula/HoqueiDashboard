@@ -1,4 +1,4 @@
-# Auth & Security — Gestão HCPDL
+# Auth & Security — HoqueiManager
 
 ## Sistema de Autenticação
 
@@ -6,8 +6,31 @@
 - Biblioteca: `jose` v6 (não `jsonwebtoken`)
 - Algoritmo: HS256
 - Expiração: **24h** (alterado de 7d por segurança)
-- Cookie: `hcpdl_token` (httpOnly, SameSite=Lax)
-- Payload: `{ userId, email, permissions: {...flags}, tokenVersion }` — inclui todos os 20 flags (incluindo `viewAttendance`, `editAttendance`, `viewTextiles`, `editTextiles` adicionados 2026-06-05)
+- Cookie: `hm_token` (httpOnly, SameSite=strict) — renomeado de `hcpdl_token` em 2026-06-16
+- Payload completo:
+```typescript
+{
+  userId: string,
+  email: string,
+  name: string,
+  clubId: string | null,       // null para super admin
+  isSuperAdmin: boolean,       // true → acesso só a /platform
+  tokenVersion: number,
+  permissions: {               // null para super admin
+    viewAthletes, editAthletes,
+    viewFees, editFees,
+    viewMembers, editMembers,
+    viewMaterials, editMaterials,
+    viewSponsors, manageSponsors,
+    viewTraining, editTraining,
+    viewTravel, editTravel,
+    viewDirection, editDirection,
+    viewAttendance, editAttendance,
+    viewTextiles, editTextiles,
+    isAdmin
+  } | null
+}
+```
 
 ```typescript
 // src/lib/auth.ts — getSecret() valida rigorosamente
@@ -35,8 +58,14 @@ if (s.includes('change-in-production')) throw new Error('...')
 ## RBAC — Role Based Access Control
 
 ### Middleware (Edge Runtime)
+O middleware tem 5 camadas em sequência:
+1. `/api/stripe/webhook` → bypass CSRF (tem verificação de assinatura Stripe)
+2. `/api/*` → CSRF check only (auth feito per-route)
+3. Paths públicos (`/{locale}`, `/{locale}/register`) → allow
+4. `/platform/*` → requer `isSuperAdmin: true` no JWT
+5. Dashboard (`/*`) → requer JWT válido + `clubId` não-nulo + permission check
+
 ```typescript
-// src/middleware.ts
 PROTECTED_ROUTES = [
   { pattern: /^\/athletes/,   flag: 'viewAthletes' },
   { pattern: /^\/fees/,       flag: 'viewFees' },
@@ -53,7 +82,26 @@ PROTECTED_ROUTES = [
 ]
 // isAdmin bypassa qualquer flag
 ```
-Rotas excluídas: `login`, `setup`, `api/setup`, `_next/*`, `favicon.ico`, `uploads`
+Rotas excluídas: `login`, `setup`, `api/setup`, `_next/*`, `favicon.ico`, `manifest.json`, `logo.png`, `uploads`
+
+### Multi-Tenant Tenant Isolation
+Todas as API routes do dashboard usam `getDbForRequest(req)`:
+```typescript
+// src/lib/db.ts
+export async function getDbForRequest(req: Request) {
+  const user = await getUserFromRequest(req)
+  if (!user || !user.clubId) return null
+  return { user, db: getTenantClient(user.clubId), clubId: user.clubId }
+}
+```
+O `getTenantClient(clubId)` é um Prisma `$extends` que injeta `{ clubId }` automaticamente em:
+- `findMany`, `findFirst`, `count`, `aggregate`, `groupBy` → adiciona a `where`
+- `create`, `createMany` → adiciona a `data`
+- `updateMany`, `deleteMany` → adiciona a `where`
+
+Modelos tenanted: Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog.
+
+Modelos NÃO tenanted (usam `prisma` global): User, Permission, Playbook, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord, RateLimit.
 
 ### API Route Level
 ```typescript

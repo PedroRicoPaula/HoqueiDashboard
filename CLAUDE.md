@@ -1,11 +1,13 @@
-# CLAUDE.md — Gestão HCPDL
+# CLAUDE.md — HoqueiManager
 > Lido automaticamente em cada sessão. Contém tudo o que precisas de saber antes de tocar no código.
 
 ## Identidade do Projeto
-**Nome:** Sistema de Gestão do Hóquei Clube Ponta Delgada  
-**URL produção:** https://dashboard.hoqueiclubepdl.com  
+**Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
+**URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-05-27
+**Data última auditoria:** 2026-06-16
+
+> ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
 ---
 
@@ -21,28 +23,35 @@
 | UI | shadcn/ui (new-york, green theme) | — |
 | State | Zustand | ^5.0.11 |
 | Validações | Zod v4 | ^4.3.6 |
+| i18n | `next-intl` | ^3.26.5 |
+| Billing | `stripe` | ^17.7.0 |
 | Testes | Vitest | ^4.1.5 |
 
 ---
 
 ## Credenciais Dev Local
 ```
-DB:  postgresql://postgres:postgresql123@localhost:5432/hcpdl
-JWT: hcpdl-local-dev-key-757a3f92b1e04cd8a6f2e3d5c8b91047
+DB:  postgresql://postgres:postgresql123@localhost:5432/hoqueimanager
+JWT: <gerar com: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 URL: http://localhost:3000
-Login: admin@hcpdl.pt / admin123
+Super Admin: superadmin@hoqueimanager.com / superadmin123
 ```
 
 ## Env Vars Produção (Vercel)
 ```
-DATABASE_URL          → Neon PostgreSQL connection string
-JWT_SECRET            → min 32 chars, sem "change-in-production"
-NEXT_PUBLIC_APP_URL   → https://dashboard.hoqueiclubepdl.com
-R2_BUCKET_NAME        → Cloudflare R2 bucket (logos patrocinadores)
-R2_ACCOUNT_ID         → Cloudflare account ID
-R2_ACCESS_KEY_ID      → R2 access key
-R2_SECRET_ACCESS_KEY  → R2 secret key
-R2_PUBLIC_URL         → public URL do bucket R2
+DATABASE_URL                    → Neon PostgreSQL connection string
+JWT_SECRET                      → min 32 chars, sem "change-in-production"
+NEXT_PUBLIC_APP_URL             → https://app.hoqueimanager.com
+STRIPE_SECRET_KEY               → sk_live_...
+STRIPE_WEBHOOK_SECRET           → whsec_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY → pk_live_...
+STRIPE_PRICE_MONTHLY            → price_... (€59/mês)
+STRIPE_PRICE_YEARLY             → price_... (€590/ano)
+R2_BUCKET_NAME                  → Cloudflare R2 bucket (logos patrocinadores)
+R2_ACCOUNT_ID                   → Cloudflare account ID
+R2_ACCESS_KEY_ID                → R2 access key
+R2_SECRET_ACCESS_KEY            → R2 secret key
+R2_PUBLIC_URL                   → public URL do bucket R2
 ```
 
 ---
@@ -54,21 +63,26 @@ R2_PUBLIC_URL         → public URL do bucket R2
 3. **JWT expira em 24h** — definido em `signToken()`. Não aumentar.
 4. **`getSecret()` valida o JWT_SECRET** — rejeita se vazio, <32 chars, ou contém "change-in-production". Vai crashar em build se errado.
 5. **CSRF no middleware** — já feito para rotas de página. API routes não precisam chamar `validateCsrf` manualmente (middleware trata).
-6. **Audit log em toda operação de escrita** — chamar `logAudit(req, user.id, user.email, action, entity, entityId, details)` em todos os POST/PUT/DELETE. **Inclui logins** — sucesso E falha devem ser auditados em `/api/auth/login` (falha: `userId=null`). Ver SEC-001.
-7. **CSP headers em `next.config.mjs`** — qualquer novo domínio externo precisa ser adicionado às diretivas corretas (`connect-src`, `img-src`, etc).
-8. **Cookie de auth: `hcpdl_token`** — nome fixo, usado em middleware e `getTokenFromCookies`.
+6. **Audit log em toda operação de escrita** — chamar `logAudit(req, user.id, user.email, action, entity, entityId, details)` em todos os POST/PUT/DELETE. Inclui logins (sucesso e falha).
+7. **CSP headers em `next.config.mjs`** — qualquer novo domínio externo precisa ser adicionado às diretivas corretas. Stripe já adicionado: `js.stripe.com` (script-src), `api.stripe.com` (connect-src), `js.stripe.com`+`hooks.stripe.com` (frame-src).
+8. **Cookie de auth: `hm_token`** — nome fixo, usado em middleware e `getTokenFromCookies`. Nunca usar `hcpdl_token`.
 9. **`isAdmin` bypassa todas as permissões** — ver `hasPermission()` em `src/lib/permissions.ts`.
+10. **MULTI-TENANT OBRIGATÓRIO — usar `getDbForRequest(req)`** em vez de `prisma` direto em todas as API routes do dashboard. Retorna `{ user, db, clubId }`. O `db` é um Prisma Extension que injeta `clubId` automaticamente em todas as queries de modelos tenanted. Ver `src/lib/db.ts` e `src/lib/prisma-tenant.ts`.
+11. **Stripe webhook — sem CSRF** — `/api/stripe/webhook` está excluído do CSRF check (tem verificação de assinatura própria via `stripe.webhooks.constructEvent`). Não adicionar CSRF a este endpoint.
+12. **`isSuperAdmin` → acesso a `/platform` apenas** — super admin não tem `clubId`, não pode aceder ao dashboard de nenhum clube. Redireccionado para `/platform` no login.
 
 ---
 
 ## Comandos Úteis
 ```bash
+npm install                    # instalar dependências (obrigatório no primeiro clone)
 npm run dev                    # dev server → localhost:3000
 npm run build                  # build + migrate deploy + prisma generate
-npx prisma db seed             # criar admin (admin@hcpdl.pt / admin123)
+npx prisma db seed             # criar super admin (superadmin@hoqueimanager.com / superadmin123)
 npx prisma migrate dev         # nova migration (dev only)
 npx prisma studio              # GUI do DB
 npm test                       # vitest run
+stripe listen --forward-to localhost:3000/api/stripe/webhook  # webhook local
 ```
 
 ---
@@ -77,6 +91,10 @@ npm test                       # vitest run
 ```
 src/
 ├── app/
+│   ├── [locale]/              # Landing page pública (PT/ES/EN/FR/IT)
+│   │   ├── layout.tsx         # NextIntlClientProvider
+│   │   ├── page.tsx           # Landing page marketing
+│   │   └── register/          # Registo 2 passos (dados clube + Stripe)
 │   ├── (dashboard)/           # Páginas autenticadas (layout com sidebar)
 │   │   ├── page.tsx           # Dashboard
 │   │   ├── athletes/          # Atletas + /[id] perfil
@@ -88,38 +106,46 @@ src/
 │   │   ├── direction/         # Direção
 │   │   ├── training/          # Treinos + /[id] quadro tático
 │   │   ├── reports/           # Relatórios CSV
+│   │   ├── settings/          # Definições do clube (nome, idioma, país)
 │   │   └── admin/             # Permissões + Audit log
-│   ├── api/                   # API routes (Next.js Route Handlers)
-│   ├── login/                 # Página de login
-│   └── setup/                 # Setup inicial (criar primeiro admin)
-├── lib/                       # Utilitários server-side
-│   ├── auth.ts                # JWT + PBKDF2
+│   ├── platform/              # Backoffice super admin (lista clubes, MRR)
+│   ├── api/
+│   │   ├── register/          # POST → cria Club + User + Stripe Checkout
+│   │   ├── settings/          # GET/PATCH → definições do clube
+│   │   ├── stripe/webhook/    # POST → lifecycle Stripe (ACTIVE/PAST_DUE/CANCELLED)
+│   │   └── ...                # Todos os outros módulos
+│   ├── login/                 # Página de login (redireciona super admin → /platform)
+│   └── setup/                 # Setup inicial (sem clube registado)
+├── i18n/
+│   ├── routing.ts             # Locales suportados: pt, es, en, fr, it
+│   └── request.ts             # getRequestConfig para next-intl
+├── lib/
+│   ├── auth.ts                # JWT + PBKDF2 (cookie: hm_token)
 │   ├── prisma.ts              # Singleton PrismaClient com adapter pg
+│   ├── prisma-tenant.ts       # getTenantClient(clubId) — Prisma Extension
+│   ├── db.ts                  # getDbForRequest(req) → { user, db, clubId }
 │   ├── permissions.ts         # hasPermission()
 │   ├── validations.ts         # Todos os schemas Zod
 │   ├── audit.ts               # logAudit()
 │   ├── rateLimit.ts           # checkRateLimit() + getClientIp()
-│   ├── csrf.ts                # validateCsrf() — ⚠️ usado só em testes, não nas routes
 │   ├── logger.ts              # logger.error/warn/info
 │   └── utils.ts               # cn() (clsx + tailwind-merge)
 ├── components/
 │   ├── ui/                    # shadcn/ui components
 │   ├── layout/                # Sidebar, TopNav
+│   ├── landing/               # LanguageSwitcher, PricingToggle, FaqAccordion
 │   ├── auth/                  # ChangePasswordDialog
 │   ├── admin/                 # PermissionsModal, UserPermissionsTable
 │   ├── training/tactical/     # TacticalBoard, HockeyField, etc.
-│   └── ErrorBoundary.tsx      # Captura ChunkLoadError → reload automático
+│   └── ErrorBoundary.tsx
 ├── store/                     # Zustand stores
-│   ├── authStore.ts           # user + permissions (persistido localStorage)
-│   ├── tacticalStore.ts       # estado do quadro tático
-│   └── sidebarStore.ts        # open/close sidebar mobile
-├── hooks/
-│   ├── usePermissions.ts      # can(), isAdmin, permissions
-│   ├── useDebounce.ts         # debounce para search inputs
-│   └── use-toast.ts           # shadcn toast hook
-├── types/
-│   └── training.types.ts      # ElementType, BoardElement, FrameState, PlaybookData
-└── middleware.ts              # Edge: CSRF + JWT auth + RBAC page routes
+├── hooks/                     # usePermissions, useDebounce, use-toast
+├── types/                     # training.types.ts
+├── tests/
+│   └── tenant-isolation.test.ts  # Vitest: verifica isolamento cross-tenant
+└── middleware.ts              # Edge: locale routing + CSRF + JWT + RBAC + super admin
+messages/                      # Traduções next-intl
+├── pt.json, es.json, en.json, fr.json, it.json
 ```
 
 ---
@@ -136,32 +162,32 @@ src/
 
 ---
 
-## Estado Atual (2026-05-27)
-- ✅ Deploy Vercel funcional (40/40 páginas)
-- ✅ Neon PostgreSQL conectado
-- ✅ Cloudflare R2 para logos de patrocinadores
-- ✅ Migrações: 11 migrations (última: `20260527000002_material_payment`)
-- ✅ `src/lib/constants.ts` — constantes partilhadas + `MATERIAL_TYPES` por categoria
-- ✅ `Quota.amount` adicionado — revenue de sócios precisa
-- ✅ `Material.paidByAthlete` + `Material.paidAmount` — tracking de pagamento por item
-- ✅ Módulo materiais redesenhado: tipos predefinidos por categoria, marca/modelo, modo batch, pagamento por item
-- ✅ `paidAmount` = custo do material (sempre obrigatório, independente de quem pagou); `paidByAthlete` indica se atleta pagou → clube poupou
-- ✅ Dashboard materialCosts: `total`, `savedByAthletes`, `clubCost` — poupança calculada em `/api/dashboard/stats`
-- ✅ SMALL types expandidos: Rolamentos, Fita para Sticks, Atacadores, Conjunto de Parafusos, Borracha de Suspensão
-- ✅ Módulo Assiduidades: calendário mensal gerado de horários semanais, registo de presenças, cancelamento com motivo, stats de temporada
-- ✅ `TrainingSchedule`: horários recorrentes por época/escalão/dia — pré-populados 2025/26 (Sub11/Sub13/Sub17)
-- ✅ Navegação de épocas por setas (min 2025/26), cópia de época anterior, filtro de escalões disponíveis no form
-- ✅ `AGE_GROUP_CALENDAR_COLORS` em `src/lib/constants.ts` — cores por escalão no calendário de assiduidades
-- ✅ Sidebar com accordion groups (Desporto / Materiais / Clube / Gestão) — estado persiste em localStorage
-- ✅ Perfil atleta: assiduidade com toggle "Total" | "Por época" (bySeason[] na API)
-- ✅ Treinos SPECIFIC pagos: criados ad-hoc via "+" no calendário; grelha com coluna de pagamento por atleta; stats no perfil (realizados, pagamentos, total pago)
-- ✅ **REGRA CRÍTICA — Navegação temporal mínimo 2025:** todas as páginas com setas de ano/época bloqueiam retroceder antes de 2025/26. Afeta: `/fees` (MIN_SEASON=2025), `/attendance` calendário (set 2025), `/attendance` horários (min 2025/26), `/athletes/[id]` histórico pagamentos (min 2025), `/members` quotas (min 2025). Não adicionar navegação para anos anteriores em novos módulos.
-- ✅ Módulo Materiais Têxteis: inventário têxtil com kit de jogo, tamanhos, personalização, custo por item
-- ✅ 4 novas permission flags: `viewAttendance`, `editAttendance`, `viewTextiles`, `editTextiles` (20 flags total)
-- ✅ Migrações: 14 migrações (última: `20260602000003_training_schedules`)
-- ✅ Migration `20260511000004` pendente em prod (colunas `roles`/`trainerAgeGroups`) — aplica no próximo deploy
-- ✅ PWA manifest em `public/manifest.json` + metadata em `src/app/layout.tsx`
-- ✅ UX melhorias: coluna Idade (atletas), filtro estado (patrocinadores), total salários (direção), empty states com CTA em todas as listas, marcar coluna inteira em fees
-- ✅ lateMonths bug corrigido — iteração por range de meses, não só registos existentes
-- ✅ Relatório de sócios (`/api/reports/members`) com histórico de quotas por mês
-- ⚠️ Rate limiting in-memory (ineficaz em serverless Vercel multi-instância) — ver DEBT-002
+## Estado Atual (2026-06-16)
+
+### Infraestrutura Base (herdada do HCPDL)
+- ✅ Next.js 15 App Router + TypeScript + Prisma 7 + shadcn/ui + Zustand + Zod v4
+- ✅ 12 módulos funcionais: Dashboard, Atletas, Sócios, Mensalidades, Materiais, Patrocinadores, Viagens, Direção, Treinos, Assiduidades, Têxteis, Admin
+- ✅ PBKDF2 Web Crypto, JWT HS256, CSRF, rate limiting PostgreSQL, audit log
+- ✅ Cloudflare R2 para uploads de logos
+
+### Multi-Tenant SaaS (implementado 2026-06-16)
+- ✅ **Schema multi-tenant**: modelo `Club` + `clubId` em todos os modelos tenanted + `isSuperAdmin` em `User`
+- ✅ **Prisma Extension**: `getTenantClient(clubId)` em `src/lib/prisma-tenant.ts` — auto-injeta `clubId` em findMany/create/update/delete/count/aggregate
+- ✅ **42 API routes** atualizadas para usar `getDbForRequest(req)` → `{ user, db, clubId }`
+- ✅ **Middleware** atualizado: locale routing público (`/pt`, `/en`, etc.), guard super admin (`/platform`), validação `clubId` em sessão
+- ✅ **JWT payload** extendido: `clubId`, `isSuperAdmin` adicionados a todos os tokens
+- ✅ **Cookie renomeado**: `hcpdl_token` → `hm_token`
+- ✅ **Landing page** i18n: `src/app/[locale]/page.tsx` com next-intl (PT/ES/EN/FR/IT)
+- ✅ **Registo de clubes**: wizard 2 passos (`/[locale]/register`) → `POST /api/register` → Stripe Checkout
+- ✅ **Stripe billing**: webhook em `/api/stripe/webhook` gere lifecycle (PENDING_PAYMENT → ACTIVE → PAST_DUE → CANCELLED)
+- ✅ **Platform backoffice**: `/platform` para super admin — lista clubes, stats MRR
+- ✅ **Club settings**: `/settings` — alterar nome, idioma, país do clube
+- ✅ **Testes de isolamento**: `src/tests/tenant-isolation.test.ts`
+
+### Tarefas manuais pendentes (não podem ser automatizadas)
+- ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed
+- ⏳ Criar produtos Stripe (preços mensais €59 e anuais €590) e preencher Price IDs no `.env`
+- ⏳ Deploy Vercel + env vars produção + webhook Stripe produção
+- ⏳ Registar `hoqueimanager.com` + apontar DNS para Vercel
+- ⏳ Criar `public/logo.png` (ícone PWA)
+- ⏳ Integrar email transacional (Resend/SendGrid) para enviar credenciais após registo
