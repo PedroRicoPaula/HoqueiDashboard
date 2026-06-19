@@ -52,6 +52,7 @@ R2_ACCOUNT_ID                   → Cloudflare account ID
 R2_ACCESS_KEY_ID                → R2 access key
 R2_SECRET_ACCESS_KEY            → R2 secret key
 R2_PUBLIC_URL                   → public URL do bucket R2
+RESEND_API_KEY                  → re_... (email transacional — boas-vindas + reset password)
 ```
 
 ---
@@ -162,7 +163,7 @@ messages/                      # Traduções next-intl
 
 ---
 
-## Estado Atual (2026-06-16)
+## Estado Atual (2026-06-19)
 
 ### Infraestrutura Base (herdada do HCPDL)
 - ✅ Next.js 15 App Router + TypeScript + Prisma 7 + shadcn/ui + Zustand + Zod v4
@@ -172,22 +173,33 @@ messages/                      # Traduções next-intl
 
 ### Multi-Tenant SaaS (implementado 2026-06-16)
 - ✅ **Schema multi-tenant**: modelo `Club` + `clubId` em todos os modelos tenanted + `isSuperAdmin` em `User`
-- ✅ **Prisma Extension**: `getTenantClient(clubId)` em `src/lib/prisma-tenant.ts` — auto-injeta `clubId` em findMany/create/update/delete/count/aggregate
+- ✅ **Prisma Extension**: `getTenantClient(clubId)` em `src/lib/prisma-tenant.ts`
 - ✅ **42 API routes** atualizadas para usar `getDbForRequest(req)` → `{ user, db, clubId }`
-- ✅ **Middleware** atualizado: locale routing público (`/pt`, `/en`, etc.), guard super admin (`/platform`), validação `clubId` em sessão
-- ✅ **JWT payload** extendido: `clubId`, `isSuperAdmin` adicionados a todos os tokens
-- ✅ **Cookie renomeado**: `hcpdl_token` → `hm_token`
+- ✅ **Middleware** atualizado: locale routing, guard super admin, validação `clubId`
+- ✅ **JWT payload** extendido: `clubId`, `isSuperAdmin`, cookie `hm_token`
 - ✅ **Landing page** i18n: `src/app/[locale]/page.tsx` com next-intl (PT/ES/EN/FR/IT)
-- ✅ **Registo de clubes**: wizard 2 passos (`/[locale]/register`) → `POST /api/register` → Stripe Checkout
-- ✅ **Stripe billing**: webhook em `/api/stripe/webhook` gere lifecycle (PENDING_PAYMENT → ACTIVE → PAST_DUE → CANCELLED)
-- ✅ **Platform backoffice**: `/platform` para super admin — lista clubes, stats MRR
-- ✅ **Club settings**: `/settings` — alterar nome, idioma, país do clube
+- ✅ **Registo de clubes**: wizard 2 passos + Stripe Checkout
+- ✅ **Stripe billing**: webhook lifecycle (PENDING_PAYMENT → ACTIVE → PAST_DUE → CANCELLED)
+- ✅ **Platform backoffice**: `/platform` — lista clubes, MRR/ARR, breakdown por país/estado
+- ✅ **Club settings**: `/settings` — nome, idioma, país, logo upload
 - ✅ **Testes de isolamento**: `src/tests/tenant-isolation.test.ts`
+
+### SaaS Melhorias (2026-06-19)
+- ✅ **Dashboard i18n**: `useDashT` hook + `useDashLabels` hook + 5 ficheiros JSON em `messages/dashboard/`
+- ✅ **Sidebar/TopNav dinâmicos**: nome do clube, logo upload, monograma fallback, labels i18n
+- ✅ **html lang dinâmico**: `HtmlLang.tsx` component atualiza `document.lang` via auth store
+- ✅ **Forgot password flow**: `/forgot-password` + `/reset-password` + `PasswordResetToken` DB model
+- ✅ **Email transacional**: `src/lib/email.ts` via Resend REST API — boas-vindas + reset password
+- ✅ **Club logo**: campo `logoUrl` no schema + API `/api/club/logo` (R2/local)
+- ✅ **GDPR**: `/[locale]/privacy` + `/[locale]/terms` + cookie banner (`CookieBanner.tsx`)
+- ✅ **Landing page melhorada**: How it works, social proof, FAQ expandida, CTA corrigida, links corrigidos
+- ✅ **Labels i18n nas páginas**: dashboard, atletas, mensalidades, membros, materiais, têxteis, direção, assiduidades usam `useDashLabels()`
+- ✅ **date-fns locale dinâmico**: `getDateLocale()` baseado no idioma do clube
 
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed
 - ⏳ Criar produtos Stripe (preços mensais €59 e anuais €590) e preencher Price IDs no `.env`
+- ⏳ Preencher `RESEND_API_KEY` no `.env` (Resend.com → API Keys)
 - ⏳ Deploy Vercel + env vars produção + webhook Stripe produção
 - ⏳ Registar `hoqueimanager.com` + apontar DNS para Vercel
 - ⏳ Criar `public/logo.png` (ícone PWA)
-- ⏳ Integrar email transacional (Resend/SendGrid) para enviar credenciais após registo

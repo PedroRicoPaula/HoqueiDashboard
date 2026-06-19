@@ -21,8 +21,9 @@ import { useToast } from '@/hooks/use-toast'
 import { Plus, Search, Pencil, Trash2, Loader2, Calendar, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
-const MONTHS = [
+const MONTHS_FALLBACK = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
@@ -221,6 +222,9 @@ function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
 }
 
 export default function MembersPage() {
+  const dashLabels = useDashLabels()
+  const MONTHS = dashLabels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
+
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

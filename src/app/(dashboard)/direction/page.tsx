@@ -24,12 +24,9 @@ import {
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Pencil, Trash2, Loader2, Mail, Phone, Euro, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { AGE_GROUPS, AGE_GROUP_LABELS, DIRECTION_ROLES, DIRECTION_ROLE_LABELS, DIRECTION_ROLE_COLORS } from '@/lib/constants'
+import { AGE_GROUPS, DIRECTION_ROLES, DIRECTION_ROLE_LABELS, DIRECTION_ROLE_COLORS, AGE_GROUP_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
-
-const ROLES = DIRECTION_ROLES.map((value) => ({ value, label: DIRECTION_ROLE_LABELS[value] }))
-const roleLabel = (v: string) => DIRECTION_ROLE_LABELS[v] ?? v
-const ageGroupLabel = (v: string) => AGE_GROUP_LABELS[v] ?? v
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -210,6 +207,11 @@ function AgeGroupPanel({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DirectionPage() {
+  const dashLabels = useDashLabels()
+  const roleLabel = (v: string) => dashLabels.directionRoles[v] ?? DIRECTION_ROLE_LABELS[v] ?? v
+  const ageGroupLabel = (v: string) => dashLabels.ageGroups[v] ?? AGE_GROUP_LABELS[v] ?? v
+  const ROLES = DIRECTION_ROLES.map((value) => ({ value, label: roleLabel(value) }))
+
   const [members, setMembers] = useState<DirectionMember[]>([])
   const [loading, setLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)

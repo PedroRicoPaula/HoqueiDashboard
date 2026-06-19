@@ -16,7 +16,9 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Dumbbell, Pencil, Trash2, Loader2, ArrowRight } from 'lucide-react'
 import { format } from 'date-fns'
-import { pt } from 'date-fns/locale'
+import { useDashT } from '@/hooks/useDashT'
+import { useAuthStore } from '@/store/authStore'
+import { getDateLocale } from '@/lib/date-locale'
 
 const trainingSchema = z.object({
   title: z.string().min(1, 'Título obrigatório'),
@@ -43,6 +45,9 @@ export default function TrainingPage() {
   const { can } = usePermissions()
   const { toast } = useToast()
   const router = useRouter()
+  const tr = useDashT()
+  const clubLanguage = useAuthStore((s) => s.clubLanguage) ?? 'pt'
+  const dateLocale = getDateLocale(clubLanguage)
 
   const {
     register, handleSubmit, reset, formState: { errors },
@@ -76,8 +81,8 @@ export default function TrainingPage() {
       const method = editingTraining ? 'PUT' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: 'Erro', description: json.error, variant: 'destructive' }); return }
-      toast({ title: editingTraining ? 'Treino atualizado' : 'Treino criado' })
+      if (!res.ok) { toast({ title: tr('common.error'), description: json.error, variant: 'destructive' }); return }
+      toast({ title: editingTraining ? tr('training.saved') : tr('training.created') })
       setDialogOpen(false)
       if (!editingTraining) {
         router.push(`/training/${json.id}`)
@@ -90,8 +95,8 @@ export default function TrainingPage() {
   const confirmDelete = async () => {
     if (!deleteDialog.training) return
     const res = await fetch(`/api/training/${deleteDialog.training.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Treino eliminado' }); fetchTrainings() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    if (res.ok) { toast({ title: tr('training.deleted') }); fetchTrainings() }
+    else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
     setDeleteDialog({ open: false, training: null })
   }
 
@@ -99,14 +104,14 @@ export default function TrainingPage() {
     <div className="space-y-4">
       <div className="flex justify-end">
         {can('editTraining') && (
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Novo Treino</Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />{tr('training.new')}</Button>
         )}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin h-8 w-8 text-muted-foreground" /></div>
       ) : trainings.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">Nenhum treino registado</div>
+        <div className="text-center py-16 text-muted-foreground">{tr('training.noTrainings')}</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {trainings.map((t) => (
@@ -118,11 +123,11 @@ export default function TrainingPage() {
                     <div>
                       <p className="font-semibold">{t.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(t.date), "d 'de' MMMM 'de' yyyy", { locale: pt })}
+                        {format(new Date(t.date), "d MMMM yyyy", { locale: dateLocale })}
                       </p>
                       {t.notes && <p className="text-xs text-muted-foreground mt-1">{t.notes}</p>}
                       {t.playbook && (
-                        <p className="text-xs text-primary mt-1 font-medium">Quadro tático guardado</p>
+                        <p className="text-xs text-primary mt-1 font-medium">{tr('training.tacticalSaved')}</p>
                       )}
                     </div>
                   </div>
@@ -138,7 +143,7 @@ export default function TrainingPage() {
                   className="w-full mt-3 justify-between text-sm"
                   onClick={() => router.push(`/training/${t.id}`)}
                 >
-                  Abrir Quadro Tático
+                  {tr('training.openBoard')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </CardContent>
@@ -150,28 +155,28 @@ export default function TrainingPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTraining ? 'Editar Treino' : 'Novo Treino'}</DialogTitle>
+            <DialogTitle>{editingTraining ? tr('training.editTitle') : tr('training.new')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1">
-              <Label>Título *</Label>
-              <Input {...register('title')} placeholder="ex: Treino Terça-feira" />
+              <Label>{tr('training.titleLabel')} *</Label>
+              <Input {...register('title')} />
               {errors.title && <p className="text-xs text-destructive">{errors.title.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label>Data *</Label>
+              <Label>{tr('common.date')} *</Label>
               <Input type="date" {...register('date')} />
               {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
             </div>
             <div className="space-y-1">
-              <Label>Notas</Label>
+              <Label>{tr('common.notes')}</Label>
               <Input {...register('notes')} />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{tr('common.cancel')}</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingTraining ? 'Guardar' : 'Criar e Abrir'}
+                {editingTraining ? tr('common.save') : tr('training.createAndOpen')}
               </Button>
             </DialogFooter>
           </form>
@@ -181,12 +186,12 @@ export default function TrainingPage() {
       <Dialog open={deleteDialog.open} onOpenChange={(o) => setDeleteDialog({ open: o, training: deleteDialog.training })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Treino</DialogTitle>
-            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.training?.title}? O quadro tático será perdido.</DialogDescription>
+            <DialogTitle>{tr('training.deleteTitle')}</DialogTitle>
+            <DialogDescription>{tr('training.deleteDesc', { title: deleteDialog.training?.title ?? '' })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, training: null })}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Eliminar</Button>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, training: null })}>{tr('common.cancel')}</Button>
+            <Button variant="destructive" onClick={confirmDelete}>{tr('common.delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -29,7 +29,10 @@ export async function POST(req: Request) {
     const { email, password } = parsed.data
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { permissions: true, club: { select: { status: true } } },
+      include: {
+        permissions: true,
+        club: { select: { status: true, name: true, language: true, logoUrl: true } },
+      },
     })
 
     if (!user || !(await comparePassword(password, user.password))) {
@@ -86,7 +89,15 @@ export async function POST(req: Request) {
     ])
 
     const response = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email, isSuperAdmin: user.isSuperAdmin },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isSuperAdmin: user.isSuperAdmin,
+        clubName: user.club?.name ?? null,
+        clubLanguage: user.club?.language ?? null,
+        clubLogoUrl: user.club?.logoUrl ?? null,
+      },
       permissions: user.permissions,
       redirectTo: user.isSuperAdmin ? '/platform' : '/',
     })

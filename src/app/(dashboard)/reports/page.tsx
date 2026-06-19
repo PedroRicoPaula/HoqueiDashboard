@@ -11,16 +11,8 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Download, Users, Euro, Package, UserCheck, Loader2, ClipboardCheck, Shirt } from 'lucide-react'
 import { AGE_GROUPS } from '@/lib/constants'
-
-const ALL_AGE_GROUP_OPTIONS = [
-  { value: 'all', label: 'Todos os escalões' },
-  { value: 'SUB11', label: 'Sub-11' },
-  { value: 'SUB13', label: 'Sub-13' },
-  { value: 'SUB15', label: 'Sub-15' },
-  { value: 'SUB17', label: 'Sub-17' },
-  { value: 'SUB19', label: 'Sub-19' },
-  { value: 'SENIORS', label: 'Seniores' },
-]
+import { useDashT } from '@/hooks/useDashT'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 function getCurrentSeason() {
   const m = new Date().getMonth() + 1
@@ -32,9 +24,9 @@ function buildSeasons() {
   return Array.from({ length: 5 }, (_, i) => current - i)
 }
 
-async function downloadFile(url: string, filename: string, toast: ReturnType<typeof useToast>['toast']) {
+async function downloadFile(url: string, filename: string, toast: ReturnType<typeof useToast>['toast'], errMsg: string) {
   const res = await fetch(url)
-  if (!res.ok) { toast({ title: 'Erro ao exportar', variant: 'destructive' }); return }
+  if (!res.ok) { toast({ title: errMsg, variant: 'destructive' }); return }
   const blob = await res.blob()
   const href = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -46,6 +38,8 @@ async function downloadFile(url: string, filename: string, toast: ReturnType<typ
 export default function ReportsPage() {
   const { can } = usePermissions()
   const { toast } = useToast()
+  const tr = useDashT()
+  const { ageGroups } = useDashLabels()
   const [athleteAgeGroup, setAthleteAgeGroup] = useState('all')
   const [financialSeason, setFinancialSeason] = useState(String(getCurrentSeason()))
   const [membersYear, setMembersYear] = useState(String(new Date().getFullYear()))
@@ -63,32 +57,32 @@ export default function ReportsPage() {
     try {
       const params = new URLSearchParams()
       if (athleteAgeGroup !== 'all') params.set('ageGroup', athleteAgeGroup)
-      await downloadFile(`/api/reports/athletes?${params}`, `atletas-${new Date().toISOString().split('T')[0]}.xlsx`, toast)
-      toast({ title: 'Lista de atletas exportada' })
+      await downloadFile(`/api/reports/athletes?${params}`, `atletas-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.athletesExported') })
     } finally { setLoad('athletes', false) }
   }
 
   const handleFinancial = async () => {
     setLoad('financial', true)
     try {
-      await downloadFile(`/api/reports/financial?season=${financialSeason}`, `financeiro-${financialSeason}-${Number(financialSeason) + 1}.xlsx`, toast)
-      toast({ title: 'Relatório financeiro exportado' })
+      await downloadFile(`/api/reports/financial?season=${financialSeason}`, `financeiro-${financialSeason}-${Number(financialSeason) + 1}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.financialExported') })
     } finally { setLoad('financial', false) }
   }
 
   const handleMembers = async () => {
     setLoad('members', true)
     try {
-      await downloadFile(`/api/reports/members?year=${membersYear}`, `socios-${membersYear}.xlsx`, toast)
-      toast({ title: 'Lista de sócios exportada' })
+      await downloadFile(`/api/reports/members?year=${membersYear}`, `socios-${membersYear}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.membersExported') })
     } finally { setLoad('members', false) }
   }
 
   const handleMaterials = async () => {
     setLoad('materials', true)
     try {
-      await downloadFile('/api/reports/materials', `materiais-${new Date().toISOString().split('T')[0]}.xlsx`, toast)
-      toast({ title: 'Inventário exportado' })
+      await downloadFile('/api/reports/materials', `materiais-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.materialsExported') })
     } finally { setLoad('materials', false) }
   }
 
@@ -97,8 +91,8 @@ export default function ReportsPage() {
     try {
       const params = new URLSearchParams()
       if (attendanceAgeGroup !== 'all') params.set('ageGroup', attendanceAgeGroup)
-      await downloadFile(`/api/reports/attendance?${params}`, `assiduidades-${new Date().toISOString().split('T')[0]}.xlsx`, toast)
-      toast({ title: 'Relatório de assiduidades exportado' })
+      await downloadFile(`/api/reports/attendance?${params}`, `assiduidades-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.attendanceExported') })
     } finally { setLoad('attendance', false) }
   }
 
@@ -107,8 +101,8 @@ export default function ReportsPage() {
     try {
       const params = new URLSearchParams()
       if (textilesSeasonFilter !== 'all') params.set('season', textilesSeasonFilter)
-      await downloadFile(`/api/reports/textiles?${params}`, `texteis-${new Date().toISOString().split('T')[0]}.xlsx`, toast)
-      toast({ title: 'Relatório de têxteis exportado' })
+      await downloadFile(`/api/reports/textiles?${params}`, `texteis-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
+      toast({ title: tr('reports.textilesExported') })
     } finally { setLoad('textiles', false) }
   }
 
@@ -117,9 +111,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <p className="text-sm text-muted-foreground">
-          Exporta dados do clube em formato Excel (.xlsx).
-        </p>
+        <p className="text-sm text-muted-foreground">{tr('reports.desc')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -129,11 +121,9 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Lista de Atletas
+                {tr('reports.athletes')}
               </CardTitle>
-              <CardDescription>
-                Exporta todos os atletas com dados pessoais, contacto, encarregado e mensalidade.
-              </CardDescription>
+              <CardDescription>{tr('reports.athletesDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
@@ -142,8 +132,9 @@ export default function ReportsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_AGE_GROUP_OPTIONS.map((g) => (
-                      <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                    <SelectItem value="all">{tr('ageGroups.all')}</SelectItem>
+                    {Object.entries(ageGroups).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -151,7 +142,7 @@ export default function ReportsPage() {
                   {loading.athletes
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
@@ -167,11 +158,9 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserCheck className="h-4 w-4" />
-                Lista de Sócios
+                {tr('reports.members')}
               </CardTitle>
-              <CardDescription>
-                Exporta todos os sócios com estado de quotas mês a mês para o ano selecionado.
-              </CardDescription>
+              <CardDescription>{tr('reports.membersDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
@@ -189,7 +178,7 @@ export default function ReportsPage() {
                   {loading.members
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
@@ -205,11 +194,9 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Euro className="h-4 w-4" />
-                Resumo Financeiro de Mensalidades
+                {tr('reports.financial')}
               </CardTitle>
-              <CardDescription>
-                Exporta o estado de pagamentos de cada atleta para a época selecionada, mês a mês.
-              </CardDescription>
+              <CardDescription>{tr('reports.financialDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
@@ -227,7 +214,7 @@ export default function ReportsPage() {
                   {loading.financial
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
@@ -243,11 +230,9 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                Inventário de Materiais
+                {tr('reports.materials')}
               </CardTitle>
-              <CardDescription>
-                Exporta todo o inventário com estado atual e atleta atribuído.
-              </CardDescription>
+              <CardDescription>{tr('reports.materialsDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
@@ -255,7 +240,7 @@ export default function ReportsPage() {
                   {loading.materials
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
@@ -271,11 +256,9 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4" />
-                Assiduidades
+                {tr('reports.attendance')}
               </CardTitle>
-              <CardDescription>
-                Exporta estatísticas de assiduidade por atleta: presenças totais, treinos próprios vs outros escalões.
-              </CardDescription>
+              <CardDescription>{tr('reports.attendanceDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
@@ -284,17 +267,17 @@ export default function ReportsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {AGE_GROUPS.map((g) => (
-                      <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
+                    <SelectItem value="all">{tr('ageGroups.all')}</SelectItem>
+                    {Object.entries(ageGroups).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
-                    <SelectItem value="all">Todos os escalões</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button onClick={handleAttendance} disabled={loading.attendance}>
                   {loading.attendance
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
@@ -310,16 +293,14 @@ export default function ReportsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Shirt className="h-4 w-4" />
-                Materiais Têxteis
+                {tr('reports.textiles')}
               </CardTitle>
-              <CardDescription>
-                Exporta o inventário de equipamento têxtil com estado, atleta atribuído e custos.
-              </CardDescription>
+              <CardDescription>{tr('reports.textilesDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
                 <Input
-                  placeholder="Época (ex: 2025/26 ou vazio = todas)"
+                  placeholder={tr('reports.seasonPlaceholder')}
                   className="w-48"
                   value={textilesSeasonFilter === 'all' ? '' : textilesSeasonFilter}
                   onChange={(e) => setTextilesSeasonFilter(e.target.value || 'all')}
@@ -328,7 +309,7 @@ export default function ReportsPage() {
                   {loading.textiles
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     : <Download className="h-4 w-4 mr-2" />}
-                  Exportar XLSX
+                  {tr('reports.exportXlsx')}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">

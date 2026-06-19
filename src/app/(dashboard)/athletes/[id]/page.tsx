@@ -33,6 +33,7 @@ import {
   TEXTILE_TYPE_LABELS, TEXTILE_STATE_COLORS, TEXTILE_STATE_LABELS,
   SESSION_TYPE_LABELS,
 } from '@/lib/constants'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 const athleteSchema = z.object({
   number: z.coerce.number().int().positive(),
@@ -133,6 +134,7 @@ function getCurrentSeason() {
 }
 
 export default function AthleteProfilePage() {
+  const dashLabels = useDashLabels()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { can } = usePermissions()
@@ -478,7 +480,7 @@ export default function AthleteProfilePage() {
                         : <span className="text-xs bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">Não pago</span>
                       }
                       <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${MATERIAL_STATE_COLORS[m.state] ?? 'bg-gray-100'}`}>
-                        {MATERIAL_STATE_LABELS[m.state] ?? m.state}
+                        {dashLabels.materialStates[m.state] ?? MATERIAL_STATE_LABELS[m.state] ?? m.state}
                       </span>
                     </div>
                   </div>
@@ -653,7 +655,7 @@ export default function AthleteProfilePage() {
                     {textileItems.map((t) => (
                       <div key={t.id} className="flex items-center justify-between text-sm gap-2">
                         <div className="min-w-0">
-                          <span className="font-medium text-sm">{TEXTILE_TYPE_LABELS[t.type] ?? t.type}</span>
+                          <span className="font-medium text-sm">{dashLabels.textileTypes[t.type] ?? TEXTILE_TYPE_LABELS[t.type] ?? t.type}</span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-xs text-muted-foreground">{t.size}</span>
                             {t.jerseyNumber && <span className="text-xs text-muted-foreground">· Nº {t.jerseyNumber}</span>}
@@ -671,7 +673,7 @@ export default function AthleteProfilePage() {
                             </span>
                           ) : null}
                           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${TEXTILE_STATE_COLORS[t.state] ?? 'bg-gray-100'}`}>
-                            {TEXTILE_STATE_LABELS[t.state] ?? t.state}
+                            {dashLabels.textileStates[t.state] ?? TEXTILE_STATE_LABELS[t.state] ?? t.state}
                           </span>
                         </div>
                       </div>
@@ -765,7 +767,7 @@ export default function AthleteProfilePage() {
                       'bg-gray-50 border-gray-200'
                     }`}
                   >
-                    <span className="text-xs font-medium">{MONTH_LABELS[m]}</span>
+                    <span className="text-xs font-medium">{dashLabels.monthsShort?.[m] ?? MONTH_LABELS[m]}</span>
                     <span className={`text-sm mt-0.5 ${isPaid ? 'text-green-600' : isLate ? 'text-red-500' : 'text-gray-400'}`}>
                       {isPaid ? '✓' : isLate ? '✗' : '—'}
                     </span>

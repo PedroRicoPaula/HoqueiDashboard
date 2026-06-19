@@ -30,6 +30,7 @@ import {
   AGE_GROUPS, AGE_GROUP_LABELS,
   AGE_GROUP_CALENDAR_COLORS,
 } from '@/lib/constants'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -103,6 +104,9 @@ function yearToSeason(year: number): string { return `${year}/${String(year + 1)
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
+  const dashLabels = useDashLabels()
+  const ageGroupLabel = (v: string) => dashLabels.ageGroups[v] ?? AGE_GROUP_LABELS[v] ?? v
+
   const { can } = usePermissions()
   const { toast } = useToast()
 
@@ -616,7 +620,7 @@ export default function AttendancePage() {
                 {format(new Date(gridSession.date), "EEEE, d 'de' MMMM yyyy", { locale: pt })}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {AGE_GROUP_LABELS[gridSession.primaryAgeGroup]} · {gridSession.time ?? ''}
+                {ageGroupLabel(gridSession.primaryAgeGroup)} · {gridSession.time ?? ''}
               </p>
             </div>
           </div>
@@ -735,7 +739,7 @@ export default function AttendancePage() {
             <div className="space-y-3">
               <div className="rounded-md border bg-white overflow-hidden">
                 <div className="bg-gray-50 px-4 py-2 border-b">
-                  <p className="text-sm font-semibold">{AGE_GROUP_LABELS[gridSession.primaryAgeGroup]} — Escalão Principal</p>
+                  <p className="text-sm font-semibold">{ageGroupLabel(gridSession.primaryAgeGroup)} — Escalão Principal</p>
                 </div>
                 <Table>
                   {tableHead}
@@ -976,7 +980,7 @@ export default function AttendancePage() {
                           className={`w-full text-left rounded p-1 mb-0.5 text-[10px] leading-tight transition-colors ${colors.bg} ${colors.text} ${colors.hover} ${isCancelled ? 'opacity-60' : ''}`}
                           onClick={() => handleDayClick(date, schedule)}
                         >
-                          <div className="font-semibold truncate">{AGE_GROUP_LABELS[schedule.ageGroup]}</div>
+                          <div className="font-semibold truncate">{ageGroupLabel(schedule.ageGroup)}</div>
                           <div className="opacity-80">{schedule.startTime}{schedule.endTime ? `–${schedule.endTime}` : ''}</div>
                           {isCancelled && (
                             <div className="flex items-center gap-0.5 text-red-600 font-medium">
@@ -1004,7 +1008,7 @@ export default function AttendancePage() {
             <span className="font-medium">Escalões:</span>
             {Object.entries(AGE_GROUP_CALENDAR_COLORS).map(([ag, c]) => (
               <span key={ag} className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${c.bg} ${c.text}`}>
-                {AGE_GROUP_LABELS[ag] ?? ag}
+                {ageGroupLabel(ag) ?? ag}
               </span>
             ))}
             <span className="ml-2 font-medium">Estado:</span>
@@ -1087,7 +1091,7 @@ export default function AttendancePage() {
               {Object.entries(groupedSchedules).sort(([a], [b]) => a.localeCompare(b)).map(([ageGroup, ags]) => (
                 <div key={ageGroup} className="rounded-lg border bg-white overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 border-b flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">{AGE_GROUP_LABELS[ageGroup] ?? ageGroup}</h3>
+                    <h3 className="font-semibold text-sm">{ageGroupLabel(ageGroup) ?? ageGroup}</h3>
                     <Badge variant="secondary">{ags.length} treino{ags.length !== 1 ? 's' : ''}/semana</Badge>
                   </div>
                   <div className="divide-y">
@@ -1174,7 +1178,7 @@ export default function AttendancePage() {
                             <p className="font-medium text-sm">#{s.number} {s.name}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell text-sm">{AGE_GROUP_LABELS[s.ageGroup]}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm">{ageGroupLabel(s.ageGroup)}</TableCell>
                         <TableCell className="text-center text-sm">{s.ownPresent}/{s.ownSessions}</TableCell>
                         <TableCell className="text-center text-sm hidden md:table-cell">
                           {s.otherPresent > 0 ? <span className="text-amber-700">{s.otherPresent}/{s.otherSessions}</span> : '—'}
@@ -1208,7 +1212,7 @@ export default function AttendancePage() {
             <DialogDescription>
               {sessionModal.schedule && (
                 <span>
-                  {AGE_GROUP_LABELS[sessionModal.schedule.ageGroup]} · {sessionModal.schedule.startTime}
+                  {ageGroupLabel(sessionModal.schedule.ageGroup)} · {sessionModal.schedule.startTime}
                   {sessionModal.schedule.endTime ? ` – ${sessionModal.schedule.endTime}` : ''}
                 </span>
               )}
@@ -1362,7 +1366,7 @@ export default function AttendancePage() {
             <DialogTitle>Eliminar Horário</DialogTitle>
             <DialogDescription>
               Tem a certeza que quer eliminar o horário de{' '}
-              {deleteScheduleDialog.schedule && <strong>{AGE_GROUP_LABELS[deleteScheduleDialog.schedule.ageGroup]} às {deleteScheduleDialog.schedule.startTime}</strong>}?
+              {deleteScheduleDialog.schedule && <strong>{ageGroupLabel(deleteScheduleDialog.schedule.ageGroup)} às {deleteScheduleDialog.schedule.startTime}</strong>}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -39,8 +39,8 @@ export default function RegisterPage() {
   }
 
   function validateStep1() {
-    if (!form.name.trim()) return 'Nome do clube obrigatório'
-    if (!form.email.trim() || !form.email.includes('@')) return 'Email inválido'
+    if (!form.name.trim()) return t('clubNameRequired')
+    if (!form.email.trim() || !form.email.includes('@')) return t('emailInvalid')
     return null
   }
 

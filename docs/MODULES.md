@@ -5,23 +5,28 @@
 
 ## 0. Landing Page & Registo (público)
 **Status:** ✅ funcional  
-**Páginas:** `/{locale}` (landing), `/{locale}/register` (registo)  
+**Páginas:** `/{locale}` (landing), `/{locale}/register` (registo), `/{locale}/privacy`, `/{locale}/terms`  
 **Permissão:** pública (sem autenticação)  
 **APIs:** `POST /api/register`
 
 ### Funcionalidades
 - Landing page marketing em 5 idiomas (PT/ES/EN/FR/IT) via `next-intl`
 - Seletor de idioma no nav (muda para `/{locale}`)
-- Secções: Hero, 6 features, Pricing toggle (mensal/anual), FAQ accordion, CTA final, footer
-- Registo 2 passos: (1) dados do clube, (2) seleção de plano
+- Secções: Hero, 6 features, How it works, Social proof, Pricing toggle (mensal/anual), FAQ accordion, CTA final, footer com links legais
+- Registo 2 passos: (1) dados do clube, (2) seleção de plano; mensagens de validação i18n
 - `POST /api/register` → cria `Club` (PENDING_PAYMENT) + `User` admin + `Stripe Checkout Session`
 - Stripe Checkout redireciona para `/login?registered=1` em sucesso
 - Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento
+- **Cookie consent banner** (`CookieBanner.tsx`): aparece na 1ª visita, persiste aceitação em `localStorage` chave `hm_cookie_consent`
+- **Política de Privacidade** (`/{locale}/privacy`) e **Termos de Utilização** (`/{locale}/terms`) — Server Components, link no footer
 
 ### Ficheiros chave
-- `src/app/[locale]/layout.tsx` — NextIntlClientProvider
+- `src/app/[locale]/layout.tsx` — NextIntlClientProvider + CookieBanner
 - `src/app/[locale]/page.tsx` — landing page (Server Component)
 - `src/app/[locale]/register/page.tsx` — wizard 2 passos (Client Component)
+- `src/app/[locale]/privacy/page.tsx` — Política de Privacidade
+- `src/app/[locale]/terms/page.tsx` — Termos de Utilização
+- `src/components/landing/CookieBanner.tsx` — banner GDPR (client component)
 - `src/components/landing/LanguageSwitcher.tsx`
 - `src/components/landing/PricingToggle.tsx`
 - `src/components/landing/FaqAccordion.tsx`
@@ -37,13 +42,23 @@
 **APIs:** usa `prisma` diretamente (super admin tem acesso global)
 
 ### Funcionalidades
-- Stats: clubes ativos, utilizadores, MRR estimado
-- Tabela de todos os clubes: nome, email, país, utilizadores, estado, data de registo
+- **Stats 4-colunas**: clubes ativos, total utilizadores, MRR, ARR
+- **MRR/ARR real**: distingue planos mensais (€59/mês) vs anuais (€590/ano ÷ 12) via `stripePriceId`
+- Tabela de todos os clubes: nome, email, país, estado, utilizadores, atletas, data de registo
 - Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
+- **Sidebar de estatísticas**: breakdown por estado (ativo/atraso/cancelado) e breakdown por país (top 5 + Outros)
 
 ### Ficheiros chave
 - `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
-- `src/app/platform/page.tsx` — Server Component, lê `prisma.club.findMany`
+- `src/app/platform/page.tsx` — Server Component, lê `prisma.club.findMany` com `_count { users, athletes }`
+
+### Constantes de preço (em `platform/page.tsx`)
+```typescript
+const PRICE_MONTHLY = 59
+const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY
+// Plano mensal: clubId.stripePriceId === STRIPE_PRICE_MONTHLY → €59/mês
+// Plano anual: qualquer outro → €590/ano ÷ 12 ≈ €49/mês para MRR
+```
 
 ---
 
@@ -633,15 +648,29 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 
 ---
 
-## 15. Auth (Setup + Login + Logout + Change Password)
+## 15. Auth (Setup + Login + Logout + Change Password + Forgot Password)
 **Status:** ✅ funcional  
-**Páginas:** `/login`, `/setup`  
+**Páginas:** `/login`, `/setup`, `/forgot-password`, `/reset-password`  
 **APIs:**
-- `POST /api/auth/login` → autenticar, set cookie
+- `POST /api/auth/login` → autenticar, set cookie `hm_token`
 - `POST /api/auth/logout` → clear cookie, increment tokenVersion
 - `GET /api/auth/me` → devolver user + permissions
 - `POST /api/auth/change-password` → mudar password (rate limited: 5/15min)
+- `POST /api/auth/forgot-password` → gera token, envia email Resend com link `/reset-password?token=...`
+- `POST /api/auth/reset-password` → valida token, atualiza password, invalida token
 - `POST /api/setup` → criar primeiro admin (só funciona se 0 utilizadores)
+
+### Forgot Password
+- Modelo `PasswordResetToken` no schema: `token String @unique`, `userId`, `expiresAt`, `used Boolean`
+- Token válido por 1 hora; marcado `used=true` após uso (não reutilizável)
+- Email enviado via `src/lib/email.ts` → Resend REST API (requer `RESEND_API_KEY`)
+- Rate limit: 3 pedidos por email / 15 min (protege contra spam)
+
+### Email Transacional (`src/lib/email.ts`)
+- Usa Resend REST API diretamente (sem SDK — evita dependências extras)
+- Funções: `sendWelcomeEmail(to, clubName, tempPassword)`, `sendPasswordResetEmail(to, resetLink)`
+- `from:` configurado para `noreply@hoqueimanager.com` (necessita domínio verificado no Resend)
+- Email de boas-vindas enviado pelo webhook Stripe após `checkout.session.completed`
 
 ### Notas
 - `/setup` serve para criar o primeiro utilizador em ambiente limpo

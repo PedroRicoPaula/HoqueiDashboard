@@ -28,6 +28,7 @@ import { Plus, Search, Pencil, Trash2, Loader2, Euro, ExternalLink, Download, Up
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AGE_GROUPS, AGE_GROUP_LABELS } from '@/lib/constants'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 function calcAge(birthDate: string): number {
   const b = new Date(birthDate)
@@ -139,6 +140,8 @@ function rowToAthlete(row: Record<string, string>) {
 // ─── Page Component ───────────────────────────────────────────────────────────
 
 export default function AthletesPage() {
+  const dashLabels = useDashLabels()
+
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -378,7 +381,7 @@ export default function AthletesPage() {
                 <TableCell className="font-mono font-medium">{athlete.number}</TableCell>
                 <TableCell className="font-medium">{athlete.name}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{AGE_GROUP_LABELS[athlete.ageGroup] ?? athlete.ageGroup}</Badge>
+                  <Badge variant="secondary">{dashLabels.ageGroups[athlete.ageGroup] ?? AGE_GROUP_LABELS[athlete.ageGroup] ?? athlete.ageGroup}</Badge>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   {athlete.birthDate ? format(new Date(athlete.birthDate), 'dd/MM/yyyy') : '-'}

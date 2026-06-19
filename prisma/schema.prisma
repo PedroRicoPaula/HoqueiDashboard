@@ -17,6 +17,7 @@ model Club {
   email                  String
   country                String            @default("pt")
   language               String            @default("pt")
+  logoUrl                String?
   status                 ClubStatus        @default(PENDING_PAYMENT)
   stripeCustomerId       String?           @unique
   stripeSubscriptionId   String?           @unique
@@ -54,21 +55,35 @@ enum ClubStatus {
 // ─────────────────────────────────────────
 
 model User {
-  id           String      @id @default(uuid())
-  clubId       String?
-  club         Club?       @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  name         String
-  email        String      @unique
-  password     String
-  isSuperAdmin Boolean     @default(false)
-  tokenVersion Int         @default(0)
-  lastLoginAt  DateTime?
-  permissions  Permission?
-  auditLogs    AuditLog[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id                  String               @id @default(uuid())
+  clubId              String?
+  club                Club?                @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name                String
+  email               String               @unique
+  password            String
+  isSuperAdmin        Boolean              @default(false)
+  tokenVersion        Int                  @default(0)
+  lastLoginAt         DateTime?
+  permissions         Permission?
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@index([clubId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }
 
 model Permission {

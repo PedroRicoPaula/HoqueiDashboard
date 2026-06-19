@@ -11,7 +11,9 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
-import { pt } from 'date-fns/locale'
+import { useAuthStore } from '@/store/authStore'
+import { getDateLocale } from '@/lib/date-locale'
+import { useDashT } from '@/hooks/useDashT'
 import type { PlaybookData } from '@/types/training.types'
 
 interface Training {
@@ -36,6 +38,9 @@ export default function TrainingDetailPage() {
   const [training, setTraining] = useState<Training | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const tr = useDashT()
+  const clubLanguage = useAuthStore((s) => s.clubLanguage) ?? 'pt'
+  const dateLocale = getDateLocale(clubLanguage)
 
   const canEdit = can('editTraining')
 
@@ -76,9 +81,9 @@ export default function TrainingDetailPage() {
         body: JSON.stringify(playbookData),
       })
       if (res.ok) {
-        toast({ title: 'Quadro tático guardado' })
+        toast({ title: tr('training.tacticalSaved') })
       } else {
-        toast({ title: 'Erro ao guardar', variant: 'destructive' })
+        toast({ title: tr('common.errorSave'), variant: 'destructive' })
       }
     } finally {
       setSaving(false)
@@ -96,10 +101,10 @@ export default function TrainingDetailPage() {
   if (!training) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-muted-foreground">Treino não encontrado</p>
+        <p className="text-muted-foreground">{tr('common.noData')}</p>
         <Button onClick={() => router.push('/training')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Voltar
+          {tr('common.back')}
         </Button>
       </div>
     )
@@ -120,7 +125,7 @@ export default function TrainingDetailPage() {
         <div>
           <h2 className="font-semibold text-white text-sm">{training.title}</h2>
           <p className="text-xs text-gray-400">
-            {format(new Date(training.date), "d 'de' MMMM 'de' yyyy", { locale: pt })}
+            {format(new Date(training.date), "d MMMM yyyy", { locale: dateLocale })}
           </p>
         </div>
       </div>

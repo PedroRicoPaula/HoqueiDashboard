@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAuthStore } from '@/store/authStore'
 import { useSidebarStore } from '@/store/sidebarStore'
+import { useDashT } from '@/hooks/useDashT'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,50 +17,48 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useState, useEffect } from 'react'
 
-// ─── Nav structure ────────────────────────────────────────────────────────────
-
-const NAV_GROUPS = [
-  {
-    id: 'desporto',
-    label: 'Desporto',
-    items: [
-      { href: '/athletes',   label: 'Atletas',       icon: Users,          permission: 'viewAthletes' },
-      { href: '/fees',       label: 'Mensalidades',  icon: CreditCard,     permission: 'viewFees' },
-      { href: '/attendance', label: 'Assiduidades',  icon: ClipboardCheck, permission: 'viewAttendance' },
-      { href: '/training',   label: 'Treinos',       icon: Dumbbell,       permission: 'viewTraining' },
-    ],
-  },
-  {
-    id: 'materiais',
-    label: 'Materiais',
-    items: [
-      { href: '/materials', label: 'Equip. Hóquei',     icon: Package, permission: 'viewMaterials' },
-      { href: '/textiles',  label: 'Materiais Têxteis', icon: Shirt,   permission: 'viewTextiles' },
-    ],
-  },
-  {
-    id: 'clube',
-    label: 'Clube',
-    items: [
-      { href: '/members',   label: 'Sócios',          icon: UserCheck,  permission: 'viewMembers' },
-      { href: '/sponsors',  label: 'Patrocinadores',  icon: Handshake,  permission: 'viewSponsors' },
-      { href: '/travel',    label: 'Viagens',         icon: Plane,      permission: 'viewTravel' },
-      { href: '/direction', label: 'Direção',         icon: Building2,  permission: 'viewDirection' },
-    ],
-  },
-  {
-    id: 'gestao',
-    label: 'Gestão',
-    items: [
-      { href: '/reports',           label: 'Relatórios', icon: FileBarChart,  permission: 'viewAthletes' },
-      { href: '/settings',          label: 'Definições', icon: Settings,      permission: 'isAdmin' },
-      { href: '/admin/permissions', label: 'Permissões', icon: Settings,      permission: 'isAdmin' },
-      { href: '/admin/audit',       label: 'Atividade',  icon: ClipboardList, permission: 'isAdmin' },
-    ],
-  },
-] as const
-
-// ─── Component ────────────────────────────────────────────────────────────────
+function useNavGroups(t: ReturnType<typeof useDashT>) {
+  return [
+    {
+      id: 'desporto',
+      label: t('nav.sport'),
+      items: [
+        { href: '/athletes',   label: t('nav.athletes'),   icon: Users,          permission: 'viewAthletes' },
+        { href: '/fees',       label: t('nav.fees'),       icon: CreditCard,     permission: 'viewFees' },
+        { href: '/attendance', label: t('nav.attendance'), icon: ClipboardCheck, permission: 'viewAttendance' },
+        { href: '/training',   label: t('nav.training'),   icon: Dumbbell,       permission: 'viewTraining' },
+      ],
+    },
+    {
+      id: 'materiais',
+      label: t('nav.materialsGroup'),
+      items: [
+        { href: '/materials', label: t('nav.equipment'), icon: Package, permission: 'viewMaterials' },
+        { href: '/textiles',  label: t('nav.textiles'),  icon: Shirt,   permission: 'viewTextiles' },
+      ],
+    },
+    {
+      id: 'clube',
+      label: t('nav.club'),
+      items: [
+        { href: '/members',   label: t('nav.members'),   icon: UserCheck, permission: 'viewMembers' },
+        { href: '/sponsors',  label: t('nav.sponsors'),  icon: Handshake, permission: 'viewSponsors' },
+        { href: '/travel',    label: t('nav.travel'),    icon: Plane,     permission: 'viewTravel' },
+        { href: '/direction', label: t('nav.direction'), icon: Building2, permission: 'viewDirection' },
+      ],
+    },
+    {
+      id: 'gestao',
+      label: t('nav.management'),
+      items: [
+        { href: '/reports',           label: t('nav.reports'),     icon: FileBarChart,  permission: 'viewAthletes' },
+        { href: '/settings',          label: t('nav.settings'),    icon: Settings,      permission: 'isAdmin' },
+        { href: '/admin/permissions', label: t('nav.permissions'), icon: Settings,      permission: 'isAdmin' },
+        { href: '/admin/audit',       label: t('nav.activity'),    icon: ClipboardList, permission: 'isAdmin' },
+      ],
+    },
+  ]
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -68,13 +67,14 @@ export function Sidebar() {
   const { user, logout } = useAuthStore()
   const { open, close } = useSidebarStore()
   const { toast } = useToast()
+  const t = useDashT()
+
+  const NAV_GROUPS = useNavGroups(t)
 
   const [pendingHref, setPendingHref] = useState<string | null>(null)
 
-  // Clear pending when navigation completes
   useEffect(() => { setPendingHref(null) }, [pathname])
 
-  // Track which groups are open. Default: all open.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     if (typeof window === 'undefined') return { desporto: true, materiais: true, clube: true, gestao: true }
     try {
@@ -85,7 +85,6 @@ export function Sidebar() {
     }
   })
 
-  // Auto-expand the group containing the active route
   useEffect(() => {
     for (const group of NAV_GROUPS) {
       const isActive = group.items.some((item) => pathname.startsWith(item.href))
@@ -108,7 +107,7 @@ export function Sidebar() {
     try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {}
     logout()
     router.push('/login')
-    toast({ title: 'Sessão terminada' })
+    toast({ title: t('nav.logout') })
   }
 
   const isItemVisible = (permission: string | null) => {
@@ -118,8 +117,10 @@ export function Sidebar() {
     return can(permission as any)
   }
 
-  const isItemActive = (href: string) =>
-    pathname.startsWith(href)
+  const isItemActive = (href: string) => pathname.startsWith(href)
+
+  const clubName = user?.clubName ?? 'HoqueiManager'
+  const clubLogo = user?.clubLogoUrl ?? null
 
   return (
     <aside
@@ -129,24 +130,29 @@ export function Sidebar() {
         open ? 'translate-x-0' : '-translate-x-full'
       )}
     >
-      {/* Logo */}
+      {/* Club branding */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-        <Image
-          src="/uploads/pdlLogo.png"
-          alt="HC PDL"
-          width={36}
-          height={36}
-          className="rounded-full flex-shrink-0 object-contain"
-        />
+        {clubLogo ? (
+          <Image
+            src={clubLogo}
+            alt={clubName}
+            width={36}
+            height={36}
+            className="rounded-full flex-shrink-0 object-contain"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-sm font-bold text-white">{clubName.charAt(0).toUpperCase()}</span>
+          </div>
+        )}
         <div className="min-w-0">
-          <p className="font-bold text-sm leading-tight truncate text-white">Hóquei Clube PDL</p>
-          <p className="text-xs text-white/50 leading-tight">Gestão</p>
+          <p className="font-bold text-sm leading-tight truncate text-white">{clubName}</p>
+          <p className="text-xs text-white/50 leading-tight">{t('nav.manage')}</p>
         </div>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto">
-        {/* Dashboard — standalone */}
         <Link
           href="/"
           onClick={() => { setPendingHref('/'); close() }}
@@ -160,10 +166,9 @@ export function Sidebar() {
           {pendingHref === '/'
             ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
             : <LayoutDashboard className="h-4 w-4 flex-shrink-0" />}
-          Dashboard
+          {t('nav.dashboard')}
         </Link>
 
-        {/* Groups */}
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => isItemVisible(item.permission))
           if (visibleItems.length === 0) return null
@@ -173,23 +178,17 @@ export function Sidebar() {
 
           return (
             <div key={group.id} className="pt-1">
-              {/* Group header */}
               <button
                 onClick={() => toggleGroup(group.id)}
                 className={cn(
                   'w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors',
-                  groupHasActive
-                    ? 'text-white/90'
-                    : 'text-white/40 hover:text-white/70'
+                  groupHasActive ? 'text-white/90' : 'text-white/40 hover:text-white/70'
                 )}
               >
                 <span>{group.label}</span>
-                <ChevronDown
-                  className={cn('h-3 w-3 transition-transform', isOpen ? 'rotate-0' : '-rotate-90')}
-                />
+                <ChevronDown className={cn('h-3 w-3 transition-transform', isOpen ? 'rotate-0' : '-rotate-90')} />
               </button>
 
-              {/* Group items */}
               {isOpen && (
                 <div className="mt-0.5 space-y-0.5">
                   {visibleItems.map((item) => {
@@ -241,7 +240,7 @@ export function Sidebar() {
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Terminar Sessão
+          {t('nav.logout')}
         </Button>
       </div>
     </aside>

@@ -16,8 +16,11 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Trash2, Loader2, Plane, MapPin, Clock, Car, ChefHat, Pencil, Users, Euro, CheckSquare, X } from 'lucide-react'
 import { format, isPast } from 'date-fns'
-import { pt } from 'date-fns/locale'
+import type { Locale } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { useDashT } from '@/hooks/useDashT'
+import { useAuthStore } from '@/store/authStore'
+import { getDateLocale } from '@/lib/date-locale'
 
 const travelSchema = z.object({
   opponent: z.string().min(1, 'Adversário obrigatório'),
@@ -55,7 +58,10 @@ interface Travel {
 interface DirectionMember { id: string; name: string; role: string }
 interface Athlete { id: string; name: string; number: number; ageGroup: string }
 
-function TravelCard({ travel, onEdit, onDelete, canEdit }: { travel: Travel; onEdit: () => void; onDelete: () => void; canEdit: boolean }) {
+function TravelCard({ travel, onEdit, onDelete, canEdit, dateLocale, tr }: {
+  travel: Travel; onEdit: () => void; onDelete: () => void; canEdit: boolean
+  dateLocale: Locale; tr: (key: string) => string
+}) {
   const budget = (travel.budgetTransport ?? 0) + (travel.budgetMeal ?? 0) + (travel.budgetAccommodation ?? 0)
   return (
     <Card>
@@ -76,8 +82,8 @@ function TravelCard({ travel, onEdit, onDelete, canEdit }: { travel: Travel; onE
           <div className="flex items-center gap-2">
             <Clock className="h-3.5 w-3.5" />
             <span>
-              {format(new Date(travel.departureDate), "d 'de' MMMM 'de' yyyy", { locale: pt })}
-              {travel.departureTime && ` às ${travel.departureTime}`}
+              {format(new Date(travel.departureDate), "d MMMM yyyy", { locale: dateLocale })}
+              {travel.departureTime && ` · ${travel.departureTime}`}
             </span>
           </div>
           {travel.transport && (
@@ -89,19 +95,19 @@ function TravelCard({ travel, onEdit, onDelete, canEdit }: { travel: Travel; onE
           {travel.drivers.length > 0 && (
             <div className="flex items-start gap-2">
               <Car className="h-3.5 w-3.5 mt-0.5" />
-              <span>Condutores: {travel.drivers.join(', ')}</span>
+              <span>{tr('travel.drivers')}: {travel.drivers.join(', ')}</span>
             </div>
           )}
           {travel.convocados.length > 0 && (
             <div className="flex items-start gap-2">
               <Users className="h-3.5 w-3.5 mt-0.5" />
-              <span>{travel.convocados.length} convocado{travel.convocados.length !== 1 ? 's' : ''}</span>
+              <span>{travel.convocados.length} {tr('travel.squad').toLowerCase()}</span>
             </div>
           )}
           {budget > 0 && (
             <div className="flex items-center gap-2">
               <Euro className="h-3.5 w-3.5" />
-              <span>Orçamento: {budget.toFixed(2)}€</span>
+              <span>{tr('travel.budget')}: {budget.toFixed(2)}€</span>
             </div>
           )}
           {travel.meal && (
@@ -113,7 +119,7 @@ function TravelCard({ travel, onEdit, onDelete, canEdit }: { travel: Travel; onE
           {travel.checklistItems.length > 0 && (
             <div className="flex items-center gap-2">
               <CheckSquare className="h-3.5 w-3.5" />
-              <span>{travel.checklistItems.length} item{travel.checklistItems.length !== 1 ? 's' : ''} no checklist</span>
+              <span>{travel.checklistItems.length} item{travel.checklistItems.length !== 1 ? 's' : ''}</span>
             </div>
           )}
           {travel.pavilionUrl && (
@@ -156,6 +162,9 @@ export default function TravelPage() {
 
   const { can } = usePermissions()
   const { toast } = useToast()
+  const tr = useDashT()
+  const clubLanguage = useAuthStore((s) => s.clubLanguage) ?? 'pt'
+  const dateLocale = getDateLocale(clubLanguage)
 
   const {
     register, handleSubmit, reset, formState: { errors },
@@ -258,8 +267,8 @@ export default function TravelPage() {
       const method = editingTravel ? 'PUT' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: 'Erro', description: json.error, variant: 'destructive' }); return }
-      toast({ title: editingTravel ? 'Viagem atualizada' : 'Viagem criada' })
+      if (!res.ok) { toast({ title: tr('common.error'), description: json.error, variant: 'destructive' }); return }
+      toast({ title: editingTravel ? tr('travel.saved') : tr('travel.created') })
       setDialogOpen(false)
       fetchTravels()
     } finally { setSaving(false) }
@@ -268,8 +277,8 @@ export default function TravelPage() {
   const confirmDelete = async () => {
     if (!deleteDialog.travel) return
     const res = await fetch(`/api/travel/${deleteDialog.travel.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Viagem eliminada' }); fetchTravels() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    if (res.ok) { toast({ title: tr('travel.deleted') }); fetchTravels() }
+    else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
     setDeleteDialog({ open: false, travel: null })
   }
 
@@ -288,7 +297,7 @@ export default function TravelPage() {
     <div className="space-y-6">
       <div className="flex justify-end">
         {can('editTravel') && (
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Nova Viagem</Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />{tr('travel.new')}</Button>
         )}
       </div>
 
@@ -298,14 +307,14 @@ export default function TravelPage() {
         <>
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Próximas Viagens ({upcoming.length})
+              {tr('travel.upcoming')} ({upcoming.length})
             </h2>
             {upcoming.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Nenhuma viagem programada</p>
+              <p className="text-muted-foreground text-sm">{tr('travel.noUpcoming')}</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {upcoming.map((t) => (
-                  <TravelCard key={t.id} travel={t} canEdit={can('editTravel')} onEdit={() => openEdit(t)} onDelete={() => setDeleteDialog({ open: true, travel: t })} />
+                  <TravelCard key={t.id} travel={t} canEdit={can('editTravel')} onEdit={() => openEdit(t)} onDelete={() => setDeleteDialog({ open: true, travel: t })} dateLocale={dateLocale} tr={tr} />
                 ))}
               </div>
             )}
@@ -313,15 +322,15 @@ export default function TravelPage() {
 
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Viagens Passadas ({past.length})
+              {tr('travel.past')} ({past.length})
             </h2>
             {past.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Sem viagens registadas</p>
+              <p className="text-muted-foreground text-sm">{tr('common.noData')}</p>
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-70">
                   {(showAllPast ? past : past.slice(0, 6)).map((t) => (
-                    <TravelCard key={t.id} travel={t} canEdit={can('editTravel')} onEdit={() => openEdit(t)} onDelete={() => setDeleteDialog({ open: true, travel: t })} />
+                    <TravelCard key={t.id} travel={t} canEdit={can('editTravel')} onEdit={() => openEdit(t)} onDelete={() => setDeleteDialog({ open: true, travel: t })} dateLocale={dateLocale} tr={tr} />
                   ))}
                 </div>
                 {past.length > 6 && (
@@ -331,7 +340,7 @@ export default function TravelPage() {
                     className="mt-3 text-muted-foreground"
                     onClick={toggleShowAllPast}
                   >
-                    {showAllPast ? 'Ver menos' : `Ver todas (${past.length - 6} ocultas)`}
+                    {showAllPast ? tr('common.seeLess') : tr('common.seeAll', { count: String(past.length - 6) })}
                   </Button>
                 )}
               </>
@@ -343,7 +352,7 @@ export default function TravelPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingTravel ? 'Editar Viagem' : 'Nova Viagem'}</DialogTitle>
+            <DialogTitle>{editingTravel ? tr('travel.editTitle') : tr('travel.new')}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {/* Basic info */}
@@ -510,12 +519,12 @@ export default function TravelPage() {
       <Dialog open={deleteDialog.open} onOpenChange={(o) => setDeleteDialog({ open: o, travel: deleteDialog.travel })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Viagem</DialogTitle>
-            <DialogDescription>Tem a certeza que quer eliminar a viagem contra {deleteDialog.travel?.opponent}?</DialogDescription>
+            <DialogTitle>{tr('travel.deleteTitle')}</DialogTitle>
+            <DialogDescription>{tr('travel.deleteDesc', { opponent: deleteDialog.travel?.opponent ?? '' })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, travel: null })}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Eliminar</Button>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, travel: null })}>{tr('common.cancel')}</Button>
+            <Button variant="destructive" onClick={confirmDelete}>{tr('common.delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

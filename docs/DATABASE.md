@@ -34,6 +34,7 @@ Club {
   indexes: slug, status
 }
 enum ClubStatus { PENDING_PAYMENT ACTIVE PAST_DUE CANCELLED SUSPENDED }
+  logoUrl                String?              ← URL do logo do clube (R2 ou /uploads/)
 ```
 **Ciclo de vida:** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed) → `CANCELLED` (subscription.deleted).
 
@@ -299,6 +300,21 @@ enum TextileType { GAME_SHIRT GAME_SHORTS GAME_SOCKS GK_SHIRT TRAINING_TOP TRAIN
 enum TextileState { STOCK ASSIGNED DAMAGED LOST }
 ```
 
+### PasswordResetToken
+```prisma
+PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   FK → User (onDelete: Cascade)
+  token     String   @unique  ← token URL-safe random, hashed
+  expiresAt DateTime           ← 1h após criação
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  indexes: token, userId
+}
+```
+> Usado no fluxo forgot-password: `POST /api/auth/forgot-password` cria token + envia email via Resend.
+> `POST /api/auth/reset-password` valida token (não expirado, não usado) → atualiza password + marca `used=true`.
+
 ### RateLimit
 ```prisma
 RateLimit {
@@ -337,6 +353,7 @@ RateLimit {
 | `20260605000001_improvements` | Jun 2026 | `User.lastLoginAt DateTime?`; `Quota.notes String?`; 5 novos campos em `Travel` (convocados, budgetTransport, budgetMeal, budgetAccommodation, checklistItems); novo modelo `DirectionSalaryPayment` | ✅ aplicada |
 | `20260605000002_remove_sponsor_logo` | Jun 2026 | `DROP COLUMN "logoUrl"` em `Sponsor` — logos removidos da funcionalidade | ✅ aplicada |
 | `20260607000001_sponsor_enhancements` | Jun 2026 | Re-adiciona `logoUrl` + 5 campos novos: `sponsorTypes String[]`, `equipmentZones Int[]`, `bannerCount Int?`, `includesSticks Boolean`, `includesShinguards Boolean` | ✅ aplicada |
+| `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:
@@ -366,12 +383,19 @@ npx prisma db seed
 # Clubes são criados pelo fluxo de registo (/api/register), não pelo seed
 ```
 
-## Migration inicial HoqueiManager
-Schema foi completamente reescrito para multi-tenant. Correr sempre do zero:
+## Setup local (fresh install)
+A tabela `Club` e colunas `clubId` foram adicionadas ao schema sem migration explícita. `prisma migrate dev` falha em BD nova porque `20260619000001` tenta `ALTER TABLE "Club"` antes da tabela existir.
+
+**Workaround dev:**
 ```bash
-npx prisma migrate dev --name init   # primeira vez
-npx prisma migrate deploy            # deploy em produção
+$env:DATABASE_URL="postgresql://postgres:postgresql123@localhost:5432/hoqueimanager"
+npx prisma db push   # sincroniza schema sem migrations (ok para dev)
+npx prisma db seed   # cria superadmin
 ```
+
+**Produção:** `prisma migrate deploy` funciona normalmente — Club existia antes do deploy das migrations recentes. Não afetado.
+
+Fix técnico correto (futuro): squash das migrations para incluir Club na migration init, ou criar migration `20260616000001_multi_tenant_base` com o CREATE TABLE Club e ALTER TABLE ... ADD COLUMN clubId.
 
 ---
 

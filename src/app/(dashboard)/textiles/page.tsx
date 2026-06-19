@@ -25,6 +25,7 @@ import {
   TEXTILE_CATEGORY_LABELS, TEXTILE_TYPE_LABELS, TEXTILE_TYPES_BY_CATEGORY,
   TEXTILE_SIZES_ALL, TEXTILE_STATE_LABELS, TEXTILE_STATE_COLORS,
 } from '@/lib/constants'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ function getCurrentSeason() {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TextilesPage() {
+  const dashLabels = useDashLabels()
   const { can } = usePermissions()
   const { toast } = useToast()
 
@@ -378,7 +380,7 @@ export default function TextilesPage() {
                 <TableRow key={item.id}>
                   <TableCell>
                     <div>
-                      <p className="font-medium text-sm">{TEXTILE_TYPE_LABELS[item.type] ?? item.type}</p>
+                      <p className="font-medium text-sm">{dashLabels.textileTypes[item.type] ?? TEXTILE_TYPE_LABELS[item.type] ?? item.type}</p>
                       {item.jerseyNumber && (
                         <p className="text-xs text-muted-foreground">Nº {item.jerseyNumber}</p>
                       )}
@@ -392,14 +394,14 @@ export default function TextilesPage() {
                   </TableCell>
                   <TableCell className="hidden sm:table-cell font-medium">{item.size}</TableCell>
                   <TableCell className="hidden sm:table-cell text-sm">
-                    {TEXTILE_CATEGORY_LABELS[item.category] ?? item.category}
+                    {dashLabels.textileCategories[item.category] ?? TEXTILE_CATEGORY_LABELS[item.category] ?? item.category}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                     {item.season}
                   </TableCell>
                   <TableCell>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TEXTILE_STATE_COLORS[item.state] ?? 'bg-gray-100'}`}>
-                      {TEXTILE_STATE_LABELS[item.state] ?? item.state}
+                      {dashLabels.textileStates[item.state] ?? TEXTILE_STATE_LABELS[item.state] ?? item.state}
                     </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm">

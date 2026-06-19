@@ -7,9 +7,30 @@
     "badge": "Gestione hockey su pattini",
     "title": "Il tuo club,\nben gestito",
     "subtitle": "Atleti, soci, materiali, viaggi, allenamenti e altro — tutto in una piattaforma costruita per i club di hockey su pattini.",
-    "cta": "Inizia gratis per 14 giorni",
-    "ctaSub": "Nessuna carta di credito richiesta. Annulla quando vuoi.",
+    "cta": "Inizia gratis",
+    "ctaSub": "14 giorni gratuiti. Nessuna carta di credito. Annulla quando vuoi.",
     "demo": "Guarda la demo"
+  },
+  "howItWorks": {
+    "title": "Come funziona",
+    "subtitle": "3 passaggi per un club completamente digitale.",
+    "steps": [
+      {
+        "step": "1",
+        "title": "Registra il tuo club",
+        "desc": "Crea il tuo account in meno di 2 minuti. Bastano il nome del club e l'email."
+      },
+      {
+        "step": "2",
+        "title": "Importa i tuoi dati",
+        "desc": "Importa atleti tramite CSV o aggiungili uno a uno. La piattaforma ti guida ad ogni passo."
+      },
+      {
+        "step": "3",
+        "title": "Gestisci tutto in un solo posto",
+        "desc": "Dashboard in tempo reale, report automatici e controllo totale del tuo club."
+      }
+    ]
   },
   "features": {
     "title": "Tutto ciò di cui il tuo club ha bisogno",
@@ -24,7 +45,7 @@
         "desc": "Gestione delle quote mensili con calendario visivo e controllo dei pagamenti."
       },
       "materials": {
-        "title": "Materiali",
+        "title": "Materiali & Tessili",
         "desc": "Inventario delle attrezzature per categoria, stato e atleta assegnato."
       },
       "training": {
@@ -32,7 +53,7 @@
         "desc": "Calendario presenze e lavagna tattica digitale con animazioni."
       },
       "travel": {
-        "title": "Viaggi",
+        "title": "Trasferte",
         "desc": "Logistica completa: trasporto, autisti, pasti e lista dei convocati."
       },
       "finance": {
@@ -40,6 +61,15 @@
         "desc": "Dashboard con entrate, spese e saldo netto in tempo reale."
       }
     }
+  },
+  "social": {
+    "title": "Club che si fidano di HoqueiManager",
+    "stats": [
+      { "value": "50+", "label": "Club attivi" },
+      { "value": "2.000+", "label": "Atleti gestiti" },
+      { "value": "5", "label": "Paesi" },
+      { "value": "99,9%", "label": "Uptime" }
+    ]
   },
   "pricing": {
     "title": "Prezzo semplice e trasparente",
@@ -63,6 +93,11 @@
     "cta": "Inizia ora",
     "guarantee": "Garanzia 14 giorni. Non soddisfatto? Rimborso completo."
   },
+  "cta": {
+    "title": "Pronto a digitalizzare il tuo club?",
+    "subtitle": "Unisciti a decine di club che hanno già semplificato la loro gestione.",
+    "button": "Inizia gratis oggi"
+  },
   "faq": {
     "title": "Domande frequenti",
     "items": [
@@ -72,28 +107,48 @@
       },
       {
         "q": "I dati sono al sicuro?",
-        "a": "Sì. I dati di ogni club sono completamente isolati. Utilizziamo PostgreSQL con crittografia e backup automatici giornalieri."
+        "a": "Sì. I dati di ogni club sono completamente isolati. Utilizziamo PostgreSQL con crittografia e backup automatici giornalieri conformi al GDPR."
       },
       {
         "q": "Funziona su mobile?",
-        "a": "Sì. La piattaforma è responsive e può essere installata come app PWA sul telefono."
+        "a": "Sì. La piattaforma è responsive e può essere installata come app PWA su Android e iOS — senza passare per uno store."
       },
       {
         "q": "Posso cambiare la lingua dopo?",
-        "a": "Sì. La lingua della dashboard può essere modificata in qualsiasi momento nelle impostazioni del club."
+        "a": "Sì. La lingua della dashboard può essere modificata in qualsiasi momento nelle impostazioni del club, con supporto PT, ES, EN, FR e IT."
+      },
+      {
+        "q": "Quanti utenti posso avere?",
+        "a": "Illimitati. Puoi creare account per allenatori, dirigenti, segretari — ognuno con permessi granulari definiti dall'amministratore."
+      },
+      {
+        "q": "È possibile importare dati da un altro sistema?",
+        "a": "Sì. La piattaforma supporta l'importazione di atleti tramite CSV. Per importazioni più grandi, contatta il supporto."
+      },
+      {
+        "q": "Cosa succede se un pagamento fallisce?",
+        "a": "Il sistema riproverà automaticamente. Riceverai notifiche via email. L'account viene sospeso temporaneamente se il problema non viene risolto in 7 giorni."
+      },
+      {
+        "q": "C'è un periodo di prova?",
+        "a": "Sì. I primi 14 giorni sono gratuiti dopo la registrazione. Nessuna carta di credito richiesta per iniziare."
       }
     ]
   },
   "footer": {
     "rights": "Tutti i diritti riservati.",
-    "language": "Lingua"
+    "language": "Lingua",
+    "privacy": "Informativa sulla privacy",
+    "terms": "Termini di utilizzo"
   },
   "register": {
     "title": "Crea account",
     "step1": "Dati del club",
     "step2": "Scegli piano",
     "clubName": "Nome del club",
+    "clubNameRequired": "Nome del club obbligatorio",
     "email": "Email dell'amministratore",
+    "emailInvalid": "Email non valida",
     "country": "Paese",
     "language": "Lingua della dashboard",
     "next": "Continua",

@@ -197,6 +197,62 @@ toast({ title: 'Erro', description: json.error, variant: 'destructive' })
 
 ---
 
+## Dashboard i18n
+
+O dashboard (`/(dashboard)/`) **não usa next-intl** — não está sob `[locale]/`. Em vez disso usa dois hooks:
+
+### `useDashT(key, vars?)` — traduções de texto
+```typescript
+import { useDashT } from '@/hooks/useDashT'
+const t = useDashT()
+// t('nav.athletes'), t('common.save'), t('dashboard.noAlerts')
+```
+Lê `clubLanguage` do Zustand auth store. Fallback para PT. Chaves em `messages/dashboard/{pt,en,es,fr,it}.json`.
+
+### `useDashLabels()` — labels de enums
+```typescript
+import { useDashLabels } from '@/hooks/useDashLabels'
+const labels = useDashLabels()
+// labels.ageGroups['SUB11'], labels.materialStates['FREE']
+// labels.monthsShort?.[9] → "Set"  (índice = número do mês, 1-12; índice 0 vazio)
+// labels.monthsFull?.[9] → "Setembro"
+```
+Devolve: `ageGroups`, `materialStates`, `textileStates`, `textileCategories`, `textileTypes`, `materialCategories`, `directionRoles`, `sessionTypes`, `monthsShort`, `monthsFull`, `sponsorTypes`, `auditActions`, `auditEntities`.
+
+**Padrão com fallback** (evitar quebrar se chave em falta):
+```typescript
+labels.materialStates[item.state] ?? MATERIAL_STATE_LABELS[item.state] ?? item.state
+```
+
+**Arrays de meses** (slice(1) para remover índice 0 vazio → array Jan..Dez de 12 itens):
+```typescript
+const MONTHS = labels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
+```
+
+### `getDateLocale(lang)` — locale para date-fns
+```typescript
+import { getDateLocale } from '@/lib/date-locale'
+format(date, "d MMMM yyyy", { locale: getDateLocale(clubLanguage) })
+```
+**Nunca usar `{ locale: pt }` hardcoded nas páginas do dashboard.**
+
+### Adicionar novas chaves
+Adicionar a chave nos **5 ficheiros** `messages/dashboard/*.json` em simultâneo.
+
+### Collision com variável `t` em `.map((t) => ...)`
+Se a página usa `.map((t) => ...)` (ex: training, travel), a variável de iteração `t` sombreia o return de `useDashT()`. Usar alias:
+```typescript
+const tr = useDashT()   // ← alias para evitar collision com t de .map((t) => ...)
+```
+
+### Sub-componentes sem acesso a hooks
+Sub-componentes definidos fora do componente de página (ex: `TravelCard`, `ContractBadge`, `SponsorTypeBadge`, `buildDetailLines`) não podem chamar hooks. Passar `tr` e `dateLocale` como props:
+```typescript
+function TravelCard({ travel, tr, dateLocale }: { tr: (k: string) => string; dateLocale: Locale }) { ... }
+```
+
+---
+
 ## Constantes Partilhadas
 
 Todas as constantes de UI partilhadas estão em `src/lib/constants.ts`. Importar sempre daqui:
@@ -207,7 +263,7 @@ import { AGE_GROUPS, AGE_GROUP_LABELS, MATERIAL_STATE_LABELS, MATERIAL_STATE_COL
          DIRECTION_ROLE_COLORS } from '@/lib/constants'
 ```
 
-Ao criar novos módulos, adicionar constantes de label/cor a este ficheiro em vez de as definir localmente.
+Estas constantes são PT-only — usar como fallback em páginas com `useDashLabels()`. Ao criar novos módulos, adicionar constantes a este ficheiro **e** as traduções aos 5 JSON files do dashboard.
 
 ---
 

@@ -6,12 +6,17 @@ interface User {
   id: string
   name: string
   email: string
+  isSuperAdmin?: boolean
+  clubName?: string | null
+  clubLanguage?: string | null
+  clubLogoUrl?: string | null
 }
 
 interface AuthState {
   user: User | null
   permissions: Omit<Permission, 'id' | 'userId'> | null
-  setAuth: (user: User, permissions: Omit<Permission, 'id' | 'userId'>) => void
+  clubLanguage: string | null
+  setAuth: (user: User, permissions: Omit<Permission, 'id' | 'userId'> | null) => void
   logout: () => void
 }
 
@@ -20,9 +25,14 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       permissions: null,
-      setAuth: (user, permissions) => set({ user, permissions }),
-      logout: () => set({ user: null, permissions: null }),
+      clubLanguage: null,
+      setAuth: (user, permissions) => set({
+        user,
+        permissions,
+        clubLanguage: user.clubLanguage ?? null,
+      }),
+      logout: () => set({ user: null, permissions: null, clubLanguage: null }),
     }),
-    { name: 'hcpdl-auth' }
+    { name: 'hm-auth' }
   )
 )

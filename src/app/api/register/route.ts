@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { clubId: club.id, userId: user.id },
+      metadata: { clubId: club.id, userId: user.id, tempPassword },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?registered=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${language}/register?cancelled=1`,
       subscription_data: {

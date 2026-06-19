@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useDashLabels } from '@/hooks/useDashLabels'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -20,18 +21,18 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Season: Sep-Jun (10 months, Jul/Aug = férias)
-const SEASON_MONTHS: { month: number; label: string; labelFull: string; isSecondYear: boolean }[] = [
-  { month: 9,  label: 'Set', labelFull: 'Setembro',  isSecondYear: false },
-  { month: 10, label: 'Out', labelFull: 'Outubro',   isSecondYear: false },
-  { month: 11, label: 'Nov', labelFull: 'Novembro',  isSecondYear: false },
-  { month: 12, label: 'Dez', labelFull: 'Dezembro',  isSecondYear: false },
-  { month: 1,  label: 'Jan', labelFull: 'Janeiro',   isSecondYear: true },
-  { month: 2,  label: 'Fev', labelFull: 'Fevereiro', isSecondYear: true },
-  { month: 3,  label: 'Mar', labelFull: 'Março',     isSecondYear: true },
-  { month: 4,  label: 'Abr', labelFull: 'Abril',     isSecondYear: true },
-  { month: 5,  label: 'Mai', labelFull: 'Maio',      isSecondYear: true },
-  { month: 6,  label: 'Jun', labelFull: 'Junho',     isSecondYear: true },
+// Season: Sep-Jun (10 months) — built dynamically in the component using labels from useDashLabels
+const SEASON_MONTH_NUMS = [
+  { month: 9,  isSecondYear: false },
+  { month: 10, isSecondYear: false },
+  { month: 11, isSecondYear: false },
+  { month: 12, isSecondYear: false },
+  { month: 1,  isSecondYear: true },
+  { month: 2,  isSecondYear: true },
+  { month: 3,  isSecondYear: true },
+  { month: 4,  isSecondYear: true },
+  { month: 5,  isSecondYear: true },
+  { month: 6,  isSecondYear: true },
 ]
 
 const AGE_GROUPS = [
@@ -100,6 +101,13 @@ interface PaidCellDialog {
 }
 
 export default function FeesPage() {
+  const dashLabels = useDashLabels()
+  const SEASON_MONTHS = SEASON_MONTH_NUMS.map((sm) => ({
+    ...sm,
+    label: dashLabels.monthsShort?.[sm.month] ?? '',
+    labelFull: dashLabels.monthsFull?.[sm.month] ?? '',
+  }))
+
   const [seasonStart, setSeasonStart] = useState(getCurrentSeasonStart())
   const [ageGroupFilter, setAgeGroupFilter] = useState('all')
   const [athletes, setAthletes] = useState<AthleteWithPayments[]>([])

@@ -7,8 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Users, UserCheck, Handshake, Package, AlertTriangle, Plane, Euro, TrendingUp, TrendingDown, ClipboardCheck, Shirt, RefreshCw, HardHat } from 'lucide-react'
 import { format } from 'date-fns'
-import { pt } from 'date-fns/locale'
-import { AGE_GROUP_LABELS, MATERIAL_STATE_LABELS, MATERIAL_STATE_COLORS } from '@/lib/constants'
+import { MATERIAL_STATE_COLORS } from '@/lib/constants'
+import { useDashT } from '@/hooks/useDashT'
+import { useDashLabels } from '@/hooks/useDashLabels'
+import { useAuthStore } from '@/store/authStore'
+import { getDateLocale } from '@/lib/date-locale'
 
 interface Revenue {
   seasonLabel: string
@@ -61,17 +64,17 @@ interface DashboardStats {
   expenses: Expenses
 }
 
-function RevenueChart({ revenue }: { revenue: Revenue }) {
+function RevenueChart({ revenue, t }: { revenue: Revenue; t: ReturnType<typeof useDashT> }) {
   const categories = [
-    { label: 'Mensalidades', value: revenue.athleteFees, color: 'bg-blue-500' },
-    { label: 'Quotas Sócios', value: revenue.memberQuotas, color: 'bg-emerald-500' },
-    { label: 'Patrocinadores', value: revenue.sponsors, color: 'bg-purple-500' },
+    { label: t('dashboard.monthlyFees'), value: revenue.athleteFees, color: 'bg-blue-500' },
+    { label: t('dashboard.memberQuotas'), value: revenue.memberQuotas, color: 'bg-emerald-500' },
+    { label: t('dashboard.sponsors'), value: revenue.sponsors, color: 'bg-purple-500' },
   ]
   const total = categories.reduce((s, c) => s + c.value, 0)
 
   if (total === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">Sem receitas registadas</p>
+      <p className="text-sm text-muted-foreground text-center py-6">{t('dashboard.noRevenue')}</p>
     )
   }
 
@@ -105,7 +108,7 @@ function RevenueChart({ revenue }: { revenue: Revenue }) {
         })}
         <div className="flex items-center gap-3 pt-2 border-t">
           <div className="w-3 h-3 flex-shrink-0" />
-          <span className="text-sm font-semibold flex-1">Total</span>
+          <span className="text-sm font-semibold flex-1">{t('common.total')}</span>
           <span className="text-sm font-bold tabular-nums text-primary">{total.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
           <span className="w-12" />
         </div>
@@ -114,17 +117,17 @@ function RevenueChart({ revenue }: { revenue: Revenue }) {
   )
 }
 
-function ExpensesChart({ expenses }: { expenses: Expenses }) {
+function ExpensesChart({ expenses, t }: { expenses: Expenses; t: ReturnType<typeof useDashT> }) {
   const categories = [
-    { label: 'Materiais hóquei', value: expenses.materialsClubCost, color: 'bg-orange-500' },
-    { label: 'Têxteis', value: expenses.textilesClubCost, color: 'bg-rose-500' },
-    { label: 'Salários direção', value: expenses.directionSalaries, color: 'bg-violet-500' },
+    { label: t('dashboard.hockeyMaterials'), value: expenses.materialsClubCost, color: 'bg-orange-500' },
+    { label: t('dashboard.textiles'), value: expenses.textilesClubCost, color: 'bg-rose-500' },
+    { label: t('dashboard.directionSalaries'), value: expenses.directionSalaries, color: 'bg-violet-500' },
   ]
   const total = categories.reduce((s, c) => s + c.value, 0)
 
   if (total === 0) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-6">Sem despesas registadas</p>
+      <p className="text-sm text-muted-foreground text-center py-6">{t('dashboard.noExpenses')}</p>
     )
   }
 
@@ -158,7 +161,7 @@ function ExpensesChart({ expenses }: { expenses: Expenses }) {
         })}
         <div className="flex items-center gap-3 pt-2 border-t">
           <div className="w-3 h-3 flex-shrink-0" />
-          <span className="text-sm font-semibold flex-1">Total</span>
+          <span className="text-sm font-semibold flex-1">{t('common.total')}</span>
           <span className="text-sm font-bold tabular-nums text-destructive">{total.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
           <span className="w-12" />
         </div>
@@ -168,6 +171,11 @@ function ExpensesChart({ expenses }: { expenses: Expenses }) {
 }
 
 export default function DashboardPage() {
+  const t = useDashT()
+  const labels = useDashLabels()
+  const lang = useAuthStore((s) => s.clubLanguage)
+  const dateLocale = getDateLocale(lang)
+
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -213,7 +221,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           {lastUpdated && (
             <span className="text-xs text-muted-foreground">
-              Atualizado às {format(lastUpdated, 'HH:mm', { locale: pt })}
+              {t('dashboard.updatedAt')} {format(lastUpdated, 'HH:mm', { locale: dateLocale })}
             </span>
           )}
         </div>
@@ -225,7 +233,7 @@ export default function DashboardPage() {
           className="gap-1.5"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Atualizar
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -235,7 +243,7 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Atletas</p>
+                <p className="text-sm text-muted-foreground">{t('nav.athletes')}</p>
                 <p className="text-3xl font-bold">{stats?.counts.athletes ?? 0}</p>
               </div>
               <Users className="h-8 w-8 text-primary opacity-80" />
@@ -247,7 +255,7 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Sócios</p>
+                <p className="text-sm text-muted-foreground">{t('nav.members')}</p>
                 <p className="text-3xl font-bold">{stats?.counts.members ?? 0}</p>
               </div>
               <UserCheck className="h-8 w-8 text-primary opacity-80" />
@@ -259,7 +267,7 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Patrocinadores</p>
+                <p className="text-sm text-muted-foreground">{t('nav.sponsors')}</p>
                 <p className="text-3xl font-bold">{stats?.counts.sponsors ?? 0}</p>
               </div>
               <Handshake className="h-8 w-8 text-primary opacity-80" />
@@ -271,7 +279,7 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Materiais</p>
+                <p className="text-sm text-muted-foreground">{t('nav.materials')}</p>
                 <p className="text-3xl font-bold">{stats?.counts.materials ?? 0}</p>
               </div>
               <Package className="h-8 w-8 text-primary opacity-80" />
@@ -283,10 +291,10 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Treinos (30d)</p>
+                <p className="text-sm text-muted-foreground">{t('dashboard.trainings30d')}</p>
                 <p className="text-3xl font-bold">{stats?.attendance?.sessionsLast30Days ?? 0}</p>
                 {(stats?.attendance?.presencesLast30Days ?? 0) > 0 && (
-                  <p className="text-xs text-muted-foreground">{stats?.attendance?.presencesLast30Days} presenças</p>
+                  <p className="text-xs text-muted-foreground">{stats?.attendance?.presencesLast30Days} {t('dashboard.presences')}</p>
                 )}
               </div>
               <ClipboardCheck className="h-8 w-8 text-primary opacity-80" />
@@ -298,10 +306,10 @@ export default function DashboardPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Têxteis Atrib.</p>
+                <p className="text-sm text-muted-foreground">{t('dashboard.textilesAssigned')}</p>
                 <p className="text-3xl font-bold">{stats?.textiles?.assignedCount ?? 0}</p>
                 {(stats?.textiles?.clubCost ?? 0) > 0 && (
-                  <p className="text-xs text-orange-600">{(stats?.textiles?.clubCost ?? 0).toFixed(0)}€ clube</p>
+                  <p className="text-xs text-orange-600">{(stats?.textiles?.clubCost ?? 0).toFixed(0)}€ {t('dashboard.club')}</p>
                 )}
               </div>
               <Shirt className="h-8 w-8 text-primary opacity-80" />
@@ -316,19 +324,19 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Receitas
+              {t('dashboard.revenue')}
               {stats?.revenue && (
                 <span className="text-xs font-normal text-muted-foreground ml-1">
-                  Mensalidades: época {stats.revenue.seasonLabel} · Quotas: ano {new Date().getFullYear()}
+                  {t('dashboard.monthlyFees')}: {t('dashboard.season')} {stats.revenue.seasonLabel} · {t('dashboard.memberQuotas')}: {new Date().getFullYear()}
                 </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {stats?.revenue ? (
-              <RevenueChart revenue={stats.revenue} />
+              <RevenueChart revenue={stats.revenue} t={t} />
             ) : (
-              <p className="text-sm text-muted-foreground">Sem dados</p>
+              <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
             )}
           </CardContent>
         </Card>
@@ -339,7 +347,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-blue-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Mensalidades (época {stats?.revenue?.seasonLabel})</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.monthlyFees')} ({t('dashboard.season')} {stats?.revenue?.seasonLabel})</p>
                   <p className="text-xl font-bold text-blue-600">
                     {(stats?.revenue.athleteFees ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
@@ -353,7 +361,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-emerald-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Quotas sócios ({new Date().getFullYear()})</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.memberQuotas')} ({new Date().getFullYear()})</p>
                   <p className="text-xl font-bold text-emerald-600">
                     {(stats?.revenue.memberQuotas ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
@@ -367,7 +375,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-purple-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Patrocinadores (ativos)</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.sponsors')} ({t('common.active')})</p>
                   <p className="text-xl font-bold text-purple-600">
                     {(stats?.revenue.sponsors ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
@@ -385,19 +393,19 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingDown className="h-4 w-4" />
-              Despesas
+              {t('dashboard.expenses')}
               {stats?.expenses && (
                 <span className="text-xs font-normal text-muted-foreground ml-1">
-                  Materiais: acumulado · Salários direção: {stats.expenses.year}
+                  {t('dashboard.hockeyMaterials')}: {t('dashboard.accumulated')} · {t('dashboard.directionSalaries')}: {stats.expenses.year}
                 </span>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {stats?.expenses ? (
-              <ExpensesChart expenses={stats.expenses} />
+              <ExpensesChart expenses={stats.expenses} t={t} />
             ) : (
-              <p className="text-sm text-muted-foreground">Sem dados</p>
+              <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
             )}
           </CardContent>
         </Card>
@@ -408,13 +416,13 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-orange-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Materiais hóquei (acumulado)</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.hockeyMaterials')} ({t('dashboard.accumulated')})</p>
                   <p className="text-xl font-bold text-orange-600">
                     {(stats?.expenses.materialsClubCost ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                   {(stats?.materialCosts.savedByAthletes ?? 0) > 0 && (
                     <p className="text-xs text-green-600">
-                      -{(stats?.materialCosts.savedByAthletes ?? 0).toFixed(0)}€ pago por atletas
+                      -{(stats?.materialCosts.savedByAthletes ?? 0).toFixed(0)}€ {t('dashboard.paidByAthletes')}
                     </p>
                   )}
                 </div>
@@ -427,13 +435,13 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-rose-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Têxteis (acumulado)</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.textiles')} ({t('dashboard.accumulated')})</p>
                   <p className="text-xl font-bold text-rose-600">
                     {(stats?.expenses.textilesClubCost ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                   {(stats?.textiles.savedByAthletes ?? 0) > 0 && (
                     <p className="text-xs text-green-600">
-                      -{(stats?.textiles.savedByAthletes ?? 0).toFixed(0)}€ pago por atletas
+                      -{(stats?.textiles.savedByAthletes ?? 0).toFixed(0)}€ {t('dashboard.paidByAthletes')}
                     </p>
                   )}
                 </div>
@@ -446,7 +454,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-10 rounded-sm bg-violet-500 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">Salários direção ({stats?.expenses.year})</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.directionSalaries')} ({stats?.expenses.year})</p>
                   <p className="text-xl font-bold text-violet-600">
                     {(stats?.expenses.directionSalaries ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
@@ -470,19 +478,19 @@ export default function DashboardPage() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex-1 grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Total Receitas</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('dashboard.totalRevenue')}</p>
                     <p className="text-lg font-bold text-primary">
                       {totalRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Total Despesas</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('dashboard.totalExpenses')}</p>
                     <p className="text-lg font-bold text-destructive">
                       {totalExpenses.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Saldo Líquido</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('dashboard.netBalance')}</p>
                     <p className={`text-xl font-bold ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
                       {isPositive ? '+' : ''}{balance.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
@@ -490,7 +498,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center mt-3">
-                ⚠ Receitas e despesas usam períodos diferentes — este saldo é indicativo, não contabilístico
+                ⚠ {t('dashboard.balanceDisclaimer')}
               </p>
             </CardContent>
           </Card>
@@ -501,20 +509,20 @@ export default function DashboardPage() {
         {/* Athletes by Age Group */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Atletas por Escalão</CardTitle>
+            <CardTitle className="text-base">{t('dashboard.athletesByGroup')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {(stats?.athletesByAgeGroup ?? []).map((item) => (
                 <div key={item.ageGroup} className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    {AGE_GROUP_LABELS[item.ageGroup] ?? item.ageGroup}
+                    {labels.ageGroups[item.ageGroup] ?? item.ageGroup}
                   </span>
                   <Badge variant="secondary">{item.count}</Badge>
                 </div>
               ))}
               {(stats?.athletesByAgeGroup ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Sem dados</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('common.noData')}</p>
               )}
             </div>
           </CardContent>
@@ -523,20 +531,20 @@ export default function DashboardPage() {
         {/* Materials by State + Cost */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Materiais</CardTitle>
+            <CardTitle className="text-base">{t('nav.materials')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               {(stats?.materialsByState ?? []).map((item) => (
                 <div key={item.state} className="flex items-center justify-between">
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${MATERIAL_STATE_COLORS[item.state] ?? 'bg-gray-100 text-gray-800'}`}>
-                    {MATERIAL_STATE_LABELS[item.state] ?? item.state}
+                    {labels.materialStates[item.state] ?? item.state}
                   </span>
                   <span className="font-semibold">{item.count}</span>
                 </div>
               ))}
               {(stats?.materialsByState ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Sem dados</p>
+                <p className="text-sm text-muted-foreground text-center py-4">{t('common.noData')}</p>
               )}
             </div>
           </CardContent>
@@ -551,9 +559,9 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-red-800">Mensalidades em Atraso</p>
+                      <p className="font-medium text-red-800">{t('dashboard.lateFeesAlert')}</p>
                       <p className="text-sm text-red-600">
-                        {stats?.athletesWithLatePayments} atleta(s) com pagamentos em falta → ver em Fees
+                        {stats?.athletesWithLatePayments} {t('dashboard.athletesWithMissingPayments')}
                       </p>
                     </div>
                   </div>
@@ -569,8 +577,8 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-amber-800">Quotas de Sócios em Atraso</p>
-                      <p className="text-sm text-amber-600">{stats?.lateQuotas} quota(s) por regularizar → ver Sócios</p>
+                      <p className="font-medium text-amber-800">{t('dashboard.lateQuotasAlert')}</p>
+                      <p className="text-sm text-amber-600">{stats?.lateQuotas} {t('dashboard.quotasPending')}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -585,7 +593,7 @@ export default function DashboardPage() {
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-orange-800">Contratos a Expirar</p>
+                      <p className="font-medium text-orange-800">{t('dashboard.expiringContracts')}</p>
                       {stats?.expiringSponsors.map((s) => (
                         <p key={s.id} className="text-sm text-orange-600">
                           {s.name} — {format(new Date(s.contractEnd), 'dd/MM/yyyy')}
@@ -603,8 +611,8 @@ export default function DashboardPage() {
             (stats?.expiringSponsors ?? []).length === 0 && (
             <Card className="border-emerald-200 bg-emerald-50">
               <CardContent className="pt-4">
-                <p className="text-sm text-emerald-700 font-medium">Tudo em ordem!</p>
-                <p className="text-xs text-emerald-600">Sem alertas pendentes.</p>
+                <p className="text-sm text-emerald-700 font-medium">{t('dashboard.allClear')}</p>
+                <p className="text-xs text-emerald-600">{t('dashboard.noAlerts')}</p>
               </CardContent>
             </Card>
           )}
@@ -617,7 +625,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Plane className="h-4 w-4" />
-              Próximas Viagens
+              {t('dashboard.upcomingTravels')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -629,7 +637,7 @@ export default function DashboardPage() {
                     <p className="text-xs text-muted-foreground">{travel.transport}</p>
                   </div>
                   <span className="text-sm text-muted-foreground">
-                    {format(new Date(travel.departureDate), "d 'de' MMMM", { locale: pt })}
+                    {format(new Date(travel.departureDate), "d MMMM", { locale: dateLocale })}
                   </span>
                 </div>
               ))}

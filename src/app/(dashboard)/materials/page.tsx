@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Plus, Search, Pencil, Trash2, Loader2, Layers } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { MATERIAL_STATE_LABELS, MATERIAL_STATE_COLORS, MATERIAL_TYPES } from '@/lib/constants'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -87,6 +88,8 @@ function newBatchItem(): BatchItem {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MaterialsPage() {
+  const dashLabels = useDashLabels()
+
   // Data state
   const [materials, setMaterials] = useState<Material[]>([])
   const [athletes, setAthletes] = useState<Athlete[]>([])
@@ -405,7 +408,7 @@ export default function MaterialsPage() {
                   </TableCell>
                   <TableCell>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${MATERIAL_STATE_COLORS[m.state] ?? 'bg-gray-100'}`}>
-                      {MATERIAL_STATE_LABELS[m.state] ?? m.state}
+                      {dashLabels.materialStates[m.state] ?? MATERIAL_STATE_LABELS[m.state] ?? m.state}
                     </span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">

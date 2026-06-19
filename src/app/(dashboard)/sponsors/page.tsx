@@ -20,25 +20,20 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Pencil, Trash2, Loader2, ExternalLink, Upload, X } from 'lucide-react'
 import { format, differenceInDays } from 'date-fns'
+import { useDashT } from '@/hooks/useDashT'
+import { useDashLabels } from '@/hooks/useDashLabels'
 
-const SPONSOR_TYPES = [
-  { value: 'EQUIPMENT_SENIOR',   label: 'Equipamento — Sénior',   badgeClass: 'bg-blue-100 text-blue-800' },
-  { value: 'EQUIPMENT_FORMATION',label: 'Equipamento — Formação',  badgeClass: 'bg-sky-100 text-sky-800' },
-  { value: 'NAMING_RIGHTS',      label: 'Naming Rights',           badgeClass: 'bg-amber-100 text-amber-800' },
-  { value: 'BANNER',             label: 'Lonas Publicitárias',     badgeClass: 'bg-purple-100 text-purple-800' },
-  { value: 'STICKS',             label: 'Autocolante Sticks',      badgeClass: 'bg-green-100 text-green-800' },
-  { value: 'SHINGUARDS',         label: 'Caneleiras GR',           badgeClass: 'bg-orange-100 text-orange-800' },
-  { value: 'OTHER',              label: 'Outro',                   badgeClass: 'bg-gray-100 text-gray-700' },
-] as const
-
-const ZONE_LABELS: Record<number, string> = {
-  1: 'Ombro Esq',
-  2: 'Ombro Dir',
-  3: 'Peito ★',
-  4: 'Calções',
-  5: 'Costas Inf',
-  6: 'Trás Calções',
+const SPONSOR_TYPE_BADGE: Record<string, string> = {
+  EQUIPMENT_SENIOR:    'bg-blue-100 text-blue-800',
+  EQUIPMENT_FORMATION: 'bg-sky-100 text-sky-800',
+  NAMING_RIGHTS:       'bg-amber-100 text-amber-800',
+  BANNER:              'bg-purple-100 text-purple-800',
+  STICKS:              'bg-green-100 text-green-800',
+  SHINGUARDS:          'bg-orange-100 text-orange-800',
+  OTHER:               'bg-gray-100 text-gray-700',
 }
+
+const ZONE_KEYS = ['shoulderLeft', 'shoulderRight', 'chest', 'shorts', 'backLower', 'backShorts']
 
 const sponsorFormSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
@@ -70,18 +65,17 @@ interface Sponsor {
   includesShinguards: boolean
 }
 
-function ContractBadge({ contractEnd }: { contractEnd: string }) {
+function ContractBadge({ contractEnd, tr }: { contractEnd: string; tr: (k: string, v?: Record<string,string>) => string }) {
   const days = differenceInDays(new Date(contractEnd), new Date())
-  if (days < 0) return <Badge variant="destructive">Expirado</Badge>
-  if (days <= 30) return <Badge className="bg-orange-100 text-orange-800">Expira em {days}d</Badge>
-  if (days <= 90) return <Badge className="bg-yellow-100 text-yellow-800">Expira em {days}d</Badge>
-  return <Badge className="bg-green-100 text-green-800">Ativo</Badge>
+  if (days < 0) return <Badge variant="destructive">{tr('sponsors.expired')}</Badge>
+  if (days <= 30) return <Badge className="bg-orange-100 text-orange-800">{tr('sponsors.expiresIn', { days: String(days) })}</Badge>
+  if (days <= 90) return <Badge className="bg-yellow-100 text-yellow-800">{tr('sponsors.expiresIn', { days: String(days) })}</Badge>
+  return <Badge className="bg-green-100 text-green-800">{tr('common.active')}</Badge>
 }
 
-function SponsorTypeBadge({ type }: { type: string }) {
-  const t = SPONSOR_TYPES.find((s) => s.value === type)
-  if (!t) return null
-  return <Badge className={`text-xs font-medium ${t.badgeClass}`}>{t.label}</Badge>
+function SponsorTypeBadge({ type, label }: { type: string; label: string }) {
+  const cls = SPONSOR_TYPE_BADGE[type] ?? 'bg-gray-100 text-gray-700'
+  return <Badge className={`text-xs font-medium ${cls}`}>{label}</Badge>
 }
 
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired'
@@ -114,6 +108,21 @@ export default function SponsorsPage() {
 
   const { can } = usePermissions()
   const { toast } = useToast()
+  const tr = useDashT()
+  const { sponsorTypes: sponsorTypeLabels } = useDashLabels()
+
+  const SPONSOR_TYPES = Object.entries(sponsorTypeLabels)
+    .filter(([k]) => k !== 'all')
+    .map(([value, label]) => ({ value, label }))
+
+  const ZONE_LABELS: Record<number, string> = {
+    1: tr('sponsors.zoneShoulderLeft'),
+    2: tr('sponsors.zoneShoulderRight'),
+    3: tr('sponsors.zoneChest'),
+    4: tr('sponsors.zoneShorts'),
+    5: tr('sponsors.zoneBackLower'),
+    6: tr('sponsors.zoneBackShorts'),
+  }
 
   const {
     register, handleSubmit, reset, formState: { errors },
@@ -208,8 +217,8 @@ export default function SponsorsPage() {
       const method = editingSponsor ? 'PUT' : 'POST'
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: 'Erro', description: json.error, variant: 'destructive' }); return }
-      toast({ title: editingSponsor ? 'Patrocinador atualizado' : 'Patrocinador criado' })
+      if (!res.ok) { toast({ title: tr('common.error'), description: json.error, variant: 'destructive' }); return }
+      toast({ title: editingSponsor ? tr('sponsors.saved') : tr('sponsors.created') })
       setSheetOpen(false)
       fetchSponsors()
     } finally { setSaving(false) }
@@ -218,8 +227,8 @@ export default function SponsorsPage() {
   const confirmDelete = async () => {
     if (!deleteDialog.sponsor) return
     const res = await fetch(`/api/sponsors/${deleteDialog.sponsor.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Patrocinador eliminado' }); fetchSponsors() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    if (res.ok) { toast({ title: tr('sponsors.deleted') }); fetchSponsors() }
+    else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
     setDeleteDialog({ open: false, sponsor: null })
   }
 
@@ -243,10 +252,10 @@ export default function SponsorsPage() {
       {!loading && sponsors.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Patrocinadores ativos', value: activeSponsors.length.toString() },
-            { label: 'Receita anual', value: `${activeTotal.toLocaleString('pt-PT')} €` },
-            { label: 'Naming Rights', value: namingRightsCount.toString() },
-            { label: 'Lonas no pavilhão', value: bannerTotalCount.toString() },
+            { label: tr('sponsors.activeCount'), value: activeSponsors.length.toString() },
+            { label: tr('sponsors.annualRevenue'), value: `${activeTotal.toLocaleString('pt-PT')} €` },
+            { label: tr('sponsors.namingRights'), value: namingRightsCount.toString() },
+            { label: tr('sponsors.banners'), value: bannerTotalCount.toString() },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white border rounded-lg p-3 text-center shadow-sm">
               <div className="text-xl font-bold">{value}</div>
@@ -269,11 +278,11 @@ export default function SponsorsPage() {
                   : 'bg-white text-muted-foreground border-gray-200 hover:border-gray-400'
               }`}
             >
-              {s === 'all' ? 'Todos' : s === 'active' ? 'Ativos' : s === 'expiring' ? 'A expirar' : 'Expirados'}
+              {s === 'all' ? tr('common.all') : s === 'active' ? tr('sponsors.statusActive') : s === 'expiring' ? tr('sponsors.expiring') : tr('sponsors.statusExpired')}
             </button>
           ))}
           <span className="text-gray-200 self-center select-none">|</span>
-          {[{ value: 'all', label: 'Todos os tipos' }, ...SPONSOR_TYPES].map((t) => (
+          {[{ value: 'all', label: sponsorTypeLabels.all ?? tr('sponsorTypes.all') }, ...SPONSOR_TYPES].map((t) => (
             <button
               key={t.value}
               onClick={() => setTypeFilter(t.value)}
@@ -288,7 +297,7 @@ export default function SponsorsPage() {
           ))}
         </div>
         {can('manageSponsors') && (
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Novo Patrocinador</Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />{tr('sponsors.new')}</Button>
         )}
       </div>
 
@@ -301,12 +310,12 @@ export default function SponsorsPage() {
         <div className="text-center py-16 text-muted-foreground">
           {sponsors.length === 0
             ? <div className="flex flex-col items-center gap-2">
-                <p>Nenhum patrocinador registado</p>
+                <p>{tr('sponsors.noSponsors')}</p>
                 {can('manageSponsors') && (
-                  <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Adicionar patrocinador</Button>
+                  <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />{tr('sponsors.new')}</Button>
                 )}
               </div>
-            : 'Nenhum patrocinador nesta categoria'}
+            : tr('sponsors.noCategory')}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -340,7 +349,7 @@ export default function SponsorsPage() {
 
                   {s.sponsorTypes?.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {s.sponsorTypes.map((t) => <SponsorTypeBadge key={t} type={t} />)}
+                      {s.sponsorTypes.map((t) => <SponsorTypeBadge key={t} type={t} label={sponsorTypeLabels[t] ?? t} />)}
                     </div>
                   )}
 
@@ -352,18 +361,18 @@ export default function SponsorsPage() {
 
                   {(s.bannerCount != null && s.bannerCount > 0) && (
                     <p className="text-xs text-muted-foreground">
-                      {s.bannerCount} {s.bannerCount === 1 ? 'lona' : 'lonas'} no pavilhão
+                      {s.bannerCount} {tr('sponsors.bannersLabel')}
                     </p>
                   )}
 
                   {(s.includesSticks || s.includesShinguards) && (
                     <p className="text-xs text-muted-foreground">
-                      {[s.includesSticks && 'Sticks', s.includesShinguards && 'Caneleiras GR'].filter(Boolean).join(' · ')}
+                      {[s.includesSticks && tr('sponsors.sticksLabel'), s.includesShinguards && tr('sponsors.shinguardsLabel')].filter(Boolean).join(' · ')}
                     </p>
                   )}
 
                   <div className="flex items-center justify-between pt-0.5">
-                    <ContractBadge contractEnd={s.contractEnd} />
+                    <ContractBadge contractEnd={s.contractEnd} tr={tr} />
                     <span className="text-xs text-muted-foreground">
                       até {format(new Date(s.contractEnd), 'dd/MM/yyyy')}
                     </span>
@@ -386,14 +395,14 @@ export default function SponsorsPage() {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{editingSponsor ? 'Editar Patrocinador' : 'Novo Patrocinador'}</SheetTitle>
-            <SheetDescription>Preencha os dados do patrocinador</SheetDescription>
+            <SheetTitle>{editingSponsor ? tr('sponsors.editTitle') : tr('sponsors.new')}</SheetTitle>
+            <SheetDescription>{tr('sponsors.formDesc')}</SheetDescription>
           </SheetHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-6">
 
             {/* Logo upload */}
             <div className="space-y-2">
-              <Label>Logótipo</Label>
+              <Label>{tr('sponsors.logo')}</Label>
               <div className="flex items-center gap-3">
                 <div className="w-20 h-14 border rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
                   {logoUrl ? (
@@ -405,7 +414,7 @@ export default function SponsorsPage() {
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
-                    {uploading ? 'A enviar...' : 'Carregar'}
+                    {uploading ? tr('common.uploading') : tr('common.upload')}
                   </Button>
                   {logoUrl && (
                     <Button type="button" variant="ghost" size="sm" onClick={() => setLogoUrl(null)}>
@@ -418,41 +427,41 @@ export default function SponsorsPage() {
             </div>
 
             <div className="space-y-1">
-              <Label>Nome *</Label>
+              <Label>{tr('common.name')} *</Label>
               <Input {...register('name')} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-1">
-              <Label>Website</Label>
+              <Label>{tr('sponsors.website')}</Label>
               <Input {...register('website')} placeholder="https://..." />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Telefone</Label>
+                <Label>{tr('common.phone')}</Label>
                 <Input {...register('phone')} />
               </div>
               <div className="space-y-1">
-                <Label>Email</Label>
+                <Label>{tr('common.email')}</Label>
                 <Input type="email" {...register('email')} />
                 {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>Contribuição Anual (€)</Label>
+              <Label>{tr('sponsors.annualContribution')}</Label>
               <Input type="number" step="0.01" {...register('annualContribution')} />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Início do Contrato *</Label>
+                <Label>{tr('sponsors.contractStart')} *</Label>
                 <Input type="date" {...register('contractStart')} />
                 {errors.contractStart && <p className="text-xs text-destructive">{errors.contractStart.message}</p>}
               </div>
               <div className="space-y-1">
-                <Label>Fim do Contrato *</Label>
+                <Label>{tr('sponsors.contractEnd')} *</Label>
                 <Input type="date" {...register('contractEnd')} />
                 {errors.contractEnd && <p className="text-xs text-destructive">{errors.contractEnd.message}</p>}
               </div>
@@ -460,7 +469,7 @@ export default function SponsorsPage() {
 
             {/* Tipos de patrocínio */}
             <div className="space-y-2">
-              <Label>Tipos de Patrocínio</Label>
+              <Label>{tr('sponsors.sponsorTypes')}</Label>
               <div className="grid grid-cols-1 gap-1.5">
                 {SPONSOR_TYPES.map((t) => (
                   <div
@@ -482,7 +491,7 @@ export default function SponsorsPage() {
             {/* Zonas de equipamento */}
             {showEquipmentZones && (
               <div className="space-y-2">
-                <Label>Zonas no Equipamento</Label>
+                <Label>{tr('sponsors.equipmentZones')}</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {([1, 2, 3, 4, 5, 6] as const).map((zone) => (
                     <div
@@ -496,7 +505,7 @@ export default function SponsorsPage() {
                     >
                       <Checkbox checked={selectedZones.includes(zone)} />
                       <span className="text-xs">
-                        <span className="font-semibold">Zona {zone}</span> — {ZONE_LABELS[zone]}
+                        <span className="font-semibold">{tr('sponsors.zone')} {zone}</span> — {ZONE_LABELS[zone]}
                       </span>
                     </div>
                   ))}
@@ -507,7 +516,7 @@ export default function SponsorsPage() {
             {/* Nº de lonas */}
             {showBannerCount && (
               <div className="space-y-1">
-                <Label>Nº de Lonas Publicitárias</Label>
+                <Label>{tr('sponsors.bannerCount')}</Label>
                 <Input
                   type="number"
                   min="0"
@@ -525,29 +534,29 @@ export default function SponsorsPage() {
                 onClick={() => setIncludesSticks((v) => !v)}
               >
                 <Checkbox checked={includesSticks} />
-                <Label className="cursor-pointer font-normal text-sm">Autocolante nos Sticks</Label>
+                <Label className="cursor-pointer font-normal text-sm">{tr('sponsors.sticksLabel')}</Label>
               </div>
               <div
                 className="flex items-center gap-2 cursor-pointer select-none"
                 onClick={() => setIncludesShinguards((v) => !v)}
               >
                 <Checkbox checked={includesShinguards} />
-                <Label className="cursor-pointer font-normal text-sm">Caneleiras GR</Label>
+                <Label className="cursor-pointer font-normal text-sm">{tr('sponsors.shinguardsLabel')}</Label>
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label>Notas</Label>
+              <Label>{tr('common.notes')}</Label>
               <Input {...register('notes')} />
             </div>
 
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>
-                Cancelar
+                {tr('common.cancel')}
               </Button>
               <Button type="submit" className="flex-1" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingSponsor ? 'Guardar' : 'Criar'}
+                {editingSponsor ? tr('common.save') : tr('common.create')}
               </Button>
             </div>
           </form>
@@ -557,12 +566,12 @@ export default function SponsorsPage() {
       <Dialog open={deleteDialog.open} onOpenChange={(o) => setDeleteDialog({ open: o, sponsor: deleteDialog.sponsor })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Patrocinador</DialogTitle>
-            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.sponsor?.name}?</DialogDescription>
+            <DialogTitle>{tr('sponsors.deleteTitle')}</DialogTitle>
+            <DialogDescription>{tr('sponsors.deleteDesc', { name: deleteDialog.sponsor?.name ?? '' })}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, sponsor: null })}>Cancelar</Button>
-            <Button variant="destructive" onClick={confirmDelete}>Eliminar</Button>
+            <Button variant="outline" onClick={() => setDeleteDialog({ open: false, sponsor: null })}>{tr('common.cancel')}</Button>
+            <Button variant="destructive" onClick={confirmDelete}>{tr('common.delete')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

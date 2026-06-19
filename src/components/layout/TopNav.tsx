@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import { useSidebarStore } from '@/store/sidebarStore'
+import { useDashT } from '@/hooks/useDashT'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,27 +16,25 @@ import {
 import { ChangePasswordDialog } from '@/components/auth/ChangePasswordDialog'
 import { LogOut, KeyRound, User, Menu } from 'lucide-react'
 
-const PAGE_TITLES: Record<string, string> = {
-  '/': 'Dashboard',
-  '/athletes': 'Atletas',
-  '/fees': 'Mensalidades',
-  '/members': 'Sócios',
-  '/materials': 'Materiais',
-  '/sponsors': 'Patrocinadores',
-  '/travel': 'Viagens',
-  '/direction': 'Direção',
-  '/training': 'Treinos',
-  '/reports': 'Relatórios',
-  '/admin/permissions': 'Administração',
-  '/admin/audit': 'Registo de Atividade',
-}
-
-function getPageTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname]
-  for (const [key, title] of Object.entries(PAGE_TITLES)) {
-    if (key !== '/' && pathname.startsWith(key)) return title
+function usePageTitle(t: ReturnType<typeof useDashT>) {
+  const PAGE_TITLES: Record<string, string> = {
+    '/': t('nav.dashboard'),
+    '/athletes': t('nav.athletes'),
+    '/fees': t('nav.fees'),
+    '/attendance': t('nav.attendance'),
+    '/training': t('nav.training'),
+    '/members': t('nav.members'),
+    '/materials': t('nav.equipment'),
+    '/textiles': t('nav.textiles'),
+    '/sponsors': t('nav.sponsors'),
+    '/travel': t('nav.travel'),
+    '/direction': t('nav.direction'),
+    '/reports': t('nav.reports'),
+    '/settings': t('nav.settings'),
+    '/admin/permissions': t('nav.permissions'),
+    '/admin/audit': t('nav.activity'),
   }
-  return 'HCPDL'
+  return PAGE_TITLES
 }
 
 export function TopNav() {
@@ -44,8 +43,19 @@ export function TopNav() {
   const { user, logout } = useAuthStore()
   const { toggle } = useSidebarStore()
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+  const t = useDashT()
 
-  const title = getPageTitle(pathname)
+  const pageTitles = usePageTitle(t)
+
+  const getTitle = (path: string): string => {
+    if (pageTitles[path]) return pageTitles[path]
+    for (const [key, title] of Object.entries(pageTitles)) {
+      if (key !== '/' && path.startsWith(key)) return title
+    }
+    return 'HoqueiManager'
+  }
+
+  const title = getTitle(pathname)
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -57,7 +67,6 @@ export function TopNav() {
     <>
       <header className="h-14 border-b bg-white flex items-center justify-between px-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          {/* Hamburger — mobile only */}
           <Button
             variant="ghost"
             size="icon"
@@ -83,12 +92,12 @@ export function TopNav() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
                 <KeyRound className="h-4 w-4 mr-2" />
-                Alterar Palavra-passe
+                {t('auth.changePassword')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                 <LogOut className="h-4 w-4 mr-2" />
-                Terminar Sessão
+                {t('nav.logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { format } from 'date-fns'
-import { pt } from 'date-fns/locale'
 import { Loader2, ChevronLeft, ChevronRight, Filter, Download, Trash2, AlertTriangle, Eye } from 'lucide-react'
+import { useDashT } from '@/hooks/useDashT'
+import { useDashLabels } from '@/hooks/useDashLabels'
+import { useAuthStore } from '@/store/authStore'
+import { getDateLocale } from '@/lib/date-locale'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -50,48 +53,6 @@ const ACTION_COLORS: Record<string, string> = {
   CHANGE_PERMISSIONS: 'bg-orange-100 text-orange-800',
 }
 
-const ENTITY_LABELS: Record<string, string> = {
-  Athlete: 'Atleta',
-  Member: 'Sócio',
-  Material: 'Material Hóquei',
-  TextileItem: 'Material Têxtil',
-  Sponsor: 'Patrocinador',
-  Travel: 'Viagem',
-  DirectionMember: 'Direção',
-  Training: 'Treino',
-  TrainingSession: 'Sessão de Treino',
-  TrainingSchedule: 'Horário',
-  AttendanceRecord: 'Registo de Presença',
-  User: 'Utilizador',
-  Quota: 'Quota',
-  AthletePayment: 'Mensalidade',
-}
-
-const ACTION_LABELS: Record<string, string> = {
-  CREATE: 'Criar',
-  UPDATE: 'Atualizar',
-  DELETE: 'Eliminar',
-  LOGIN: 'Início de sessão',
-  LOGIN_FAIL: 'Tentativa falhada',
-  LOGOUT: 'Fim de sessão',
-  CHANGE_PASSWORD: 'Alt. Palavra-passe',
-  CHANGE_PERMISSIONS: 'Alt. Permissões',
-}
-
-const PERMISSION_LABELS: Record<string, string> = {
-  viewAthletes: 'Ver Atletas', editAthletes: 'Editar Atletas',
-  viewFees: 'Ver Mensalidades', editFees: 'Editar Mensalidades',
-  viewMembers: 'Ver Sócios', editMembers: 'Editar Sócios',
-  viewMaterials: 'Ver Materiais Hóquei', editMaterials: 'Editar Materiais Hóquei',
-  viewSponsors: 'Ver Patrocinadores', manageSponsors: 'Gerir Patrocinadores',
-  viewTraining: 'Ver Treinos', editTraining: 'Editar Treinos',
-  viewTravel: 'Ver Viagens', editTravel: 'Editar Viagens',
-  viewDirection: 'Ver Direção', editDirection: 'Editar Direção',
-  viewAttendance: 'Ver Assiduidades', editAttendance: 'Editar Assiduidades',
-  viewTextiles: 'Ver Materiais Têxteis', editTextiles: 'Editar Materiais Têxteis',
-  isAdmin: 'Administrador',
-}
-
 const ENTITIES = [
   'Athlete', 'Member', 'Material', 'TextileItem',
   'Sponsor', 'Travel', 'DirectionMember',
@@ -102,29 +63,33 @@ const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGIN_FAIL', 'LOGOUT', 
 
 type DeleteMode = 'all' | 'before'
 
-function buildDetailLines(log: AuditLog): string[] {
+function buildDetailLines(
+  log: AuditLog,
+  entityLabels: Record<string, string>,
+  actionLabels: Record<string, string>,
+  permLabels: Record<string, string>,
+): string[] {
   const lines: string[] = []
-  const entity = ENTITY_LABELS[log.entity] ?? log.entity
-  const action = ACTION_LABELS[log.action] ?? log.action
+  const entity = entityLabels[log.entity] ?? log.entity
+  const action = actionLabels[log.action] ?? log.action
 
-  lines.push(`Ação: ${action} em ${entity}`)
-  if (log.entityId) lines.push(`ID do registo: ${log.entityId}`)
+  lines.push(`${action} · ${entity}`)
+  if (log.entityId) lines.push(`ID: ${log.entityId}`)
 
   const d = log.details as Record<string, unknown> | null
   if (!d) return lines
 
   if (log.action === 'CHANGE_PERMISSIONS') {
     lines.push('')
-    lines.push('Permissões alteradas:')
+    lines.push('Permissões:')
     for (const [key, val] of Object.entries(d)) {
-      const label = PERMISSION_LABELS[key] ?? key
-      lines.push(`  • ${label}: ${val ? 'Ativado' : 'Desativado'}`)
+      const label = permLabels[key] ?? key
+      lines.push(`  • ${label}: ${val ? '✓' : '✗'}`)
     }
     return lines
   }
 
   if (log.action === 'LOGIN' || log.action === 'LOGIN_FAIL' || log.action === 'LOGOUT') {
-    if (log.action === 'LOGIN_FAIL') lines.push('Autenticação falhada — credenciais incorretas')
     if (d?.ip) lines.push(`IP: ${d.ip}`)
     return lines
   }
@@ -146,7 +111,7 @@ function buildDetailLines(log: AuditLog): string[] {
   const extras = Object.entries(d).filter(([k]) => !knownKeys.has(k))
   if (extras.length) {
     lines.push('')
-    lines.push('Outros campos:')
+    lines.push('Outros:')
     for (const [k, v] of extras) {
       lines.push(`  • ${k}: ${JSON.stringify(v)}`)
     }
@@ -157,6 +122,25 @@ function buildDetailLines(log: AuditLog): string[] {
 
 export default function AuditPage() {
   const { toast } = useToast()
+  const tr = useDashT()
+  const { auditActions: actionLabels, auditEntities: entityLabels } = useDashLabels()
+  const clubLanguage = useAuthStore((s) => s.clubLanguage) ?? 'pt'
+  const dateLocale = getDateLocale(clubLanguage)
+
+  const permLabels: Record<string, string> = {
+    viewAthletes: tr('permissions.viewAthletes'), editAthletes: tr('permissions.editAthletes'),
+    viewFees: tr('permissions.viewFees'), editFees: tr('permissions.editFees'),
+    viewMembers: tr('permissions.viewMembers'), editMembers: tr('permissions.editMembers'),
+    viewMaterials: tr('permissions.viewMaterials'), editMaterials: tr('permissions.editMaterials'),
+    viewSponsors: tr('permissions.viewSponsors'), manageSponsors: tr('permissions.manageSponsors'),
+    viewTraining: tr('permissions.viewTraining'), editTraining: tr('permissions.editTraining'),
+    viewTravel: tr('permissions.viewTravel'), editTravel: tr('permissions.editTravel'),
+    viewDirection: tr('permissions.viewDirection'), editDirection: tr('permissions.editDirection'),
+    viewAttendance: tr('permissions.viewAttendance'), editAttendance: tr('permissions.editAttendance'),
+    viewTextiles: tr('permissions.viewTextiles'), editTextiles: tr('permissions.editTextiles'),
+    isAdmin: tr('permissions.isAdmin'),
+  }
+
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -198,7 +182,7 @@ export default function AuditPage() {
       if (action !== 'all') params.set('action', action)
       if (userId !== 'all') params.set('userId', userId)
       const res = await fetch(`/api/admin/audit/export?${params}`)
-      if (!res.ok) { toast({ title: 'Erro ao exportar', variant: 'destructive' }); return }
+      if (!res.ok) { toast({ title: tr('common.errorSave'), variant: 'destructive' }); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -206,7 +190,7 @@ export default function AuditPage() {
       a.download = `auditoria-${new Date().toISOString().split('T')[0]}.json`
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      toast({ title: 'Exportado com sucesso' })
+      toast({ title: tr('common.success') })
     } finally {
       setExporting(false)
     }
@@ -217,7 +201,7 @@ export default function AuditPage() {
     try {
       const body: Record<string, unknown> = { mode: deleteDialog.mode }
       if (deleteDialog.mode === 'before') {
-        if (!beforeDate) { toast({ title: 'Seleciona uma data', variant: 'destructive' }); return }
+        if (!beforeDate) { toast({ title: tr('audit.selectDate'), variant: 'destructive' }); return }
         body.before = new Date(beforeDate).toISOString()
       }
       const res = await fetch('/api/admin/audit', {
@@ -226,8 +210,8 @@ export default function AuditPage() {
         body: JSON.stringify(body),
       })
       const json = await res.json()
-      if (!res.ok) { toast({ title: 'Erro ao apagar', variant: 'destructive' }); return }
-      toast({ title: `${json.deleted} registos apagados` })
+      if (!res.ok) { toast({ title: tr('common.errorDelete'), variant: 'destructive' }); return }
+      toast({ title: tr('audit.deleted', { count: String(json.deleted) }) })
       setDeleteDialog({ open: false, mode: 'all' })
       setPage(1)
       fetchLogs()
@@ -239,10 +223,8 @@ export default function AuditPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold">Atividade</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Tentativas de login (todos os utilizadores) · Ações dos utilizadores não-administradores
-        </p>
+        <h2 className="text-lg font-semibold">{tr('audit.title')}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">{tr('audit.subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
@@ -252,8 +234,8 @@ export default function AuditPage() {
               <SelectValue placeholder="Entidade" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas as entidades</SelectItem>
-              {ENTITIES.map((e) => <SelectItem key={e} value={e}>{ENTITY_LABELS[e] ?? e}</SelectItem>)}
+              <SelectItem value="all">{entityLabels.all ?? tr('auditEntities.all')}</SelectItem>
+              {ENTITIES.map((e) => <SelectItem key={e} value={e}>{entityLabels[e] ?? e}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -263,8 +245,8 @@ export default function AuditPage() {
             <SelectValue placeholder="Ação" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas as ações</SelectItem>
-            {ACTIONS.map((a) => <SelectItem key={a} value={a}>{ACTION_LABELS[a] ?? a}</SelectItem>)}
+            <SelectItem value="all">{actionLabels.all ?? tr('auditActions.all')}</SelectItem>
+            {ACTIONS.map((a) => <SelectItem key={a} value={a}>{actionLabels[a] ?? a}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -274,7 +256,7 @@ export default function AuditPage() {
               <SelectValue placeholder="Utilizador" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os utilizadores</SelectItem>
+              <SelectItem value="all">{tr('audit.allUsers')}</SelectItem>
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>
               ))}
@@ -283,13 +265,13 @@ export default function AuditPage() {
         )}
 
         {data && (
-          <span className="text-sm text-muted-foreground">{data.total} registos</span>
+          <span className="text-sm text-muted-foreground">{data.total} {tr('audit.records')}</span>
         )}
 
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
             {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-            Exportar JSON
+            {tr('audit.exportJson')}
           </Button>
           <Button
             variant="outline" size="sm"
@@ -297,7 +279,7 @@ export default function AuditPage() {
             onClick={() => setDeleteDialog({ open: true, mode: 'before' })}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Apagar antes de...
+            {tr('audit.deleteBefore')}
           </Button>
           <Button
             variant="outline" size="sm"
@@ -305,7 +287,7 @@ export default function AuditPage() {
             onClick={() => setDeleteDialog({ open: true, mode: 'all' })}
           >
             <Trash2 className="h-4 w-4 mr-1" />
-            Apagar tudo
+            {tr('audit.deleteAll')}
           </Button>
         </div>
       </div>
@@ -319,37 +301,37 @@ export default function AuditPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Data</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Utilizador</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Ação</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">Entidade</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{tr('common.date')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{tr('audit.user')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">{tr('audit.action')}</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600 hidden sm:table-cell">{tr('audit.entity')}</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600 hidden lg:table-cell">IP</th>
-                <th className="px-4 py-3 text-center font-medium text-gray-600 w-16">Det.</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600 w-16">{tr('audit.details')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {data?.logs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Sem registos de atividade
+                    {tr('common.noData')}
                   </td>
                 </tr>
               )}
               {data?.logs.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {format(new Date(log.createdAt), 'dd/MM/yy HH:mm', { locale: pt })}
+                    {format(new Date(log.createdAt), 'dd/MM/yy HH:mm', { locale: dateLocale })}
                   </td>
                   <td className="px-4 py-3 text-xs max-w-[130px] truncate" title={log.userEmail ?? ''}>
                     {log.userEmail ?? '—'}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLORS[log.action] ?? 'bg-gray-100 text-gray-800'}`}>
-                      {ACTION_LABELS[log.action] ?? log.action}
+                      {actionLabels[log.action] ?? log.action}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs hidden sm:table-cell">
-                    <span className="font-medium">{ENTITY_LABELS[log.entity] ?? log.entity}</span>
+                    <span className="font-medium">{entityLabels[log.entity] ?? log.entity}</span>
                     {log.entityId && (
                       <span className="text-muted-foreground ml-1 font-mono text-[10px]">
                         {log.entityId.slice(0, 8)}…
@@ -377,7 +359,7 @@ export default function AuditPage() {
 
           {data && data.pages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-              <span className="text-xs text-muted-foreground">Página {data.page} de {data.pages}</span>
+              <span className="text-xs text-muted-foreground">{tr('audit.page', { page: String(data.page), pages: String(data.pages) })}</span>
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={page <= 1}>
                   <ChevronLeft className="h-4 w-4" />
@@ -397,12 +379,12 @@ export default function AuditPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACTION_COLORS[detailsLog?.action ?? ''] ?? 'bg-gray-100 text-gray-800'}`}>
-                {ACTION_LABELS[detailsLog?.action ?? ''] ?? detailsLog?.action}
+                {actionLabels[detailsLog?.action ?? ''] ?? detailsLog?.action}
               </span>
-              <span className="text-sm font-medium">{ENTITY_LABELS[detailsLog?.entity ?? ''] ?? detailsLog?.entity}</span>
+              <span className="text-sm font-medium">{entityLabels[detailsLog?.entity ?? ''] ?? detailsLog?.entity}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              {detailsLog && format(new Date(detailsLog.createdAt), "dd 'de' MMMM 'de' yyyy 'às' HH:mm:ss", { locale: pt })}
+              {detailsLog && format(new Date(detailsLog.createdAt), "dd MMMM yyyy 'HH:mm:ss'", { locale: dateLocale })}
               {detailsLog?.userEmail && ` · ${detailsLog.userEmail}`}
               {detailsLog?.ip && ` · IP: ${detailsLog.ip}`}
             </DialogDescription>
@@ -410,7 +392,7 @@ export default function AuditPage() {
 
           {detailsLog && (
             <div className="rounded-lg bg-gray-50 border p-4 space-y-1 text-sm max-h-80 overflow-y-auto">
-              {buildDetailLines(detailsLog).map((line, i) =>
+              {buildDetailLines(detailsLog, entityLabels, actionLabels, permLabels).map((line, i) =>
                 line === '' ? (
                   <div key={i} className="h-2" />
                 ) : line.endsWith(':') ? (
@@ -423,7 +405,7 @@ export default function AuditPage() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailsLog(null)}>Fechar</Button>
+            <Button variant="outline" onClick={() => setDetailsLog(null)}>{tr('common.close')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -434,29 +416,27 @@ export default function AuditPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              {deleteDialog.mode === 'all' ? 'Apagar todos os registos' : 'Apagar registos antes de uma data'}
+              {deleteDialog.mode === 'all' ? tr('audit.deleteAllTitle') : tr('audit.deleteBeforeTitle')}
             </DialogTitle>
             <DialogDescription>
-              {deleteDialog.mode === 'all'
-                ? 'Todos os registos de atividade serão eliminados permanentemente. Esta ação não pode ser revertida.'
-                : 'Os registos anteriores à data selecionada serão eliminados permanentemente.'}
+              {deleteDialog.mode === 'all' ? tr('audit.deleteAllDesc') : tr('audit.deleteBeforeDesc')}
             </DialogDescription>
           </DialogHeader>
 
           {deleteDialog.mode === 'before' && (
             <div className="space-y-1">
-              <label className="text-sm font-medium">Apagar registos antes de:</label>
+              <label className="text-sm font-medium">{tr('audit.deleteBeforeLabel')}</label>
               <Input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} />
             </div>
           )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog(d => ({ ...d, open: false }))}>
-              Cancelar
+              {tr('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
               {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Eliminar
+              {tr('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

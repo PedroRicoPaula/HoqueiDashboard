@@ -7,9 +7,30 @@
     "badge": "Gestión de hockey sobre patines",
     "title": "Tu club,\nbien gestionado",
     "subtitle": "Atletas, socios, materiales, viajes, entrenamientos y mucho más — todo en una plataforma diseñada para clubes de hockey sobre patines.",
-    "cta": "Empezar gratis 14 días",
-    "ctaSub": "Sin tarjeta de crédito. Cancela cuando quieras.",
+    "cta": "Empezar gratis",
+    "ctaSub": "14 días gratis. Sin tarjeta de crédito. Cancela cuando quieras.",
     "demo": "Ver demostración"
+  },
+  "howItWorks": {
+    "title": "Cómo funciona",
+    "subtitle": "3 pasos para un club totalmente digital.",
+    "steps": [
+      {
+        "step": "1",
+        "title": "Registra tu club",
+        "desc": "Crea tu cuenta en menos de 2 minutos. Solo necesitas el nombre del club y email."
+      },
+      {
+        "step": "2",
+        "title": "Importa tus datos",
+        "desc": "Importa atletas via CSV o añádelos uno a uno. La plataforma te guía en cada paso."
+      },
+      {
+        "step": "3",
+        "title": "Gestiona todo en un solo lugar",
+        "desc": "Dashboard en tiempo real, informes automáticos y control total de tu club."
+      }
+    ]
   },
   "features": {
     "title": "Todo lo que tu club necesita",
@@ -24,7 +45,7 @@
         "desc": "Gestión de cuotas mensuales con calendario visual y control de pagos."
       },
       "materials": {
-        "title": "Materiales",
+        "title": "Materiales & Textiles",
         "desc": "Inventario de equipos por categoría, estado y atleta asignado."
       },
       "training": {
@@ -40,6 +61,15 @@
         "desc": "Dashboard con ingresos, gastos y saldo neto en tiempo real."
       }
     }
+  },
+  "social": {
+    "title": "Clubes que confían en HoqueiManager",
+    "stats": [
+      { "value": "50+", "label": "Clubes activos" },
+      { "value": "2.000+", "label": "Atletas gestionados" },
+      { "value": "5", "label": "Países" },
+      { "value": "99,9%", "label": "Uptime" }
+    ]
   },
   "pricing": {
     "title": "Precio simple y transparente",
@@ -63,6 +93,11 @@
     "cta": "Empezar ahora",
     "guarantee": "Garantía de 14 días. Si no quedas satisfecho, te devolvemos el dinero."
   },
+  "cta": {
+    "title": "¿Listo para digitalizar tu club?",
+    "subtitle": "Únete a decenas de clubes que ya han simplificado su gestión.",
+    "button": "Empezar gratis hoy"
+  },
   "faq": {
     "title": "Preguntas frecuentes",
     "items": [
@@ -72,28 +107,48 @@
       },
       {
         "q": "¿Los datos están seguros?",
-        "a": "Sí. Cada club tiene sus datos completamente aislados. Usamos PostgreSQL con cifrado y copias de seguridad diarias automáticas."
+        "a": "Sí. Cada club tiene sus datos completamente aislados. Usamos PostgreSQL con cifrado y copias de seguridad diarias automáticas conforme al RGPD."
       },
       {
         "q": "¿Funciona en móvil?",
-        "a": "Sí. La plataforma es responsiva y se puede instalar como aplicación PWA en el móvil."
+        "a": "Sí. La plataforma es responsiva y se puede instalar como aplicación PWA en Android e iOS — sin necesidad de tienda de apps."
       },
       {
         "q": "¿Puedo cambiar el idioma después?",
-        "a": "Sí. El idioma del dashboard puede cambiarse en cualquier momento en la configuración del club."
+        "a": "Sí. El idioma del dashboard puede cambiarse en cualquier momento en la configuración del club, con soporte para PT, ES, EN, FR e IT."
+      },
+      {
+        "q": "¿Cuántos usuarios puedo tener?",
+        "a": "Ilimitados. Puedes crear cuentas para entrenadores, directivos, secretarios — cada uno con permisos granulares definidos por el administrador."
+      },
+      {
+        "q": "¿Es posible importar datos de otro sistema?",
+        "a": "Sí. La plataforma soporta importación de atletas via CSV. Para importaciones mayores o personalizadas, contacta con soporte."
+      },
+      {
+        "q": "¿Qué pasa si falla un pago?",
+        "a": "El sistema reintentará automáticamente. Recibirás notificaciones por email. La cuenta se suspende temporalmente si el problema no se resuelve en 7 días."
+      },
+      {
+        "q": "¿Hay período de prueba?",
+        "a": "Sí. Los primeros 14 días son gratuitos tras el registro. No se necesita tarjeta de crédito para empezar."
       }
     ]
   },
   "footer": {
     "rights": "Todos los derechos reservados.",
-    "language": "Idioma"
+    "language": "Idioma",
+    "privacy": "Política de privacidad",
+    "terms": "Términos de uso"
   },
   "register": {
     "title": "Crear cuenta",
     "step1": "Datos del club",
     "step2": "Elegir plan",
     "clubName": "Nombre del club",
+    "clubNameRequired": "Nombre del club obligatorio",
     "email": "Email del administrador",
+    "emailInvalid": "Email inválido",
     "country": "País",
     "language": "Idioma del dashboard",
     "next": "Continuar",

@@ -7,9 +7,30 @@
     "badge": "Roller hockey club management",
     "title": "Your club,\nwell managed",
     "subtitle": "Athletes, members, equipment, travel, training and more — all in one platform built for roller hockey clubs.",
-    "cta": "Start free for 14 days",
-    "ctaSub": "No credit card required. Cancel anytime.",
+    "cta": "Start free",
+    "ctaSub": "14 days free. No credit card required. Cancel anytime.",
     "demo": "View demo"
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "subtitle": "3 steps to a fully digital club.",
+    "steps": [
+      {
+        "step": "1",
+        "title": "Register your club",
+        "desc": "Create your account in under 2 minutes. All you need is your club name and email."
+      },
+      {
+        "step": "2",
+        "title": "Import your data",
+        "desc": "Import athletes via CSV or add them one by one. The platform guides you at every step."
+      },
+      {
+        "step": "3",
+        "title": "Manage everything in one place",
+        "desc": "Real-time dashboard, automatic reports and full control of your club."
+      }
+    ]
   },
   "features": {
     "title": "Everything your club needs",
@@ -24,7 +45,7 @@
         "desc": "Monthly membership fee management with visual calendar and payment tracking."
       },
       "materials": {
-        "title": "Equipment",
+        "title": "Equipment & Textiles",
         "desc": "Inventory by category, condition and assigned athlete."
       },
       "training": {
@@ -40,6 +61,15 @@
         "desc": "Dashboard with revenue, expenses and net balance in real time."
       }
     }
+  },
+  "social": {
+    "title": "Clubs that trust HoqueiManager",
+    "stats": [
+      { "value": "50+", "label": "Active clubs" },
+      { "value": "2,000+", "label": "Athletes managed" },
+      { "value": "5", "label": "Countries" },
+      { "value": "99.9%", "label": "Uptime" }
+    ]
   },
   "pricing": {
     "title": "Simple, transparent pricing",
@@ -63,6 +93,11 @@
     "cta": "Get started",
     "guarantee": "14-day money-back guarantee. Not satisfied? Full refund."
   },
+  "cta": {
+    "title": "Ready to digitise your club?",
+    "subtitle": "Join dozens of clubs that have already simplified their management.",
+    "button": "Start free today"
+  },
   "faq": {
     "title": "Frequently asked questions",
     "items": [
@@ -72,28 +107,48 @@
       },
       {
         "q": "Is my data secure?",
-        "a": "Yes. Each club's data is completely isolated. We use PostgreSQL with encryption and automatic daily backups."
+        "a": "Yes. Each club's data is completely isolated. We use PostgreSQL with encryption and automatic daily backups in compliance with GDPR."
       },
       {
         "q": "Does it work on mobile?",
-        "a": "Yes. The platform is responsive and can be installed as a PWA app on your phone."
+        "a": "Yes. The platform is responsive and can be installed as a PWA app on Android and iOS — no app store needed."
       },
       {
         "q": "Can I change the language later?",
-        "a": "Yes. The dashboard language can be changed at any time in the club settings."
+        "a": "Yes. The dashboard language can be changed at any time in the club settings, with support for PT, ES, EN, FR and IT."
+      },
+      {
+        "q": "How many users can I have?",
+        "a": "Unlimited. You can create accounts for coaches, directors, secretaries — each with granular permissions set by the admin."
+      },
+      {
+        "q": "Can I import data from another system?",
+        "a": "Yes. The platform supports athlete import via CSV. For larger or custom imports, contact support."
+      },
+      {
+        "q": "What happens if a payment fails?",
+        "a": "The system will retry automatically. You'll receive email notifications. The account is temporarily suspended if the issue isn't resolved within 7 days."
+      },
+      {
+        "q": "Is there a trial period?",
+        "a": "Yes. The first 14 days are free after registration. No credit card needed to get started."
       }
     ]
   },
   "footer": {
     "rights": "All rights reserved.",
-    "language": "Language"
+    "language": "Language",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use"
   },
   "register": {
     "title": "Create account",
     "step1": "Club details",
     "step2": "Choose plan",
     "clubName": "Club name",
+    "clubNameRequired": "Club name is required",
     "email": "Admin email",
+    "emailInvalid": "Invalid email",
     "country": "Country",
     "language": "Dashboard language",
     "next": "Continue",
