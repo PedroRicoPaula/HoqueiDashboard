@@ -25,6 +25,8 @@ Club {
   email                  String               ← email do admin
   country                String     @default("pt")
   language               String     @default("pt")   ← idioma do dashboard
+  logoUrl                String?              ← URL do logo do clube (R2 ou /uploads/)
+  primaryColor           String     @default("142 71% 45%")  ← cor HSL do dashboard (paleta de 8 presets)
   status                 ClubStatus @default(PENDING_PAYMENT)
   stripeCustomerId       String?    @unique
   stripeSubscriptionId   String?    @unique
@@ -34,7 +36,6 @@ Club {
   indexes: slug, status
 }
 enum ClubStatus { PENDING_PAYMENT ACTIVE PAST_DUE CANCELLED SUSPENDED }
-  logoUrl                String?              ← URL do logo do clube (R2 ou /uploads/)
 ```
 **Ciclo de vida:** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed) → `CANCELLED` (subscription.deleted).
 
@@ -354,6 +355,7 @@ RateLimit {
 | `20260605000002_remove_sponsor_logo` | Jun 2026 | `DROP COLUMN "logoUrl"` em `Sponsor` — logos removidos da funcionalidade | ✅ aplicada |
 | `20260607000001_sponsor_enhancements` | Jun 2026 | Re-adiciona `logoUrl` + 5 campos novos: `sponsorTypes String[]`, `equipmentZones Int[]`, `bannerCount Int?`, `includesSticks Boolean`, `includesShinguards Boolean` | ✅ aplicada |
 | `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
+| *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:

@@ -12,7 +12,9 @@
 ### Funcionalidades
 - Landing page marketing em 5 idiomas (PT/ES/EN/FR/IT) via `next-intl`
 - Seletor de idioma no nav (muda para `/{locale}`)
-- Secções: Hero, 6 features, How it works, Social proof, Pricing toggle (mensal/anual), FAQ accordion, CTA final, footer com links legais
+- Secções: Hero → Social proof → **Product preview** → How it works → Features → Pricing → FAQ → CTA → Footer
+- **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
+- Sem trial — messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
 - Registo 2 passos: (1) dados do clube, (2) seleção de plano; mensagens de validação i18n
 - `POST /api/register` → cria `Club` (PENDING_PAYMENT) + `User` admin + `Stripe Checkout Session`
 - Stripe Checkout redireciona para `/login?registered=1` em sucesso
@@ -30,7 +32,10 @@
 - `src/components/landing/LanguageSwitcher.tsx`
 - `src/components/landing/PricingToggle.tsx`
 - `src/components/landing/FaqAccordion.tsx`
-- `messages/{pt,es,en,fr,it}.json` — traduções
+- `src/components/landing/ProductScreenshots.tsx` — tab switcher com screenshots reais
+- `public/screenshots/fees-preview.png` — screenshot real da página de mensalidades
+- `public/screenshots/athletes-preview.png` — screenshot real da lista de atletas
+- `messages/{pt,es,en,fr,it}.json` — traduções (inclui secção `preview.*`)
 - `src/i18n/routing.ts` + `src/i18n/request.ts` — config next-intl
 
 ---
@@ -71,6 +76,8 @@ const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY
 ### Funcionalidades
 - Atualizar nome do clube, país, idioma do dashboard
 - Idioma guardado em `Club.language` — a mudança requer novo login para ter efeito no JWT
+- **Paleta de cores do clube** — 8 presets (Verde, Azul, Vermelho, Roxo, Laranja, Teal, Azul Escuro, Rosa) guardados como HSL triplet em `Club.primaryColor`. Aplicado imediatamente no auth store; propaga via CSS variable `--club-primary` no layout do dashboard sem necessitar de novo login.
+- `PATCH /api/settings` aceita campo `primaryColor` (regex: `/^\d{1,3} \d{1,3}% \d{1,3}%$/`)
 - Audit log em cada PATCH
 
 ---
@@ -652,7 +659,7 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 **Status:** ✅ funcional  
 **Páginas:** `/login`, `/setup`, `/forgot-password`, `/reset-password`  
 **APIs:**
-- `POST /api/auth/login` → autenticar, set cookie `hm_token`
+- `POST /api/auth/login` → autenticar, set cookie `hm_token`; resposta inclui `clubPrimaryColor` (HSL string do preset do clube)
 - `POST /api/auth/logout` → clear cookie, increment tokenVersion
 - `GET /api/auth/me` → devolver user + permissions
 - `POST /api/auth/change-password` → mudar password (rate limited: 5/15min)

@@ -7,7 +7,7 @@
 - Algoritmo: HS256
 - Expiração: **24h** (alterado de 7d por segurança)
 - Cookie: `hm_token` (httpOnly, SameSite=strict) — renomeado de `hcpdl_token` em 2026-06-16
-- Payload completo:
+- Payload completo (nota: `clubPrimaryColor` NÃO está no JWT — é devolvido na resposta JSON do login e guardado no auth store Zustand):
 ```typescript
 {
   userId: string,
@@ -46,6 +46,15 @@ if (s.includes('change-in-production')) throw new Error('...')
 - Comparação timing-safe: `diff |= derived[i] ^ storedHash[i]` (constant-time XOR)
 
 **NUNCA usar bcrypt** — Web Crypto não suporta, e seria inconsistente com dados existentes.
+
+### Auth Store (Zustand — client side)
+`src/store/authStore.ts` persiste no `localStorage` com a chave `hm-auth`. Campos:
+- `user.clubName`, `user.clubLanguage`, `user.clubLogoUrl` — meta do clube
+- `user.clubPrimaryColor` — HSL triplet (ex: `"142 71% 45%"`) da cor do dashboard; **não está no JWT**, vem da resposta JSON do login e é atualizado em `PATCH /api/settings`
+- `clubLanguage` — espelho de `user.clubLanguage` para acesso rápido
+- `clubPrimaryColor` — espelho de `user.clubPrimaryColor`
+
+O dashboard layout (`src/app/(dashboard)/layout.tsx`) lê `clubPrimaryColor` do store e aplica como CSS variable inline `--club-primary` + `--club-primary-fg` (calculado automaticamente: L < 55% → texto branco).
 
 ### Token Versioning (anti-replay)
 - `User.tokenVersion` incrementado em cada logout **e** quando admin redefine password via `PUT /api/admin/users/[id]`
