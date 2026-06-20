@@ -7,6 +7,7 @@ import {
 import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher'
 import { PricingToggle } from '@/components/landing/PricingToggle'
 import { FaqAccordion } from '@/components/landing/FaqAccordion'
+import { ProductScreenshots } from '@/components/landing/ProductScreenshots'
 
 export default async function LandingPage({
   params,
@@ -96,6 +97,29 @@ export default async function LandingPage({
               )
             })}
           </div>
+        </div>
+      </section>
+
+      {/* Product preview */}
+      <section className="py-20 px-4 bg-gray-950 overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <span className="inline-block text-xs font-semibold uppercase tracking-widest text-green-400 bg-green-400/10 px-3 py-1 rounded-full mb-4">
+              {t('preview.badge') || 'O produto real'}
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              {t('preview.title') || 'Vê o que vais usar todos os dias'}
+            </h2>
+            <p className="text-lg text-gray-400 max-w-2xl mx-auto">
+              {t('preview.subtitle') || 'Sem demos fabricadas. Estes são ecrãs reais do HoqueiManager.'}
+            </p>
+          </div>
+          <ProductScreenshots
+            feesLabel={t('preview.feesTab') || 'Mensalidades'}
+            athletesLabel={t('preview.athletesTab') || 'Atletas'}
+            feesCaption={t('preview.feesCaption') || 'Controlo total de pagamentos por atleta, mês a mês. Um clique para registar ou editar.'}
+            athletesCaption={t('preview.athletesCaption') || 'Todos os atletas num só lugar, com escalão, idade, contactos e acções rápidas.'}
+          />
         </div>
       </section>
 

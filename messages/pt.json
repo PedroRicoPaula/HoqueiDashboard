@@ -7,8 +7,8 @@
     "badge": "Gestão de hóquei em patins",
     "title": "O teu clube,\nbem gerido",
     "subtitle": "Atletas, sócios, materiais, viagens, treinos e muito mais — tudo numa plataforma feita para clubes de hóquei em patins.",
-    "cta": "Começar gratuitamente",
-    "ctaSub": "14 dias grátis. Sem cartão de crédito. Cancela quando quiseres.",
+    "cta": "Começar agora",
+    "ctaSub": "Cancela quando quiseres. Sem contratos de permanência.",
     "demo": "Ver demonstração"
   },
   "howItWorks": {
@@ -63,12 +63,12 @@
     }
   },
   "social": {
-    "title": "Clubes que confiam no HoqueiManager",
+    "title": "Feito especificamente para hóquei em patins",
     "stats": [
-      { "value": "50+", "label": "Clubes activos" },
-      { "value": "2 000+", "label": "Atletas geridos" },
-      { "value": "5", "label": "Países" },
-      { "value": "99,9%", "label": "Uptime" }
+      { "value": "12", "label": "Módulos integrados" },
+      { "value": "5", "label": "Idiomas disponíveis" },
+      { "value": "∞", "label": "Atletas e sócios" },
+      { "value": "0€", "label": "Custo de instalação" }
     ]
   },
   "pricing": {
@@ -91,12 +91,21 @@
       "Atualizações incluídas"
     ],
     "cta": "Começar agora",
-    "guarantee": "Garantia de 14 dias. Se não ficares satisfeito, devolvemos o dinheiro."
+    "guarantee": "Cancela a qualquer momento. Sem penalizações ou contratos."
+  },
+  "preview": {
+    "badge": "O produto real",
+    "title": "Vê o que vais usar todos os dias",
+    "subtitle": "Sem demos fabricadas. Estes são ecrãs reais do HoqueiManager.",
+    "feesTab": "Mensalidades",
+    "athletesTab": "Atletas",
+    "feesCaption": "Controlo total de pagamentos por atleta, mês a mês. Um clique para registar ou editar.",
+    "athletesCaption": "Todos os atletas num só lugar, com escalão, idade, contactos e acções rápidas."
   },
   "cta": {
     "title": "Pronto para digitalizar o teu clube?",
-    "subtitle": "Junta-te a dezenas de clubes que já simplificaram a sua gestão.",
-    "button": "Começar gratuitamente"
+    "subtitle": "A plataforma pensada especificamente para o hóquei em patins.",
+    "button": "Começar agora"
   },
   "faq": {
     "title": "Perguntas frequentes",
@@ -130,8 +139,8 @@
         "a": "O sistema tentará o pagamento automaticamente. Receberás notificações por email. A conta fica temporariamente suspensa se o problema não for resolvido em 7 dias."
       },
       {
-        "q": "Existe período de experimentação?",
-        "a": "Sim. Os primeiros 14 dias são gratuitos após o registo. Sem necessidade de cartão de crédito para começar."
+        "q": "Como funciona o pagamento?",
+        "a": "A subscrição é ativada imediatamente após o pagamento via Stripe. Podes cancelar a qualquer momento — o acesso mantém-se até ao fim do período pago, sem cobranças adicionais."
       }
     ]
   },

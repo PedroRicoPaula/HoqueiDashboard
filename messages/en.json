@@ -7,8 +7,8 @@
     "badge": "Roller hockey club management",
     "title": "Your club,\nwell managed",
     "subtitle": "Athletes, members, equipment, travel, training and more — all in one platform built for roller hockey clubs.",
-    "cta": "Start free",
-    "ctaSub": "14 days free. No credit card required. Cancel anytime.",
+    "cta": "Get started",
+    "ctaSub": "Cancel anytime. No long-term contracts.",
     "demo": "View demo"
   },
   "howItWorks": {
@@ -63,12 +63,12 @@
     }
   },
   "social": {
-    "title": "Clubs that trust HoqueiManager",
+    "title": "Built specifically for roller hockey",
     "stats": [
-      { "value": "50+", "label": "Active clubs" },
-      { "value": "2,000+", "label": "Athletes managed" },
-      { "value": "5", "label": "Countries" },
-      { "value": "99.9%", "label": "Uptime" }
+      { "value": "12", "label": "Integrated modules" },
+      { "value": "5", "label": "Available languages" },
+      { "value": "∞", "label": "Athletes & members" },
+      { "value": "€0", "label": "Setup cost" }
     ]
   },
   "pricing": {
@@ -91,12 +91,21 @@
       "Updates included"
     ],
     "cta": "Get started",
-    "guarantee": "14-day money-back guarantee. Not satisfied? Full refund."
+    "guarantee": "Cancel anytime. No penalties or long-term commitment."
+  },
+  "preview": {
+    "badge": "The real product",
+    "title": "See what you'll use every day",
+    "subtitle": "No fabricated demos. These are real screens from HoqueiManager.",
+    "feesTab": "Fees",
+    "athletesTab": "Athletes",
+    "feesCaption": "Full payment control per athlete, month by month. One click to record or edit.",
+    "athletesCaption": "All athletes in one place, with age group, age, contacts and quick actions."
   },
   "cta": {
     "title": "Ready to digitise your club?",
-    "subtitle": "Join dozens of clubs that have already simplified their management.",
-    "button": "Start free today"
+    "subtitle": "The platform built specifically for roller hockey clubs.",
+    "button": "Get started"
   },
   "faq": {
     "title": "Frequently asked questions",
@@ -130,8 +139,8 @@
         "a": "The system will retry automatically. You'll receive email notifications. The account is temporarily suspended if the issue isn't resolved within 7 days."
       },
       {
-        "q": "Is there a trial period?",
-        "a": "Yes. The first 14 days are free after registration. No credit card needed to get started."
+        "q": "How does payment work?",
+        "a": "Your subscription is activated immediately after payment via Stripe. You can cancel at any time — access continues until the end of the paid period, with no further charges."
       }
     ]
   },

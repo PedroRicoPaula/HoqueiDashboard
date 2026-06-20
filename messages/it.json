@@ -7,8 +7,8 @@
     "badge": "Gestione hockey su pattini",
     "title": "Il tuo club,\nben gestito",
     "subtitle": "Atleti, soci, materiali, viaggi, allenamenti e altro — tutto in una piattaforma costruita per i club di hockey su pattini.",
-    "cta": "Inizia gratis",
-    "ctaSub": "14 giorni gratuiti. Nessuna carta di credito. Annulla quando vuoi.",
+    "cta": "Inizia ora",
+    "ctaSub": "Annulla quando vuoi. Nessun contratto a lungo termine.",
     "demo": "Guarda la demo"
   },
   "howItWorks": {
@@ -63,12 +63,12 @@
     }
   },
   "social": {
-    "title": "Club che si fidano di HoqueiManager",
+    "title": "Costruito specificamente per l'hockey su pista",
     "stats": [
-      { "value": "50+", "label": "Club attivi" },
-      { "value": "2.000+", "label": "Atleti gestiti" },
-      { "value": "5", "label": "Paesi" },
-      { "value": "99,9%", "label": "Uptime" }
+      { "value": "12", "label": "Moduli integrati" },
+      { "value": "5", "label": "Lingue disponibili" },
+      { "value": "∞", "label": "Atleti e soci" },
+      { "value": "0€", "label": "Costo di installazione" }
     ]
   },
   "pricing": {
@@ -91,12 +91,21 @@
       "Aggiornamenti inclusi"
     ],
     "cta": "Inizia ora",
-    "guarantee": "Garanzia 14 giorni. Non soddisfatto? Rimborso completo."
+    "guarantee": "Annulla in qualsiasi momento. Nessuna penale né contratto."
+  },
+  "preview": {
+    "badge": "Il prodotto reale",
+    "title": "Guarda cosa userai ogni giorno",
+    "subtitle": "Nessuna demo fabbricata. Queste sono schermate reali di HoqueiManager.",
+    "feesTab": "Mensili",
+    "athletesTab": "Atleti",
+    "feesCaption": "Controllo completo dei pagamenti per atleta, mese per mese. Un clic per registrare o modificare.",
+    "athletesCaption": "Tutti gli atleti in un solo posto, con categoria, età, contatti e azioni rapide."
   },
   "cta": {
     "title": "Pronto a digitalizzare il tuo club?",
-    "subtitle": "Unisciti a decine di club che hanno già semplificato la loro gestione.",
-    "button": "Inizia gratis oggi"
+    "subtitle": "La piattaforma pensata specificamente per l'hockey su pista.",
+    "button": "Inizia ora"
   },
   "faq": {
     "title": "Domande frequenti",
@@ -130,8 +139,8 @@
         "a": "Il sistema riproverà automaticamente. Riceverai notifiche via email. L'account viene sospeso temporaneamente se il problema non viene risolto in 7 giorni."
       },
       {
-        "q": "C'è un periodo di prova?",
-        "a": "Sì. I primi 14 giorni sono gratuiti dopo la registrazione. Nessuna carta di credito richiesta per iniziare."
+        "q": "Come funziona il pagamento?",
+        "a": "L'abbonamento viene attivato immediatamente dopo il pagamento tramite Stripe. Puoi annullare in qualsiasi momento — l'accesso continua fino alla fine del periodo pagato, senza ulteriori addebiti."
       }
     ]
   },
