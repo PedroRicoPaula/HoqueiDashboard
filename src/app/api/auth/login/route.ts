@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       where: { email },
       include: {
         permissions: true,
-        club: { select: { status: true, name: true, language: true, logoUrl: true } },
+        club: { select: { status: true, name: true, language: true, logoUrl: true, primaryColor: true } },
       },
     })
 
@@ -97,6 +97,7 @@ export async function POST(req: Request) {
         clubName: user.club?.name ?? null,
         clubLanguage: user.club?.language ?? null,
         clubLogoUrl: user.club?.logoUrl ?? null,
+        clubPrimaryColor: user.club?.primaryColor ?? null,
       },
       permissions: user.permissions,
       redirectTo: user.isSuperAdmin ? '/platform' : '/',

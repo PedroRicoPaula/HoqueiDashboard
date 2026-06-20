@@ -14,11 +14,24 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useDashT } from '@/hooks/useDashT'
 import { Loader2, Settings, Upload, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const COLOR_PRESETS = [
+  { label: 'Verde',    hsl: '142 71% 45%', hex: '#16a34a' },
+  { label: 'Azul',    hsl: '217 91% 50%', hex: '#1d6dcc' },
+  { label: 'Vermelho',hsl: '0 72% 51%',   hex: '#dc2626' },
+  { label: 'Roxo',    hsl: '271 81% 56%', hex: '#9333ea' },
+  { label: 'Laranja', hsl: '21 90% 48%',  hex: '#ea580c' },
+  { label: 'Teal',    hsl: '174 72% 32%', hex: '#0d9488' },
+  { label: 'Azul Escuro', hsl: '222 89% 36%', hex: '#1e3a8a' },
+  { label: 'Rosa',    hsl: '330 81% 48%', hex: '#be185d' },
+]
 
 const schema = z.object({
   name: z.string().min(2),
   language: z.enum(['pt', 'es', 'en', 'fr', 'it']),
   country: z.string().min(2),
+  primaryColor: z.string(),
 })
 
 type Form = z.infer<typeof schema>
@@ -51,8 +64,10 @@ export default function SettingsPage() {
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', language: 'pt', country: 'pt' },
+    defaultValues: { name: '', language: 'pt', country: 'pt', primaryColor: '142 71% 45%' },
   })
+
+  const selectedColor = watch('primaryColor')
 
   useEffect(() => {
     fetch('/api/settings')
@@ -61,6 +76,7 @@ export default function SettingsPage() {
         setValue('name', data.name ?? '')
         setValue('language', data.language ?? 'pt')
         setValue('country', data.country ?? 'pt')
+        setValue('primaryColor', data.primaryColor ?? '142 71% 45%')
         setLogoUrl(data.logoUrl ?? null)
       })
       .finally(() => setFetching(false))
@@ -82,6 +98,7 @@ export default function SettingsPage() {
             clubName: data.name,
             clubLanguage: data.language,
             clubLogoUrl: logoUrl,
+            clubPrimaryColor: data.primaryColor,
           }, permissions)
         }
       } else {
@@ -193,6 +210,64 @@ export default function SettingsPage() {
                 className="hidden"
                 onChange={handleLogoUpload}
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Color palette card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('settings.colorTheme') || 'Cor do clube'}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500 mb-4">
+            {t('settings.colorThemeNote') || 'Escolhe a cor principal do teu dashboard. Aplica-se à sidebar, botões e elementos de destaque.'}
+          </p>
+          <div className="grid grid-cols-4 gap-3">
+            {COLOR_PRESETS.map((preset) => {
+              const isSelected = selectedColor === preset.hsl
+              return (
+                <button
+                  key={preset.hsl}
+                  type="button"
+                  title={preset.label}
+                  onClick={() => setValue('primaryColor', preset.hsl, { shouldDirty: true })}
+                  className={cn(
+                    'relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all',
+                    isSelected
+                      ? 'border-gray-900 shadow-md scale-105'
+                      : 'border-gray-200 hover:border-gray-400'
+                  )}
+                >
+                  <div
+                    className="w-10 h-10 rounded-full shadow-sm"
+                    style={{ backgroundColor: preset.hex }}
+                  />
+                  <span className="text-xs text-gray-600 font-medium leading-tight text-center">
+                    {preset.label}
+                  </span>
+                  {isSelected && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-gray-900 rounded-full flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          <div className="mt-4 p-3 rounded-lg border bg-gray-50 flex items-center gap-3">
+            <div
+              className="w-8 h-8 rounded-full flex-shrink-0"
+              style={{ backgroundColor: COLOR_PRESETS.find(p => p.hsl === selectedColor)?.hex ?? '#16a34a' }}
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {COLOR_PRESETS.find(p => p.hsl === selectedColor)?.label ?? 'Verde'}
+              </p>
+              <p className="text-xs text-gray-400">Pré-visualização aplicada após guardar</p>
             </div>
           </div>
         </CardContent>

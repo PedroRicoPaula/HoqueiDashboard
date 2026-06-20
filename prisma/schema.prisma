@@ -18,6 +18,7 @@ model Club {
   country                String            @default("pt")
   language               String            @default("pt")
   logoUrl                String?
+  primaryColor           String            @default("142 71% 45%")
   status                 ClubStatus        @default(PENDING_PAYMENT)
   stripeCustomerId       String?           @unique
   stripeSubscriptionId   String?           @unique

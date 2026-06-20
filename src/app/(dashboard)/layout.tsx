@@ -6,17 +6,31 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { TopNav } from '@/components/layout/TopNav'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useSidebarStore } from '@/store/sidebarStore'
+import { useAuthStore } from '@/store/authStore'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { open, close } = useSidebarStore()
   const pathname = usePathname()
+  const clubPrimaryColor = useAuthStore((s) => s.user?.clubPrimaryColor)
 
-  // Close sidebar on navigation (mobile)
   useEffect(() => { close() }, [pathname, close])
 
+  const primaryHsl = clubPrimaryColor ?? '142 71% 45%'
+  const isDark = (() => {
+    const l = parseFloat(primaryHsl.split(' ')[2] ?? '45')
+    return l < 55
+  })()
+
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      {/* Mobile overlay */}
+    <div
+      className="flex h-screen overflow-hidden bg-gray-50"
+      style={{
+        '--club-primary': primaryHsl,
+        '--club-primary-fg': isDark ? '0 0% 100%' : '0 0% 5%',
+        '--sidebar-active': primaryHsl,
+        '--sidebar-active-fg': isDark ? '0 0% 100%' : '0 0% 5%',
+      } as React.CSSProperties}
+    >
       {open && (
         <div
           className="fixed inset-0 z-20 bg-black/50 lg:hidden"

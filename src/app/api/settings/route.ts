@@ -9,6 +9,7 @@ const updateSchema = z.object({
   name: z.string().min(2).max(100).optional(),
   language: z.enum(['pt', 'es', 'en', 'fr', 'it']).optional(),
   country: z.string().min(2).max(10).optional(),
+  primaryColor: z.string().regex(/^\d{1,3} \d{1,3}% \d{1,3}%$/).optional(),
 })
 
 export async function GET(req: Request) {
