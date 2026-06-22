@@ -89,7 +89,7 @@ const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY
 **API:** `GET /api/dashboard/stats`
 
 ### Funcionalidades
-- Cards de contagem: atletas, sócios, patrocinadores, materiais, treinos (30d), têxteis atribuídos
+- **Cards KPI clicáveis**: atletas → `/athletes`, sócios → `/members`, patrocinadores → `/sponsors`, materiais → `/materials`, treinos (30d) → `/attendance`, têxteis atribuídos → `/textiles`. Hover shadow via `hover:shadow-md hover:border-primary/40`.
 - **Gráfico de receitas** por fonte: mensalidades (época atual) + quotas sócios (ano civil) + patrocinadores ativos
 - **Gráfico de despesas** por categoria: materiais hóquei (acumulado) + têxteis clube (acumulado) + salários direção (ano civil)
 - Atletas por escalão (bar chart visual)
@@ -392,6 +392,7 @@ DIRECTION_ROLES: 'TRAINER' | 'ASSISTANT_TRAINER' | 'DIRECTOR' | 'SECCIONISTA' | 
 ### Funcionalidades — Lista
 - Cards de treino com data, título, notas
 - Botão para abrir quadro tático
+- **Empty state com CTA**: ícone `Dumbbell` + botão "Adicionar treino" visível para utilizadores com `editTraining`
 
 ### Funcionalidades — Quadro Tático
 - Campo de hóquei SVG (HockeyField.tsx)

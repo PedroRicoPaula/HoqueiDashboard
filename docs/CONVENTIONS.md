@@ -1,5 +1,25 @@
-# Conventions — Gestão HCPDL
+# Conventions — HoqueiManager
 > Padrões obrigatórios. Seguir sempre para manter consistência.
+
+---
+
+## Dados de Teste (Dev Local)
+
+Script `scripts/seed-test-clubs.ts` cria 3 clubes de demonstração com dados realistas (atletas, mensalidades, sócios, patrocinadores, materiais, viagem):
+
+```bash
+npx tsx scripts/seed-test-clubs.ts
+```
+
+**Credenciais geradas:**
+| Clube | Email | Password | Cor |
+|-------|-------|----------|-----|
+| HC Porto Demo | `admin@hcporto-demo.com` | `porto123` | Azul |
+| HC Lisboa Demo | `admin@hclisboa-demo.com` | `lisboa123` | Vermelho |
+| HC Braga Demo | `admin@hcbraga-demo.com` | `braga123` | Roxo |
+| Super Admin | `superadmin@hoqueimanager.com` | `superadmin123` | — |
+
+O script é **idempotente** — apaga os 3 clubes de teste antes de recriar. Não afecta outros dados. O hash PBKDF2 usa `randomBytes(16)` como buffer raw (não hex string) para compatibilidade com `comparePassword` em `src/lib/auth.ts`.
 
 ---
 
