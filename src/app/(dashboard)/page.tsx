@@ -239,83 +239,95 @@ export default function DashboardPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('nav.athletes')}</p>
-                <p className="text-3xl font-bold">{stats?.counts.athletes ?? 0}</p>
+        <Link href="/athletes">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('nav.athletes')}</p>
+                  <p className="text-3xl font-bold">{stats?.counts.athletes ?? 0}</p>
+                </div>
+                <Users className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <Users className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('nav.members')}</p>
-                <p className="text-3xl font-bold">{stats?.counts.members ?? 0}</p>
+        <Link href="/members">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('nav.members')}</p>
+                  <p className="text-3xl font-bold">{stats?.counts.members ?? 0}</p>
+                </div>
+                <UserCheck className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <UserCheck className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('nav.sponsors')}</p>
-                <p className="text-3xl font-bold">{stats?.counts.sponsors ?? 0}</p>
+        <Link href="/sponsors">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('nav.sponsors')}</p>
+                  <p className="text-3xl font-bold">{stats?.counts.sponsors ?? 0}</p>
+                </div>
+                <Handshake className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <Handshake className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('nav.materials')}</p>
-                <p className="text-3xl font-bold">{stats?.counts.materials ?? 0}</p>
+        <Link href="/materials">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('nav.materials')}</p>
+                  <p className="text-3xl font-bold">{stats?.counts.materials ?? 0}</p>
+                </div>
+                <Package className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <Package className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('dashboard.trainings30d')}</p>
-                <p className="text-3xl font-bold">{stats?.attendance?.sessionsLast30Days ?? 0}</p>
-                {(stats?.attendance?.presencesLast30Days ?? 0) > 0 && (
-                  <p className="text-xs text-muted-foreground">{stats?.attendance?.presencesLast30Days} {t('dashboard.presences')}</p>
-                )}
+        <Link href="/attendance">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.trainings30d')}</p>
+                  <p className="text-3xl font-bold">{stats?.attendance?.sessionsLast30Days ?? 0}</p>
+                  {(stats?.attendance?.presencesLast30Days ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground">{stats?.attendance?.presencesLast30Days} {t('dashboard.presences')}</p>
+                  )}
+                </div>
+                <ClipboardCheck className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <ClipboardCheck className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('dashboard.textilesAssigned')}</p>
-                <p className="text-3xl font-bold">{stats?.textiles?.assignedCount ?? 0}</p>
-                {(stats?.textiles?.clubCost ?? 0) > 0 && (
-                  <p className="text-xs text-orange-600">{(stats?.textiles?.clubCost ?? 0).toFixed(0)}€ {t('dashboard.club')}</p>
-                )}
+        <Link href="/textiles">
+          <Card className="hover:shadow-md hover:border-primary/40 transition-all cursor-pointer">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.textilesAssigned')}</p>
+                  <p className="text-3xl font-bold">{stats?.textiles?.assignedCount ?? 0}</p>
+                  {(stats?.textiles?.clubCost ?? 0) > 0 && (
+                    <p className="text-xs text-orange-600">{(stats?.textiles?.clubCost ?? 0).toFixed(0)}€ {t('dashboard.club')}</p>
+                  )}
+                </div>
+                <Shirt className="h-8 w-8 text-primary opacity-80" />
               </div>
-              <Shirt className="h-8 w-8 text-primary opacity-80" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Revenue Analytics */}

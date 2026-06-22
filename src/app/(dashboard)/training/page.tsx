@@ -111,7 +111,13 @@ export default function TrainingPage() {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin h-8 w-8 text-muted-foreground" /></div>
       ) : trainings.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">{tr('training.noTrainings')}</div>
+        <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-3">
+          <Dumbbell className="h-10 w-10 opacity-30" />
+          <p>{tr('training.noTrainings')}</p>
+          {can('editTraining') && (
+            <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />{tr('training.new')}</Button>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {trainings.map((t) => (

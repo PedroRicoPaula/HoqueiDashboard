@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard, Users, UserCheck, CreditCard, Package, Handshake,
   Plane, Building2, Dumbbell, Settings, LogOut, ClipboardList,
-  FileBarChart, ClipboardCheck, Shirt, ChevronDown, Loader2,
+  FileBarChart, ClipboardCheck, Shirt, ChevronDown, Loader2, ShieldCheck,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useState, useEffect } from 'react'
@@ -53,7 +53,7 @@ function useNavGroups(t: ReturnType<typeof useDashT>) {
       items: [
         { href: '/reports',           label: t('nav.reports'),     icon: FileBarChart,  permission: 'viewAthletes' },
         { href: '/settings',          label: t('nav.settings'),    icon: Settings,      permission: 'isAdmin' },
-        { href: '/admin/permissions', label: t('nav.permissions'), icon: Settings,      permission: 'isAdmin' },
+        { href: '/admin/permissions', label: t('nav.permissions'), icon: ShieldCheck,   permission: 'isAdmin' },
         { href: '/admin/audit',       label: t('nav.activity'),    icon: ClipboardList, permission: 'isAdmin' },
       ],
     },

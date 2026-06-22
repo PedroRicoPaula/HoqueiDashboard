@@ -41,9 +41,11 @@ function isLocalePublicPath(pathname: string): boolean {
   if (segments.length === 0) return false
   const locale = segments[0]
   if (!SUPPORTED_LOCALES.includes(locale)) return false
-  // Allow: /{locale}, /{locale}/register, /{locale}/register/*
+  // Allow: /{locale}, /{locale}/register, /{locale}/privacy, /{locale}/terms
   if (segments.length === 1) return true
   if (segments[1] === 'register') return true
+  if (segments[1] === 'privacy') return true
+  if (segments[1] === 'terms') return true
   return false
 }
 
@@ -108,6 +110,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!login|setup|api/setup|_next/static|_next/image|favicon.ico|manifest.json|logo.png|uploads).*)',
+    '/((?!login|forgot-password|reset-password|setup|api/setup|_next/static|_next/image|favicon.ico|manifest.json|logo.png|uploads|screenshots).*)',
   ],
 }

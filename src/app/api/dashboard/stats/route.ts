@@ -68,6 +68,7 @@ export async function GET(req: Request) {
       prisma.quota.count({
         where: {
           paid: false,
+          member: { clubId: ctx.clubId },
           OR: [
             { year: { lt: currentYear } },
             { year: currentYear, month: { lt: currentMonth } },
@@ -92,6 +93,7 @@ export async function GET(req: Request) {
         _sum: { amount: true },
         where: {
           paid: true,
+          athlete: { clubId: ctx.clubId },
           OR: [
             { year: seasonStart, month: { in: [9, 10, 11, 12] } },
             { year: seasonEnd, month: { in: [1, 2, 3, 4, 5, 6] } },
@@ -100,7 +102,7 @@ export async function GET(req: Request) {
       }),
       // Member quotas paid this year — use stored amount, fallback to current monthlyQuota
       prisma.quota.findMany({
-        where: { paid: true, year: currentYear },
+        where: { paid: true, year: currentYear, member: { clubId: ctx.clubId } },
         select: { amount: true, member: { select: { monthlyQuota: true } } },
       }),
       // Active sponsor annual contributions
@@ -144,7 +146,7 @@ export async function GET(req: Request) {
       // Direction: salaries paid this year
       prisma.directionSalaryPayment.aggregate({
         _sum: { amount: true },
-        where: { paid: true, year: currentYear },
+        where: { paid: true, year: currentYear, member: { clubId: ctx.clubId } },
       }),
     ])
 
