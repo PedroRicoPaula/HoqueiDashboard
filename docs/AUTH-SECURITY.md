@@ -178,6 +178,7 @@ O `INSERT ... ON CONFLICT DO UPDATE` é **atómico ao nível da base de dados** 
 ### Onde está aplicado
 - `POST /api/auth/login` → 10 req / 15 min por IP
 - `POST /api/auth/change-password` → 5 req / 15 min por IP
+- `POST /api/auth/forgot-password` → 5 req / 15 min por IP
 
 ### Extração de IP (ordem de prioridade)
 1. `CF-Connecting-IP` — Cloudflare (não pode ser falsificado atrás do CF)
@@ -195,11 +196,13 @@ Ver `RateLimit` em `prisma/schema.prisma` e migration `20260602000005_rate_limit
 ```javascript
 Content-Security-Policy:
   default-src 'self'
-  script-src  'self' 'unsafe-inline' 'unsafe-eval'  ← Next.js requer
-  style-src   'self' 'unsafe-inline'                ← Tailwind inline styles
-  img-src     'self' data: blob: https://*.r2.dev   ← logos R2 + base64
-  connect-src 'self'
-  font-src    'self' data:                           ← base64 fonts (Geist)
+  script-src  'self' 'unsafe-inline' https://js.stripe.com     ← produção (unsafe-eval REMOVIDO — SEC-005)
+              'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com  ← dev only
+  style-src   'self' 'unsafe-inline'                            ← Tailwind inline styles
+  img-src     'self' data: blob: https://*.r2.dev               ← logos R2 + base64
+  connect-src 'self' https://api.stripe.com
+  font-src    'self' data:                                      ← base64 fonts (Geist)
+  frame-src   https://js.stripe.com https://hooks.stripe.com
   frame-ancestors 'none'
 
 X-Frame-Options: DENY
@@ -233,6 +236,19 @@ Filename: 16 bytes crypto.getRandomValues() → hex string + ext
 ```
 
 Mensagem de erro e `accept` do input corrigidos para "PNG e JPG" (SVG foi removido da allowlist por risco XSS — 2026-05-27).
+
+---
+
+## Riscos Conhecidos (Bugs Ativos — ver ISSUES-BACKLOG.md)
+
+### [SEC-011] Attendance aggregate cross-tenant no dashboard
+`db.attendanceRecord.aggregate` em `stats/route.ts` não está isolado por clube — `AttendanceRecord` não está no set TENANTED. Soma presenças de todos os clubes. Ver [SEC-011] no backlog.
+
+### [SEC-012] `tempPassword` em metadata Stripe
+`register/route.ts` guarda a password temporária em `metadata.tempPassword` da Checkout Session Stripe. Gerada com `Math.random()` (não criptográfico). Acessível no dashboard Stripe indefinidamente. Ver [SEC-012] no backlog.
+
+### [BUG-013] `stripePriceId` sempre null
+`session.line_items` não é expandido no evento `checkout.session.completed`. `Club.stripePriceId` fica sempre `null`, afetando cálculo de MRR em `/platform`. Ver [BUG-013] no backlog.
 
 ---
 

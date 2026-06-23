@@ -67,7 +67,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params                              // ← Next.js 15 obrigatório
     const ctx = await getDbForRequest(req)                   // ← SEMPRE usar getDbForRequest
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx                                 // db = tenant-scoped client
+    const { user, db, clubId } = ctx                         // db = tenant-scoped client; clubId para create()
     if (!hasPermission(user.permissions, 'viewXxx')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -85,7 +85,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 **Regra multi-tenant:**
 - Usar `db` (de `getDbForRequest`) para modelos TENANTED: Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog
 - Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord, RateLimit
-- **Nunca adicionar `where: { clubId }` manualmente** — a extension injeta automaticamente
+- **Nunca adicionar `where: { clubId }` manualmente** — a extension injeta automaticamente em `findMany/findFirst/update/delete`
+- **Em `create()`, passar `clubId` explicitamente** — Prisma 7 usa `Exact<>` strict typing que exige `clubId` no objeto `data`. A Extension injeta em runtime mas o compilador TS não vê isso. Padrão:
+  ```typescript
+  const { user, db, clubId } = ctx
+  const item = await db.athlete.create({ data: { ...parsed.data, clubId } })
+  ```
 ```
 
 **Template PUT/POST com audit:**
@@ -271,6 +276,17 @@ Sub-componentes definidos fora do componente de página (ex: `TravelCard`, `Cont
 function TravelCard({ travel, tr, dateLocale }: { tr: (k: string) => string; dateLocale: Locale }) { ... }
 ```
 
+**Excepção — sub-componentes que SÃO funções React (Client Components):** podem e devem chamar os seus próprios hooks. Nunca definir `useDashLabels()` no pai e tentar usá-lo num filho separado — cada componente chama o seu hook:
+```typescript
+// ✅ correto — QuotaCalendar chama o seu próprio useDashLabels
+function QuotaCalendar({ memberId, year }: ...) {
+  const dashLabels = useDashLabels()
+  const MONTHS = dashLabels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
+  // ...
+}
+// ❌ errado — definir MONTHS no MembersPage e esperar que QuotaCalendar o veja
+```
+
 ---
 
 ## Constantes Partilhadas
@@ -284,6 +300,21 @@ import { AGE_GROUPS, AGE_GROUP_LABELS, MATERIAL_STATE_LABELS, MATERIAL_STATE_COL
 ```
 
 Estas constantes são PT-only — usar como fallback em páginas com `useDashLabels()`. Ao criar novos módulos, adicionar constantes a este ficheiro **e** as traduções aos 5 JSON files do dashboard.
+
+---
+
+## CSS Variables — Paleta por Clube
+
+`--club-primary` (e `--club-primary-fg`) são CSS vars que controlam a cor de destaque do dashboard por clube.
+
+**Scoping:**
+- `globals.css` define o valor padrão global: `142 71% 45%` (verde shadcn). Serve de fallback.
+- `(dashboard)/layout.tsx` injeta o override via `style={{ '--club-primary': hsl }}` no `<div>` raiz do dashboard — **escopo limitado a esse elemento e descendentes**.
+- A **landing page** (`[locale]/`) usa um layout separado e **não consome `--club-primary` em nenhum componente**. Não é afetada pela cor do clube. ✅ Verificado 2026-06-23.
+
+**Consumidores atuais:** `Sidebar.tsx` (item ativo), `(dashboard)/layout.tsx` (override).
+
+**Regra:** nunca usar `--club-primary` em componentes partilhados entre landing e dashboard (ex: `src/components/ui/`). Só em componentes exclusivos do dashboard.
 
 ---
 

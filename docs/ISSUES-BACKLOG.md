@@ -5,7 +5,7 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-06-22)_
+_(sem bugs activos conhecidos — 2026-06-23)_
 
 ---
 
@@ -65,6 +65,11 @@ Nota: `admin/permissions/page.tsx` tem algumas strings PT hardcoded (baixa prior
 ### ~~[DEBT-012] Migration 20260511000001 quebrada em instalações novas~~ ✅ RESOLVIDO 2026-06-19
 **Encontrado:** 2026-06-19 durante setup local  
 Migration `20260511000001_direction_athlete_trainergroups` assumia coluna `trainerAgeGroup` existente mas em BD nova ela nunca foi criada. SQL corrigido com `IF EXISTS` guards e `DO $$ BEGIN ... END $$` condicional. Safe para fresh installs e migrações incrementais.
+
+---
+
+### ~~[DEBT-016] `db.attendanceRecord` usado onde devia ser `prisma` — inconsistência com convenção~~ ✅ RESOLVIDO 2026-06-23
+`db.attendanceRecord` substituído por `prisma.attendanceRecord` em todos os routes afetados, com filtros explícitos via relação: `athlete: { clubId }` em `athletes/[id]/attendance/route.ts`, `session: { clubId }` em `attendance/[id]/records/route.ts` (GET e PUT final read).
 
 ---
 
@@ -258,3 +263,13 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-19 | DEBT-011 (parcial): Dashboard i18n | `useDashT` + `useDashLabels` + `messages/dashboard/*.json` (5 langs). 9/13 páginas atualizadas. |
 | 2026-06-19 | DEBT-012: Register validação em PT fixo | Mensagens de validação usam `t('validation.*')` via next-intl em todos os 5 idiomas. |
 | 2026-06-19 | DEBT-013/014/015: Landing page — CTA, links, ícones | CTA com chave própria; links `/${locale}/register` explícitos; ícone `UserCheck` para sócios. |
+| 2026-06-23 | TS-BUILD: `AuditAction` type incompleto — 3 ações em falta | `PASSWORD_RESET`, `UPDATE_CLUB_LOGO`, `REMOVE_CLUB_LOGO` usados em `reset-password/route.ts` e `club/logo/route.ts` mas não declarados no union type em `src/lib/audit.ts`. Build TS falharia em produção. |
+| 2026-06-23 | TS-BUILD: Stripe `apiVersion` errada em 2 routes | `'2025-05-28.basil'` não existe no SDK 17.7.0 — versão correta é `'2025-02-24.acacia'`. Afetava `register/route.ts` e `stripe/webhook/route.ts`. |
+| 2026-06-23 | TS-BUILD: `MONTHS` fora de scope em `QuotaCalendar` | Variável `MONTHS` (derivada de `useDashLabels`) definida no componente pai `MembersPage` mas usada em `QuotaCalendar` (componente filho separado). React não partilha variáveis entre componentes. Fix: `useDashLabels()` movido para dentro de `QuotaCalendar`. |
+| 2026-06-23 | TS-BUILD: `Property 'club' missing` em 9 routes POST | Prisma 7 usa `Exact<>` strict typing — num `create()`, Prisma exige `clubId` explícito OU `club: { connect }`, nunca nenhum dos dois. A Prisma Extension injetava `clubId` em runtime mas TS não vê isso. Fix: `const { user, db, clubId } = ctx` + `clubId` adicionado ao objeto `data` nos 9 routes (`athletes`, `attendance`, `attendance/schedules`, `direction`, `materials`, `members`, `sponsors`, `training`, `travel`). |
+| 2026-06-23 | TS-BUILD: `AgeGroup` string não castado em seed-test-clubs.ts | `ageGroup: a.ageGroup` inferred como `string` mas Prisma exige `AgeGroup` enum. Fix: `as AgeGroup` cast + import do tipo. |
+| 2026-06-23 | SEC-011: Attendance aggregate cross-tenant no dashboard stats | `db.attendanceRecord.aggregate` → `prisma.attendanceRecord.aggregate` + `session: { clubId: ctx.clubId, date: ... }`. KPI "Presenças últimos 30 dias" agora isolado por clube. |
+| 2026-06-23 | BUG-013: `stripePriceId` sempre null no webhook Stripe | `stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items'] })` adicionado antes do `club.update`. `expanded.line_items?.data?.[0]?.price?.id` agora corretamente guardado. MRR/ARR em `/platform` funcional. |
+| 2026-06-23 | SEC-012: `Math.random()` para password temporária + plaintext em metadata | `randomBytes(16).toString('base64url')` (Node.js `crypto`). Password continua em metadata Stripe (aceite — acesso ao Stripe implica trust). |
+| 2026-06-23 | DEBT-015: Register sem transação DB — registos órfãos em falha | `prisma.$transaction(async tx => ...)` envolve `club.create` + `user.create`. Em caso de falha, `.catch` faz `stripe.customers.del(customer.id)` antes de re-throw. |
+| 2026-06-23 | DEBT-016: `db.attendanceRecord` em routes não-tenanted | `prisma.attendanceRecord` com filtros explícitos: `athlete: { clubId }` em `athletes/[id]/attendance`, `session: { clubId }` em `attendance/[id]/records` (GET + PUT final read). |
