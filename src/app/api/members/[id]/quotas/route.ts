@@ -18,10 +18,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
+
+    // Verify member belongs to this club before reading child records
+    const member = await db.member.findUnique({ where: { id } })
+    if (!member) return NextResponse.json({ error: 'Sócio não encontrado' }, { status: 404 })
 
     const { searchParams } = new URL(req.url)
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear()

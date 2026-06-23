@@ -91,7 +91,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const member = await db.member.create({ data: { ...parsed.data, clubId } })
+    // Compute next sequential number for this club
+    const maxResult = await db.member.aggregate({ _max: { number: true } })
+    const nextNumber = ((maxResult as { _max: { number: number | null } })._max.number ?? 0) + 1
+
+    const member = await db.member.create({ data: { ...parsed.data, number: nextNumber, clubId } })
     await logAudit(req, user.id, user.email, 'CREATE', 'Member', (member as { id: string }).id, { name: (member as { name: string }).name })
     return NextResponse.json(member, { status: 201 })
   } catch (error) {

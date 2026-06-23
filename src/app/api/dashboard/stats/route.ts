@@ -23,6 +23,17 @@ export async function GET(req: Request) {
     const seasonStart = getCurrentSeasonStart()
     const seasonEnd = seasonStart + 1
 
+    // All past season months (Sep-Dec of seasonStart + Jan-Jun of seasonEnd that already passed)
+    const pastSeasonMonths: { year: number; month: number }[] = [
+      ...[9, 10, 11, 12]
+        .filter(m => seasonStart < currentYear || (seasonStart === currentYear && m < currentMonth))
+        .map(m => ({ year: seasonStart, month: m })),
+      ...[1, 2, 3, 4, 5, 6]
+        .filter(m => seasonEnd < currentYear || (seasonEnd === currentYear && m < currentMonth))
+        .map(m => ({ year: seasonEnd, month: m })),
+    ]
+    const totalPastSeasonMonths = pastSeasonMonths.length
+
     const [
       athleteCount,
       memberCount,
@@ -75,14 +86,17 @@ export async function GET(req: Request) {
           ],
         },
       }),
-      // Athletes with late payments (current year, excluding seniors)
-      currentMonth > 1
+      // Athletes with late payments — full season range (Sep-Jun), not just current year
+      totalPastSeasonMonths > 0
         ? db.athlete.findMany({
             where: { feeExempt: false, monthlyFee: { gt: 0 }, ageGroup: { not: 'SENIORS' } },
             select: {
               id: true,
               payments: {
-                where: { year: currentYear, month: { lt: currentMonth }, paid: true },
+                where: {
+                  paid: true,
+                  OR: pastSeasonMonths.map(({ year, month }) => ({ year, month })),
+                },
                 select: { id: true },
               },
             },
@@ -153,10 +167,9 @@ export async function GET(req: Request) {
       }),
     ])
 
-    // Compute athletes with late payments
-    const pastMonthsThisYear = currentMonth - 1
+    // Athletes with late payments: paid months in past season < total past season months
     const athletesWithLatePayments = (athletePaymentData as { id: string; payments: { id: string }[] }[]).filter(
-      (a) => a.payments.length < pastMonthsThisYear
+      (a) => a.payments.length < totalPastSeasonMonths
     ).length
 
     // Compute total member quotas collected (use stored amount; fallback to current monthlyQuota for old records)

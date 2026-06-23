@@ -222,7 +222,7 @@ model Member {
   id           String   @id @default(uuid())
   clubId       String
   club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  number       Int      @default(autoincrement())
+  number       Int
   name         String
   phone        String?
   email        String?
