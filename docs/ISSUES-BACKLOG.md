@@ -5,7 +5,31 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-06-23)_
+### [BUG-013] Dashboard — "atletas em atraso" subestimado em Jan-Ago
+**Encontrado:** 2026-06-23 (análise de código)  
+`athletesWithLatePayments` em `GET /api/dashboard/stats` filtra `year: currentYear, month: { lt: currentMonth }` — ignora Setembro-Dezembro do ano anterior (primeira metade da época). Em Fevereiro 2026 só conta Janeiro 2026, ignora Set-Dez 2025. Subestima o alerta de atraso durante toda a primeira metade do ano civil (Jan-Ago). A página `/fees` calcula correctamente com o range completo da época.  
+**Fix:** Usar o mesmo range de época que `/api/fees` — `OR: [{ year: seasonStart, month: { in: [9,10,11,12], lt: currentMonth se mesmo ano } }, { year: seasonEnd, month: { ... } }]`.
+
+### [BUG-014] Member.number — autoincrement global em vez de por clube
+**Encontrado:** 2026-06-23 (análise de esquema)  
+`Member.number` usa `@default(autoincrement())` — o contador é global na tabela PostgreSQL. O primeiro sócio do Club A fica com #1, o primeiro do Club B fica com #2 (não #1). A `@@unique([clubId, number])` está correcta mas os números não são sequenciais por clube. Cosmético mas confuso para admins.  
+**Fix:** Remover `autoincrement()`, calcular no API: `MAX(number) + 1 WHERE clubId = ?` no momento de criação, ou usar sequência por clube.
+
+### [SEC-013] Child model GETs sem verificação de clube
+**Encontrado:** 2026-06-23 (análise de código)  
+3 rotas GET de child models usam `prisma` global sem verificar que o parent pertence ao clube do token JWT:  
+- `GET /api/athletes/[id]/payments` → `prisma.athletePayment.findMany({ where: { athleteId: id } })`  
+- `GET /api/members/[id]/quotas` → `prisma.quota.findMany({ where: { memberId: id } })`  
+- `GET /api/direction/[id]/salary` → `prisma.directionSalaryPayment.findMany({ where: { memberId: id } })`  
+Risco baixo (requer JWT válido + UUID de outro clube), mas tecnicamente cross-tenant legível.  
+**Fix:** Verificar clube via join antes do findMany, ou usar `db` (tenanted) no parent lookup e rejeitar se null.
+
+### [DEBT-017] AttendanceRecord fora do set TENANTED — protecção implícita frágil
+**Encontrado:** 2026-06-23 (análise de código)  
+`AttendanceRecord` não está em `TENANTED` em `src/lib/prisma-tenant.ts`. O route `/api/attendance/[id]/records` usa `db.attendanceRecord.upsert` — o Extension não injeta `clubId`. A protecção existe porque o route primeiro verifica a sessão com `db.trainingSession.findUnique` (tenanted). Funciona, mas depende da gate explícita em vez da Extension automatizar. Se alguém adicionar um novo endpoint de records sem a gate, não há protecção automática.  
+**Fix:** Adicionar `'attendancerecord'` ao set `TENANTED` em `prisma-tenant.ts` (requer remover o `session: { clubId }` filter manual nas queries que o têm).
+
+---
 
 ---
 
