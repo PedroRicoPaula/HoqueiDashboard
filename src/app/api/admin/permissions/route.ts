@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     }
 
     const users = await prisma.user.findMany({
+      where: { clubId: ctx.clubId },
       include: { permissions: true },
       orderBy: { name: 'asc' },
     })

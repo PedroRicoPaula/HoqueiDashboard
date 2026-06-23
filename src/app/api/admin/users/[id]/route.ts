@@ -28,7 +28,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const target = await prisma.user.findUnique({ where: { id } })
-    if (!target) return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
+    if (!target || target.clubId !== ctx.clubId) {
+      return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
+    }
 
     const hashed = await hashPassword(parsed.data.password)
     await prisma.user.update({

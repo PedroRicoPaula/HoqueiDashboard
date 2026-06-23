@@ -15,6 +15,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ userId: 
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
+    // Verify target user belongs to this club
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } })
+    if (!targetUser || targetUser.clubId !== ctx.clubId) {
+      return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
+    }
+
     const body = await req.json()
     const {
       viewAthletes, editAthletes,
