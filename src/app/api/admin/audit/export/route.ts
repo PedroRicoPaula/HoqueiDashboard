@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     // Always show login attempts; exclude admin actions from everything else
     const adminPerms = await prisma.permission.findMany({
-      where: { isAdmin: true },
+      where: { isAdmin: true, user: { clubId: ctx.clubId } },
       select: { userId: true },
     })
     const adminIds = adminPerms.map((p: { userId: string }) => p.userId)
