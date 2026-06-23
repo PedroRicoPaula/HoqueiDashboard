@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-05-28.basil' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
 
 const registerSchema = z.object({
   name: z.string().min(2).max(100),
@@ -57,44 +58,52 @@ export async function POST(req: Request) {
     // Create Stripe customer first to get customerId
     const customer = await stripe.customers.create({ name, email })
 
-    // Create club (PENDING_PAYMENT until webhook confirms)
+    // Prepare before transaction (async ops outside TX for speed)
     const slug = await uniqueSlug(slugify(name))
-    const club = await prisma.club.create({
-      data: {
-        name,
-        slug,
-        email,
-        country,
-        language,
-        status: 'PENDING_PAYMENT',
-        stripeCustomerId: customer.id,
-      },
-    })
+    const tempPassword = randomBytes(16).toString('base64url')
+    const hashedPassword = await hashPassword(tempPassword)
 
-    // Create admin user for the club
-    const tempPassword = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
-    const user = await prisma.user.create({
-      data: {
-        clubId: club.id,
-        name: 'Administrador',
-        email,
-        password: await hashPassword(tempPassword),
-        permissions: {
-          create: {
-            viewAthletes: true, editAthletes: true,
-            viewFees: true, editFees: true,
-            viewMembers: true, editMembers: true,
-            viewMaterials: true, editMaterials: true,
-            viewSponsors: true, manageSponsors: true,
-            viewTraining: true, editTraining: true,
-            viewTravel: true, editTravel: true,
-            viewDirection: true, editDirection: true,
-            viewAttendance: true, editAttendance: true,
-            viewTextiles: true, editTextiles: true,
-            isAdmin: true,
+    // Atomic DB create — rolls back both club and user if either fails
+    const [club, user] = await prisma.$transaction(async (tx) => {
+      const c = await tx.club.create({
+        data: {
+          name,
+          slug,
+          email,
+          country,
+          language,
+          status: 'PENDING_PAYMENT',
+          stripeCustomerId: customer.id,
+        },
+      })
+      const u = await tx.user.create({
+        data: {
+          clubId: c.id,
+          name: 'Administrador',
+          email,
+          password: hashedPassword,
+          permissions: {
+            create: {
+              viewAthletes: true, editAthletes: true,
+              viewFees: true, editFees: true,
+              viewMembers: true, editMembers: true,
+              viewMaterials: true, editMaterials: true,
+              viewSponsors: true, manageSponsors: true,
+              viewTraining: true, editTraining: true,
+              viewTravel: true, editTravel: true,
+              viewDirection: true, editDirection: true,
+              viewAttendance: true, editAttendance: true,
+              viewTextiles: true, editTextiles: true,
+              isAdmin: true,
+            },
           },
         },
-      },
+      })
+      return [c, u] as const
+    }).catch(async (err: unknown) => {
+      // DB failed — clean up orphan Stripe customer
+      await stripe.customers.del(customer.id).catch(() => {})
+      throw err
     })
 
     // Create Stripe Checkout Session

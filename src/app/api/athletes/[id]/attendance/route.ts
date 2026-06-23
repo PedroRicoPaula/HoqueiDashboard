@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
@@ -10,15 +11,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id: athleteId } = await params
 
-    const records = await db.attendanceRecord.findMany({
-      where: { athleteId },
+    const records = await prisma.attendanceRecord.findMany({
+      where: { athleteId, athlete: { clubId } },
       include: {
         session: {
           select: { id: true, date: true, time: true, primaryAgeGroup: true, sessionType: true, title: true, cancelled: true },

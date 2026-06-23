@@ -123,12 +123,15 @@ export async function GET(req: Request) {
       db.trainingSession.count({
         where: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
       }),
-      // Attendance: records in last 30 days
-      db.attendanceRecord.aggregate({
+      // Attendance: records in last 30 days — prisma global (AttendanceRecord not in TENANTED)
+      prisma.attendanceRecord.aggregate({
         _count: { id: true },
         where: {
           present: true,
-          session: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
+          session: {
+            clubId: ctx.clubId,
+            date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
+          },
         },
       }),
       // Textile: total count assigned

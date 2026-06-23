@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { bulkAttendanceSchema } from '@/lib/validations'
@@ -9,14 +10,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
     const { id } = await params
-    const records = await db.attendanceRecord.findMany({
-      where: { sessionId: id },
+    const records = await prisma.attendanceRecord.findMany({
+      where: { sessionId: id, session: { clubId } },
       include: {
         athlete: { select: { id: true, name: true, number: true, ageGroup: true } },
       },
@@ -35,7 +36,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -74,8 +75,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       count: parsed.data.records.length,
     })
 
-    const updated = await db.attendanceRecord.findMany({
-      where: { sessionId },
+    const updated = await prisma.attendanceRecord.findMany({
+      where: { sessionId, session: { clubId } },
       include: {
         athlete: { select: { id: true, name: true, number: true, ageGroup: true } },
       },

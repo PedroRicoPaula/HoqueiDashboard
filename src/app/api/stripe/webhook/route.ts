@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger'
 import { sendEmail, welcomeEmailHtml } from '@/lib/email'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-05-28.basil' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
 
 export async function POST(req: Request) {
   const sig = req.headers.get('stripe-signature')
@@ -27,12 +27,18 @@ export async function POST(req: Request) {
         const userId = session.metadata?.userId
         if (!clubId) break
 
+        // Retrieve with line_items expanded — not included in webhook payload by default
+        const expanded = await stripe.checkout.sessions.retrieve(session.id, {
+          expand: ['line_items'],
+        })
+        const stripePriceId = expanded.line_items?.data?.[0]?.price?.id ?? null
+
         const club = await prisma.club.update({
           where: { id: clubId },
           data: {
             status: 'ACTIVE',
             stripeSubscriptionId: session.subscription as string,
-            stripePriceId: (session.line_items as unknown as { data: Array<{ price: { id: string } }> })?.data?.[0]?.price?.id ?? null,
+            stripePriceId,
           },
         })
 
