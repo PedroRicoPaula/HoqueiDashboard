@@ -68,6 +68,8 @@ function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
   const [confirmSaving, setConfirmSaving] = useState(false)
   const { can } = usePermissions()
   const { toast } = useToast()
+  const dashLabels = useDashLabels()
+  const MONTHS = dashLabels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
@@ -222,9 +224,6 @@ function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
 }
 
 export default function MembersPage() {
-  const dashLabels = useDashLabels()
-  const MONTHS = dashLabels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
-
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewTraining')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editTraining')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     const { date, ...rest } = parsed.data
-    const training = await db.training.create({ data: { ...rest, date: new Date(date) } })
+    const training = await db.training.create({ data: { ...rest, date: new Date(date), clubId } })
     await logAudit(req, user.id, user.email, 'CREATE', 'Training', (training as { id: string }).id, { title: (training as { title: string }).title })
     return NextResponse.json(training, { status: 201 })
   } catch (error) {

@@ -2,7 +2,7 @@ import { prisma } from './prisma'
 import { getClientIp } from './rateLimit'
 import type { Prisma } from '@prisma/client'
 
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT' | 'CHANGE_PASSWORD' | 'CHANGE_PERMISSIONS'
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT' | 'CHANGE_PASSWORD' | 'CHANGE_PERMISSIONS' | 'PASSWORD_RESET' | 'UPDATE_CLUB_LOGO' | 'REMOVE_CLUB_LOGO'
 
 export async function logAudit(
   req: Request,

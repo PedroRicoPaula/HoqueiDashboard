@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'manageSponsors')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     const { contractStart, contractEnd, ...rest } = parsed.data
     const sponsor = await db.sponsor.create({
-      data: { ...rest, contractStart: new Date(contractStart), contractEnd: new Date(contractEnd) },
+      data: { ...rest, contractStart: new Date(contractStart), contractEnd: new Date(contractEnd), clubId },
     })
 
     await logAudit(req, user.id, user.email, 'CREATE', 'Sponsor', (sponsor as { id: string }).id, { name: (sponsor as { name: string }).name })

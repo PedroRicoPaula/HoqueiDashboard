@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         const { birthDate, ...rest } = parsed.data
         try {
           const athlete = await db.athlete.create({
-            data: { ...rest, birthDate: new Date(birthDate) },
+            data: { ...rest, birthDate: new Date(birthDate), clubId },
           })
           results.push(athlete)
           await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name, import: true })
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
 
     const { birthDate, ...rest } = parsed.data
     const athlete = await db.athlete.create({
-      data: { ...rest, birthDate: new Date(birthDate) },
+      data: { ...rest, birthDate: new Date(birthDate), clubId },
     })
 
     await logAudit(req, user.id, user.email, 'CREATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name })

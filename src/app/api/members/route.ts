@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const member = await db.member.create({ data: parsed.data })
+    const member = await db.member.create({ data: { ...parsed.data, clubId } })
     await logAudit(req, user.id, user.email, 'CREATE', 'Member', (member as { id: string }).id, { name: (member as { name: string }).name })
     return NextResponse.json(member, { status: 201 })
   } catch (error) {

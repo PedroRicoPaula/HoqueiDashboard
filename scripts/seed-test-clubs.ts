@@ -2,7 +2,7 @@
  * Seed 3 test clubs with realistic data for local development.
  * Run with: npx tsx scripts/seed-test-clubs.ts
  */
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type AgeGroup } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { randomBytes, pbkdf2 as pbkdf2Cb } from 'crypto'
 import { promisify } from 'util'
@@ -170,7 +170,7 @@ async function seedClub(club: typeof CLUBS[0]) {
           clubId: createdClub.id,
           number: a.number,
           name: a.name,
-          ageGroup: a.ageGroup,
+          ageGroup: a.ageGroup as AgeGroup,
           birthDate: new Date(a.birthDate),
           monthlyFee: a.monthlyFee,
           feeExempt: false,

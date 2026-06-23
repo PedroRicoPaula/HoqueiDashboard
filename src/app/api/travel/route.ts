@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'viewTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editTravel')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
         ...rest,
         departureDate: new Date(departureDate),
         returnDate: returnDate ? new Date(returnDate) : null,
+        clubId,
       },
     })
 
