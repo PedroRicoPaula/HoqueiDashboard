@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import Link from 'next/link'
 import {
-  Users, UserCheck, Package, MapPin, Brain, Plane, BarChart3, Check,
+  Users, UserCheck, Package, MapPin, Brain, Plane, BarChart3,
   ArrowRight, Shield, Globe, Zap,
 } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher'

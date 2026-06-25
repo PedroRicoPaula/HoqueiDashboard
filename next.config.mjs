@@ -6,6 +6,11 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 const isDev = process.env.NODE_ENV === 'development'
 
+// Allow images from R2 public URL (custom domain or default *.r2.dev)
+const r2ImgSrc = process.env.R2_PUBLIC_URL
+  ? new URL(process.env.R2_PUBLIC_URL).origin
+  : 'https://*.r2.dev'
+
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -20,7 +25,7 @@ const securityHeaders = [
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com"
         : "script-src 'self' 'unsafe-inline' https://js.stripe.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.r2.dev",
+      `img-src 'self' data: blob: ${r2ImgSrc}`,
       "connect-src 'self' https://api.stripe.com",
       "font-src 'self' data:",
       "frame-src https://js.stripe.com https://hooks.stripe.com",

@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db, clubId } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db, clubId } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
         sessionType,
         title,
         notes,
-        clubId,
+        clubId: ctx.clubId,
         ...(scheduleId ? { scheduleId } : {}),
       },
     })

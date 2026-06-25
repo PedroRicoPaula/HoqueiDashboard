@@ -1,7 +1,6 @@
 'use client'
 
-import { useParams, useRouter, usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useParams, usePathname } from 'next/navigation'
 
 const LOCALES = [
   { code: 'pt', label: 'PT' },

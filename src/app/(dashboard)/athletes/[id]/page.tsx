@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { format, differenceInYears } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -739,9 +740,9 @@ export default function AthleteProfilePage() {
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 Histórico de Pagamentos
-                <a href="/fees" className="ml-1 text-xs text-primary font-normal flex items-center gap-0.5 hover:underline">
+                <Link href="/fees" className="ml-1 text-xs text-primary font-normal flex items-center gap-0.5 hover:underline">
                   <ExternalLink className="h-3 w-3" />Ver Fees
-                </a>
+                </Link>
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setSeason(s => s - 1)} disabled={season <= 2025}>‹</Button>

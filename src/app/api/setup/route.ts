@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { setupSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
+import { validateCsrf, csrfError } from '@/lib/csrf'
 
 export async function GET() {
   try {
@@ -15,6 +16,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!validateCsrf(req)) return csrfError()
+
   try {
     const count = await prisma.user.count()
     if (count > 0) {
@@ -35,6 +38,7 @@ export async function POST(req: Request) {
         name,
         email,
         password: hashed,
+        isSuperAdmin: true,
         permissions: {
           create: {
             viewAthletes: true, editAthletes: true,

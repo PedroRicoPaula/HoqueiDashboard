@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -32,8 +33,6 @@ const SPONSOR_TYPE_BADGE: Record<string, string> = {
   SHINGUARDS:          'bg-orange-100 text-orange-800',
   OTHER:               'bg-gray-100 text-gray-700',
 }
-
-const ZONE_KEYS = ['shoulderLeft', 'shoulderRight', 'chest', 'shorts', 'backLower', 'backShorts']
 
 const sponsorFormSchema = z.object({
   name: z.string().min(1, 'Nome obrigatório'),
@@ -325,7 +324,7 @@ export default function SponsorsPage() {
                 {/* Logo */}
                 <div className="relative h-24 bg-gray-50 border-b flex items-center justify-center px-4">
                   {s.logoUrl ? (
-                    <img src={s.logoUrl} alt={s.name} className="max-h-16 max-w-full object-contain" />
+                    <Image src={s.logoUrl} alt={s.name} width={160} height={64} className="max-h-16 max-w-full object-contain" unoptimized />
                   ) : (
                     <span className="text-3xl font-black text-gray-200">{s.name.charAt(0).toUpperCase()}</span>
                   )}
@@ -406,7 +405,7 @@ export default function SponsorsPage() {
               <div className="flex items-center gap-3">
                 <div className="w-20 h-14 border rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden flex-shrink-0">
                   {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="max-h-full max-w-full object-contain p-1" />
+                    <Image src={logoUrl} alt="Logo" width={80} height={56} className="max-h-full max-w-full object-contain p-1" unoptimized />
                   ) : (
                     <Upload className="h-5 w-5 text-gray-300" />
                   )}

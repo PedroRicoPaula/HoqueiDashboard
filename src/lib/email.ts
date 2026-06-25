@@ -35,7 +35,7 @@ export async function sendEmail({ to, subject, html, from }: SendEmailOptions): 
   }
 }
 
-export function welcomeEmailHtml(clubName: string, email: string, tempPassword: string, appUrl: string): string {
+export function welcomeEmailHtml(clubName: string, email: string, setPasswordUrl: string): string {
   return `
 <!DOCTYPE html>
 <html lang="pt">
@@ -50,20 +50,13 @@ export function welcomeEmailHtml(clubName: string, email: string, tempPassword: 
     </div>
 
     <p style="color:#374151;margin-bottom:8px">O clube <strong>${clubName}</strong> foi registado com sucesso.</p>
-    <p style="color:#374151;margin-bottom:24px">As suas credenciais de acesso são:</p>
+    <p style="color:#374151;margin-bottom:24px">O seu email de acesso é <strong>${email}</strong>. Clique no botão abaixo para definir a sua palavra-passe e entrar no dashboard.</p>
 
-    <div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">
-      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">Email</p>
-      <p style="margin:0 0 16px;font-weight:600;color:#111827">${email}</p>
-      <p style="margin:0 0 8px;color:#6b7280;font-size:13px">Palavra-passe temporária</p>
-      <p style="margin:0;font-weight:600;color:#111827;font-size:18px;letter-spacing:2px">${tempPassword}</p>
-    </div>
-
-    <p style="color:#dc2626;font-size:13px;margin-bottom:24px">⚠️ Por segurança, altere a palavra-passe no primeiro login.</p>
-
-    <a href="${appUrl}/login" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
-      Entrar no Dashboard →
+    <a href="${setPasswordUrl}" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:24px">
+      Definir Palavra-passe →
     </a>
+
+    <p style="color:#9ca3af;font-size:13px;margin-bottom:0">Este link expira em <strong>24 horas</strong>.</p>
 
     <p style="color:#9ca3af;font-size:12px;margin-top:32px;text-align:center">
       HoqueiManager · Gestão para clubes de hóquei em patins<br>

@@ -3,6 +3,8 @@ import { randomBytes } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+import { logAudit } from '@/lib/audit'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
@@ -36,6 +38,12 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req)
+  const limit = await checkRateLimit(`register:${ip}`, { windowMs: 60 * 60 * 1000, max: 5 })
+  if (!limit.allowed) {
+    return NextResponse.json({ error: 'Muitos pedidos. Aguarde.' }, { status: 429 })
+  }
+
   try {
     const body = await req.json()
     const parsed = registerSchema.safeParse(body)
@@ -45,7 +53,6 @@ export async function POST(req: Request) {
 
     const { name, email, country, language, plan } = parsed.data
 
-    // Check email not already registered
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
       return NextResponse.json({ error: 'Este email já está registado.' }, { status: 409 })
@@ -55,15 +62,12 @@ export async function POST(req: Request) {
       ? process.env.STRIPE_PRICE_MONTHLY!
       : process.env.STRIPE_PRICE_YEARLY!
 
-    // Create Stripe customer first to get customerId
     const customer = await stripe.customers.create({ name, email })
 
-    // Prepare before transaction (async ops outside TX for speed)
     const slug = await uniqueSlug(slugify(name))
-    const tempPassword = randomBytes(16).toString('base64url')
-    const hashedPassword = await hashPassword(tempPassword)
+    // Placeholder password — user will set their own via reset-password link after checkout
+    const placeholderPassword = await hashPassword(randomBytes(32).toString('hex'))
 
-    // Atomic DB create — rolls back both club and user if either fails
     const [club, user] = await prisma.$transaction(async (tx) => {
       const c = await tx.club.create({
         data: {
@@ -81,7 +85,7 @@ export async function POST(req: Request) {
           clubId: c.id,
           name: 'Administrador',
           email,
-          password: hashedPassword,
+          password: placeholderPassword,
           permissions: {
             create: {
               viewAthletes: true, editAthletes: true,
@@ -101,18 +105,18 @@ export async function POST(req: Request) {
       })
       return [c, u] as const
     }).catch(async (err: unknown) => {
-      // DB failed — clean up orphan Stripe customer
       await stripe.customers.del(customer.id).catch(() => {})
       throw err
     })
 
-    // Create Stripe Checkout Session
+    await logAudit(req, user.id, user.email, 'REGISTER', 'Club', club.id, { name, email, country, language, plan })
+
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { clubId: club.id, userId: user.id, tempPassword },
+      metadata: { clubId: club.id, userId: user.id },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?registered=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${language}/register?cancelled=1`,
       subscription_data: {

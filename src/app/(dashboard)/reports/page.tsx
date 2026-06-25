@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Download, Users, Euro, Package, UserCheck, Loader2, ClipboardCheck, Shirt } from 'lucide-react'
-import { AGE_GROUPS } from '@/lib/constants'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
 
