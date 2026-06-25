@@ -179,6 +179,8 @@ O `INSERT ... ON CONFLICT DO UPDATE` é **atómico ao nível da base de dados** 
 - `POST /api/auth/login` → 10 req / 15 min por IP
 - `POST /api/auth/change-password` → 5 req / 15 min por IP
 - `POST /api/auth/forgot-password` → 5 req / 15 min por IP
+- `POST /api/auth/reset-password` → 5 req / 15 min por IP
+- `POST /api/register` → 5 req / 60 min por IP
 
 ### Extração de IP (ordem de prioridade)
 1. `CF-Connecting-IP` — Cloudflare (não pode ser falsificado atrás do CF)
@@ -199,7 +201,7 @@ Content-Security-Policy:
   script-src  'self' 'unsafe-inline' https://js.stripe.com     ← produção (unsafe-eval REMOVIDO — SEC-005)
               'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com  ← dev only
   style-src   'self' 'unsafe-inline'                            ← Tailwind inline styles
-  img-src     'self' data: blob: https://*.r2.dev               ← logos R2 + base64
+  img-src     'self' data: blob: <R2_ORIGIN>                    ← dinâmico: origin de R2_PUBLIC_URL ou https://*.r2.dev como fallback
   connect-src 'self' https://api.stripe.com
   font-src    'self' data:                                      ← base64 fonts (Geist)
   frame-src   https://js.stripe.com https://hooks.stripe.com
@@ -241,14 +243,15 @@ Mensagem de erro e `accept` do input corrigidos para "PNG e JPG" (SVG foi removi
 
 ## Riscos Conhecidos (Bugs Ativos — ver ISSUES-BACKLOG.md)
 
-### [SEC-011] Attendance aggregate cross-tenant no dashboard
-`db.attendanceRecord.aggregate` em `stats/route.ts` não está isolado por clube — `AttendanceRecord` não está no set TENANTED. Soma presenças de todos os clubes. Ver [SEC-011] no backlog.
+> Todos os riscos críticos identificados nas auditorias de 2026-06-02, 2026-06-23 e 2026-06-25 foram resolvidos. Ver secção "✅ Resolvido Recentemente" em [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md) para detalhes.
 
-### [SEC-012] `tempPassword` em metadata Stripe
-`register/route.ts` guarda a password temporária em `metadata.tempPassword` da Checkout Session Stripe. Gerada com `Math.random()` (não criptográfico). Acessível no dashboard Stripe indefinidamente. Ver [SEC-012] no backlog.
+Riscos pendentes de menor prioridade:
 
-### [BUG-013] `stripePriceId` sempre null
-`session.line_items` não é expandido no evento `checkout.session.completed`. `Club.stripePriceId` fica sempre `null`, afetando cálculo de MRR em `/platform`. Ver [BUG-013] no backlog.
+### [SEC-013] Child model GETs sem verificação de clube
+`GET /api/athletes/[id]/payments`, `GET /api/members/[id]/quotas`, `GET /api/direction/[id]/salary` usam `prisma` global sem verificar que o parent pertence ao clube do token. Risco baixo (requer JWT válido + UUID de outro clube). Ver [SEC-013] no backlog.
+
+### [DEBT-017] AttendanceRecord fora do set TENANTED — protecção implícita
+`AttendanceRecord` não está em `TENANTED` — a protecção depende de gate explícita em cada route. Se alguém adicionar endpoint de records sem a gate, não há protecção automática. Ver [DEBT-017] no backlog.
 
 ---
 
@@ -275,18 +278,53 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 | ID | Severidade | Resumo | Ficheiro |
 |----|-----------|--------|---------|
-| SEC-001 | ~~CRÍTICO~~ ✅ | Login não audita tentativas falhadas nem sucessos | `api/auth/login/route.ts` — resolvido 2026-06-02 |
-| SEC-002 | ALTO | Mudança de permissões não invalida JWT (tokenVersion não incrementado) | `api/admin/permissions/[userId]/route.ts` |
-| SEC-003 | ALTO | Upload valida só `file.type` — magic bytes não verificados | `api/upload/route.ts` |
-| SEC-004 | ALTO | CSRF fallback `return true` quando sem Origin/Referer | `middleware.ts:38-39` |
-| SEC-005 | MÉDIO | CSP tem `unsafe-eval` em `script-src` (desnecessário em produção) | `next.config.mjs` |
-| SEC-006 | MÉDIO | `Content-Disposition: inline` em uploads (risco se ficheiro não-imagem chegasse à pasta) | `next.config.mjs` |
-| SEC-007 | BAIXO | `pavilionUrl` aceita qualquer string — deve ser `z.string().url()` | `lib/validations.ts` |
-| SEC-008 | BAIXO | Sem `Strict-Transport-Security` header explícito na app | `next.config.mjs` |
+| SEC-001 | ~~CRÍTICO~~ ✅ | Login não audita tentativas falhadas nem sucessos | resolvido 2026-06-02 |
+| SEC-002 | ~~ALTO~~ ✅ | Mudança de permissões não invalida JWT | resolvido 2026-06-02 |
+| SEC-003 | ~~ALTO~~ ✅ | Upload valida só `file.type` — magic bytes não verificados | resolvido 2026-06-02 |
+| SEC-004 | ~~ALTO~~ ✅ | CSRF fallback `return true` quando sem Origin/Referer | resolvido 2026-06-02 |
+| SEC-005 | ~~MÉDIO~~ ✅ | CSP tem `unsafe-eval` em `script-src` | resolvido 2026-06-02 |
+| SEC-006 | ~~MÉDIO~~ ✅ | `pavilionUrl` aceita qualquer string | resolvido 2026-06-02 |
+| SEC-007 | ~~BAIXO~~ ✅ | Sem `Strict-Transport-Security` header | resolvido 2026-06-02 |
+| SEC-008 | ~~BAIXO~~ ✅ | Export de audit log sem limite de registos | resolvido 2026-06-02 |
+| SEC-009 | ~~ALTO~~ ✅ | Cross-tenant data leak em dashboard stats | resolvido 2026-06-22 |
+| SEC-010 | ~~MÉDIO~~ ✅ | `/privacy` e `/terms` atrás de auth | resolvido 2026-06-22 |
+| SEC-011 | ~~ALTO~~ ✅ | Attendance aggregate cross-tenant no dashboard | resolvido 2026-06-23 |
+| SEC-012 | ~~CRÍTICO~~ ✅ | `tempPassword` em metadata Stripe + `Math.random()` | resolvido 2026-06-25 (set-password flow via PasswordResetToken) |
 
 **Nota CSRF (SEC-004):** O risco real é baixo porque o cookie tem `SameSite: strict` — browsers não enviam o cookie em pedidos cross-origin, o que já bloqueia CSRF ao nível do cookie. A verificação de Origin é defense-in-depth.
 
 **Nota Rate Limiting:** Já documentada como DEBT-002 — ver secção acima.
+
+---
+
+## Fluxo de Registo (sem tempPassword)
+
+O fluxo seguro de onboarding (implementado 2026-06-25) evita expor credenciais:
+
+1. `POST /api/register` → cria `Club` + `User` com password placeholder (32 bytes aleatórios, ninguém sabe)
+2. Stripe Checkout → pagamento
+3. `checkout.session.completed` webhook → incrementa `tokenVersion`, cria `PasswordResetToken` (24h), envia email "Definir Palavra-passe" com link para `/reset-password?token=...`
+4. Utilizador clica no link → define a sua própria password → sessão iniciada
+
+**Sem** `tempPassword` em metadata Stripe. **Sem** credenciais em texto claro em email. `RESEND_API_KEY` é **obrigatório** para este fluxo funcionar — sem ele, o utilizador recebe o Stripe Checkout mas não recebe o email de boas-vindas.
+
+---
+
+## AuditAction — Tipos Completos
+
+```typescript
+// src/lib/audit.ts
+export type AuditAction =
+  | 'CREATE' | 'UPDATE' | 'DELETE'
+  | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT'
+  | 'CHANGE_PASSWORD' | 'CHANGE_PERMISSIONS'
+  | 'PASSWORD_RESET' | 'PASSWORD_RESET_REQUEST'
+  | 'UPDATE_CLUB_LOGO' | 'REMOVE_CLUB_LOGO'
+  | 'REGISTER'
+  | 'SUBSCRIPTION_ACTIVATED' | 'PAYMENT_SUCCEEDED' | 'PAYMENT_FAILED' | 'SUBSCRIPTION_CANCELLED'
+```
+
+Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.
 
 ---
 

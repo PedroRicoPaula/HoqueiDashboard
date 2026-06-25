@@ -10,10 +10,8 @@
 `athletesWithLatePayments` em `GET /api/dashboard/stats` filtra `year: currentYear, month: { lt: currentMonth }` — ignora Setembro-Dezembro do ano anterior (primeira metade da época). Em Fevereiro 2026 só conta Janeiro 2026, ignora Set-Dez 2025. Subestima o alerta de atraso durante toda a primeira metade do ano civil (Jan-Ago). A página `/fees` calcula correctamente com o range completo da época.  
 **Fix:** Usar o mesmo range de época que `/api/fees` — `OR: [{ year: seasonStart, month: { in: [9,10,11,12], lt: currentMonth se mesmo ano } }, { year: seasonEnd, month: { ... } }]`.
 
-### [BUG-014] Member.number — autoincrement global em vez de por clube
-**Encontrado:** 2026-06-23 (análise de esquema)  
-`Member.number` usa `@default(autoincrement())` — o contador é global na tabela PostgreSQL. O primeiro sócio do Club A fica com #1, o primeiro do Club B fica com #2 (não #1). A `@@unique([clubId, number])` está correcta mas os números não são sequenciais por clube. Cosmético mas confuso para admins.  
-**Fix:** Remover `autoincrement()`, calcular no API: `MAX(number) + 1 WHERE clubId = ?` no momento de criação, ou usar sequência por clube.
+### ~~[BUG-014] Member.number — autoincrement global em vez de por clube~~ ✅ RESOLVIDO 2026-06-25
+`@default(autoincrement())` removido do schema. API usa `db.member.aggregate({ _max: { number: true } })` + `_max.number + 1` para calcular o próximo número sequencial dentro do clube. `@@unique([clubId, number])` garante unicidade.
 
 ### [SEC-013] Child model GETs sem verificação de clube
 **Encontrado:** 2026-06-23 (análise de código)  
@@ -297,3 +295,14 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-23 | SEC-012: `Math.random()` para password temporária + plaintext em metadata | `randomBytes(16).toString('base64url')` (Node.js `crypto`). Password continua em metadata Stripe (aceite — acesso ao Stripe implica trust). |
 | 2026-06-23 | DEBT-015: Register sem transação DB — registos órfãos em falha | `prisma.$transaction(async tx => ...)` envolve `club.create` + `user.create`. Em caso de falha, `.catch` faz `stripe.customers.del(customer.id)` antes de re-throw. |
 | 2026-06-23 | DEBT-016: `db.attendanceRecord` em routes não-tenanted | `prisma.attendanceRecord` com filtros explícitos: `athlete: { clubId }` em `athletes/[id]/attendance`, `session: { clubId }` em `attendance/[id]/records` (GET + PUT final read). |
+| 2026-06-25 | BUG-001 (build blocker): `<a href="/fees">` no perfil de atleta | Substituído por `<Link href="/fees">` + import `next/link` em `athletes/[id]/page.tsx:742`. `<a>` direto para rota interna é bloqueado pelo Next.js no build. |
+| 2026-06-25 | SEC-012 FULL FIX: Completamente removido `tempPassword` do fluxo de registo | Novo fluxo: User criado com password placeholder (ninguém sabe). Webhook `checkout.session.completed` cria `PasswordResetToken` (24h) e envia email "Definir Palavra-passe" com link `/reset-password?token=...`. Zero credenciais em metadata Stripe ou email em claro. `src/lib/email.ts` assinatura: `welcomeEmailHtml(clubName, email, setPasswordUrl)`. |
+| 2026-06-25 | Rate limit em `/api/register` | `checkRateLimit('register:${ip}', { windowMs: 60 * 60 * 1000, max: 5 })` — 5 tentativas por hora por IP. `logAudit` com ação `REGISTER` adicionado. |
+| 2026-06-25 | Rate limit em `/api/auth/reset-password` | `checkRateLimit('reset:${ip}', { windowMs: 15 * 60 * 1000, max: 5 })` — 5 tentativas por 15 min por IP. |
+| 2026-06-25 | CSRF inline + `isSuperAdmin` em `/api/setup` | Route excluída do middleware matcher → CSRF não era verificado. Fix: `validateCsrf(req)` adicionado no início do POST handler. Também: user criado com `isSuperAdmin: true` para poder aceder a `/platform`. |
+| 2026-06-25 | `logAudit` em falta no webhook Stripe | Todos os 4 handlers do webhook (`checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`) chamam agora `logAudit` com ações `SUBSCRIPTION_ACTIVATED`, `PAYMENT_SUCCEEDED`, `PAYMENT_FAILED`, `SUBSCRIPTION_CANCELLED`. |
+| 2026-06-25 | `logAudit` em falta em `/api/auth/forgot-password` | `logAudit(..., 'PASSWORD_RESET_REQUEST', ...)` adicionado após criação do token. |
+| 2026-06-25 | `AuditAction` type alargado | Adicionadas: `REGISTER`, `SUBSCRIPTION_ACTIVATED`, `PAYMENT_SUCCEEDED`, `PAYMENT_FAILED`, `SUBSCRIPTION_CANCELLED`, `PASSWORD_RESET_REQUEST` ao union type em `src/lib/audit.ts`. |
+| 2026-06-25 | CSP `img-src` dinâmico para R2 custom domain | `next.config.mjs` lê `R2_PUBLIC_URL` em build time: `new URL(process.env.R2_PUBLIC_URL).origin` substituiu o `https://*.r2.dev` estático. Fallback: `https://*.r2.dev` se env var ausente. |
+| 2026-06-25 | `RESEND_API_KEY` adicionado ao `.env.example` | Marcado como obrigatório para o fluxo de boas-vindas de novos clubes. Sem ele, registo funciona mas utilizador não recebe link de definição de password. |
+| 2026-06-25 | `<img>` → `<Image>` em `sponsors/page.tsx` | Logos de patrocinadores e icons de zona agora usam `next/image` (`Image` com `unoptimized`) em vez de `<img>` nativo. |

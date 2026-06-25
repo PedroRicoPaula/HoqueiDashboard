@@ -16,9 +16,10 @@
 - **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
 - Sem trial — messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
 - Registo 2 passos: (1) dados do clube, (2) seleção de plano; mensagens de validação i18n
-- `POST /api/register` → cria `Club` (PENDING_PAYMENT) + `User` admin + `Stripe Checkout Session`
+- `POST /api/register` → rate limited (5/hora/IP) → cria `Club` (PENDING_PAYMENT) + `User` admin (password placeholder — ninguém sabe) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
 - Stripe Checkout redireciona para `/login?registered=1` em sucesso
-- Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento
+- **Fluxo pós-pagamento seguro (set-password):** webhook `checkout.session.completed` → incrementa `tokenVersion` do user → cria `PasswordResetToken` (24h) → envia email "Definir Palavra-passe" via Resend (`welcomeEmailHtml`). O utilizador clica no link, define a sua password, e só então pode fazer login. Zero credenciais em metadata Stripe ou email em claro.
+- Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento e regista `logAudit` em todos os eventos
 - **Cookie consent banner** (`CookieBanner.tsx`): aparece na 1ª visita, persiste aceitação em `localStorage` chave `hm_cookie_consent`
 - **Política de Privacidade** (`/{locale}/privacy`) e **Termos de Utilização** (`/{locale}/terms`) — Server Components, link no footer
 
