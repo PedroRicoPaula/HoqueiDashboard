@@ -100,17 +100,23 @@ Todas as API routes do dashboard usam `getDbForRequest(req)`:
 export async function getDbForRequest(req: Request) {
   const user = await getUserFromRequest(req)
   if (!user || !user.clubId) return null
+  // Bloqueia clubes CANCELLED ou SUSPENDED mesmo com JWT válido
+  const club = await prisma.club.findUnique({ where: { id: user.clubId }, select: { status: true } })
+  if (!club || club.status === 'CANCELLED' || club.status === 'SUSPENDED') return null
   return { user, db: getTenantClient(user.clubId), clubId: user.clubId }
 }
 ```
-O `getTenantClient(clubId)` é um Prisma `$extends` que injeta `{ clubId }` automaticamente em:
-- `findMany`, `findFirst`, `count`, `aggregate`, `groupBy` → adiciona a `where`
+O `getTenantClient(clubId)` é um Prisma `$extends` que injeta `{ clubId }` automaticamente em **todas** as operações de modelos tenanted:
+- `findMany`, `findFirst`, `findUnique` → adiciona a `where`
 - `create`, `createMany` → adiciona a `data`
-- `updateMany`, `deleteMany` → adiciona a `where`
+- `update`, `updateMany`, `delete`, `deleteMany` → adiciona a `where`
+- `count`, `aggregate`, `groupBy` → adiciona a `where`
 
-Modelos tenanted: Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog.
+Modelos tenanted (auto-filtrados): Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord.
 
-Modelos NÃO tenanted (usam `prisma` global): User, Permission, Playbook, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord, RateLimit.
+Modelos NÃO tenanted (sem `clubId` no schema — usar `prisma` global): User, Permission, Playbook, RateLimit.
+
+A extensão também cobre `upsert`: injeta `clubId` no bloco `create` (nunca no `where`, para não quebrar unique constraints).
 
 ### API Route Level
 ```typescript
@@ -145,7 +151,7 @@ export function hasPermission(permissions, flag): boolean {
 allowedOrigins = [`http://${host}`, `https://${host}`, NEXT_PUBLIC_APP_URL]
 if (origin) return allowedOrigins.some(o => o === origin)
 if (referer) return allowedOrigins.some(o => referer.startsWith(o))
-return true // sem origin/referer = chamada server-to-server
+return false // sem origin/referer = rejeitar (fix SEC-004)
 ```
 
 ### `src/lib/csrf.ts`
@@ -239,16 +245,7 @@ Mensagem de erro e `accept` do input corrigidos para "PNG e JPG" (SVG foi removi
 
 ---
 
-## Riscos Conhecidos (Bugs Ativos — ver ISSUES-BACKLOG.md)
-
-### [SEC-011] Attendance aggregate cross-tenant no dashboard
-`db.attendanceRecord.aggregate` em `stats/route.ts` não está isolado por clube — `AttendanceRecord` não está no set TENANTED. Soma presenças de todos os clubes. Ver [SEC-011] no backlog.
-
-### [SEC-012] `tempPassword` em metadata Stripe
-`register/route.ts` guarda a password temporária em `metadata.tempPassword` da Checkout Session Stripe. Gerada com `Math.random()` (não criptográfico). Acessível no dashboard Stripe indefinidamente. Ver [SEC-012] no backlog.
-
-### [BUG-013] `stripePriceId` sempre null
-`session.line_items` não é expandido no evento `checkout.session.completed`. `Club.stripePriceId` fica sempre `null`, afetando cálculo de MRR em `/platform`. Ver [BUG-013] no backlog.
+## Riscos Conhecidos (ver ISSUES-BACKLOG.md)
 
 ---
 
@@ -269,24 +266,39 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 ---
 
-## Vulnerabilidades Conhecidas (Auditoria 2026-06-02)
+## Vulnerabilidades Conhecidas (Auditoria 2026-06-02 — todas resolvidas)
 
-> Estado de cada item em [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md) (SEC-001 a SEC-008).
+> Ver histórico completo em [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md).
 
-| ID | Severidade | Resumo | Ficheiro |
-|----|-----------|--------|---------|
-| SEC-001 | ~~CRÍTICO~~ ✅ | Login não audita tentativas falhadas nem sucessos | `api/auth/login/route.ts` — resolvido 2026-06-02 |
-| SEC-002 | ALTO | Mudança de permissões não invalida JWT (tokenVersion não incrementado) | `api/admin/permissions/[userId]/route.ts` |
-| SEC-003 | ALTO | Upload valida só `file.type` — magic bytes não verificados | `api/upload/route.ts` |
-| SEC-004 | ALTO | CSRF fallback `return true` quando sem Origin/Referer | `middleware.ts:38-39` |
-| SEC-005 | MÉDIO | CSP tem `unsafe-eval` em `script-src` (desnecessário em produção) | `next.config.mjs` |
-| SEC-006 | MÉDIO | `Content-Disposition: inline` em uploads (risco se ficheiro não-imagem chegasse à pasta) | `next.config.mjs` |
-| SEC-007 | BAIXO | `pavilionUrl` aceita qualquer string — deve ser `z.string().url()` | `lib/validations.ts` |
-| SEC-008 | BAIXO | Sem `Strict-Transport-Security` header explícito na app | `next.config.mjs` |
+| ID | Severidade | Resumo | Estado |
+|----|-----------|--------|--------|
+| SEC-001 | ~~CRÍTICO~~ | Login não audita tentativas falhadas nem sucessos | ✅ Resolvido 2026-06-02 |
+| SEC-002 | ~~ALTO~~ | Mudança de permissões não invalida JWT existente | ✅ Resolvido 2026-06-02 |
+| SEC-003 | ~~ALTO~~ | Upload valida só `file.type` — magic bytes não verificados | ✅ Resolvido 2026-06-02 |
+| SEC-004 | ~~ALTO~~ | CSRF fallback `return true` quando sem Origin/Referer | ✅ Resolvido 2026-06-02 |
+| SEC-005 | ~~MÉDIO~~ | CSP tem `unsafe-eval` em `script-src` em produção | ✅ Resolvido 2026-06-02 |
+| SEC-006 | ~~BAIXO~~ | `pavilionUrl` aceita qualquer string sem validação de URL | ✅ Resolvido 2026-06-02 |
+| SEC-007 | ~~BAIXO~~ | Sem `Strict-Transport-Security` header explícito | ✅ Resolvido 2026-06-02 |
+| SEC-008 | ~~BAIXO~~ | Export de audit log sem limite de registos | ✅ Resolvido 2026-06-02 |
 
-**Nota CSRF (SEC-004):** O risco real é baixo porque o cookie tem `SameSite: strict` — browsers não enviam o cookie em pedidos cross-origin, o que já bloqueia CSRF ao nível do cookie. A verificação de Origin é defense-in-depth.
+## Vulnerabilidades Auditoria 2026-06-26
 
-**Nota Rate Limiting:** Já documentada como DEBT-002 — ver secção acima.
+| ID | Severidade | Resumo | Estado |
+|----|-----------|--------|--------|
+| SEC-013 | ~~ALTO~~ | Admin permissions GET expunha users de todos os clubes | ✅ Resolvido 2026-06-26 |
+| SEC-014 | ~~ALTO~~ | AthletePayment GET sem filtro de clube — cross-tenant IDOR | ✅ Resolvido 2026-06-26 |
+| SEC-015 | ~~ALTO~~ | Quota GET sem filtro de clube — cross-tenant IDOR | ✅ Resolvido 2026-06-26 |
+| SEC-016 | ~~ALTO~~ | DirectionSalaryPayment GET sem filtro de clube — cross-tenant IDOR | ✅ Resolvido 2026-06-26 |
+| SEC-017 | ~~CRÍTICO~~ | Prisma Extension não cobria `findUnique`/`update`/`delete` — IDOR sistémico | ✅ Resolvido 2026-06-26 |
+| SEC-018 | ~~ALTO~~ | Admin reset-password sem verificação de clube | ✅ Resolvido 2026-06-26 |
+| SEC-019 | ~~MÉDIO~~ | Playbook upsert sem verificar ownership do treino | ✅ Resolvido 2026-06-26 |
+| SEC-020 | ~~ALTO~~ | Admin criar utilizador sem clubId — user sem clube | ✅ Resolvido 2026-06-26 |
+| SEC-021 | ~~ALTO~~ | Admin alterar permissões de user de outro clube — IDOR | ✅ Resolvido 2026-06-26 |
+| SEC-022 | ~~MÉDIO~~ | Club CANCELLED/SUSPENDED não bloqueava API pós-login | ✅ Resolvido 2026-06-26 |
+| SEC-023 | ~~BAIXO~~ | Upload de logo sem audit log | ✅ Resolvido 2026-06-26 |
+| SEC-025 | ~~BAIXO~~ | Templates de email sem HTML escaping — XSS em clientes sem sandbox | ✅ Resolvido 2026-06-26 |
+
+**Sem débito de segurança ativo relevante.** Ver ISSUES-BACKLOG.md para issues menores.
 
 ---
 

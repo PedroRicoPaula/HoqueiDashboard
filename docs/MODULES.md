@@ -161,8 +161,8 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 **Permissão escrita:** `editFees`  
 **APIs:**
 - `GET /api/fees?season=&ageGroup=` → grelha época com summary financeiro
-- `GET /api/athletes/[id]/payments?year=` → pagamentos de atleta por ano
-- `POST /api/athletes/[id]/payments` → upsert pagamento (toggle pago/não-pago)
+- `GET /api/athletes/[id]/payments?year=` → pagamentos de atleta por ano (usa `db` — tenant-scoped)
+- `POST /api/athletes/[id]/payments` → upsert pagamento (usa `db.athletePayment.upsert`, clubId auto-injectado)
 
 ### Funcionalidades
 - Grelha: linhas = atletas (não-SENIORS), colunas = 10 meses época (Set-Jun)
@@ -195,8 +195,8 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 - `GET /api/members?search=&page=` → lista paginada (50/pág) com `paidCount` + `lateMonths` do ano corrente; search por nome, email ou número; retorna `{ members, total, page, pages }`
 - `POST /api/members` → criar
 - `GET/PUT/DELETE /api/members/[id]`
-- `GET /api/members/[id]/quotas?year=` → quotas do ano
-- `POST /api/members/[id]/quotas` → upsert quota (guarda `amount = member.monthlyQuota`, aceita `notes?`)
+- `GET /api/members/[id]/quotas?year=` → quotas do ano (usa `db` — tenant-scoped)
+- `POST /api/members/[id]/quotas` → upsert quota (usa `db.quota.upsert`, clubId auto-injectado; guarda `amount = member.monthlyQuota`, aceita `notes?`)
 
 ### Funcionalidades
 - Tabela com número (auto-increment), nome, quota mensal, telefone, email
@@ -347,8 +347,8 @@ MaterialState: FREE | ASSIGNED | DAMAGED
 - `GET /api/direction` → lista com `include: athlete`
 - `POST /api/direction` → criar
 - `GET/PUT/DELETE /api/direction/[id]`
-- `GET /api/direction/[id]/salary?year=` → pagamentos de salário do membro no ano
-- `POST /api/direction/[id]/salary` → upsert pagamento `{ month, year, paid, amount?, notes? }`; `amount` usa `member.salary` como default se omitido
+- `GET /api/direction/[id]/salary?year=` → pagamentos de salário do membro no ano (usa `db` — tenant-scoped)
+- `POST /api/direction/[id]/salary` → upsert pagamento (usa `db.directionSalaryPayment.upsert`, clubId auto-injectado); `amount` usa `member.salary` como default se omitido
 
 ### Funcionalidades
 - Tabela com nome, cargos (badges), escalões, salário, link para atleta
@@ -520,12 +520,12 @@ AuditAction: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT' 
 - `POST /api/attendance` → criar sessão (aceita `scheduleId?`)
 - `GET/PUT/DELETE /api/attendance/[id]` → sessão individual
 - `PATCH /api/attendance/[id]/cancel` → cancelar/reativar (`{ cancelled, cancellationReason? }`)
-- `GET /api/attendance/[id]/records` → registos de presença
-- `PUT /api/attendance/[id]/records` → upsert bulk (`{ records: [{athleteId, present, notes?}] }`)
+- `GET /api/attendance/[id]/records` → registos de presença (usa `db` — tenant-scoped)
+- `PUT /api/attendance/[id]/records` → upsert bulk (usa `db.attendanceRecord.upsert`, clubId auto-injectado; `{ records: [{athleteId, present, notes?}] }`)
 - `GET /api/attendance/schedules?season=` → horários por época
 - `POST /api/attendance/schedules` → criar horário recorrente
 - `PUT/DELETE /api/attendance/schedules/[id]` → editar/eliminar horário
-- `GET /api/athletes/[id]/attendance` → stats de assiduidade do atleta
+- `GET /api/athletes/[id]/attendance` → stats de assiduidade do atleta (usa `db` — tenant-scoped)
 - `GET /api/reports/attendance?ageGroup=` → CSV de assiduidade
 
 ### Funcionalidades

@@ -5,7 +5,10 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-06-23)_
+_(sem bugs activos conhecidos — 2026-06-26)_
+
+### ~~[DEBT-017] Tenant isolation implícito em 4 modelos~~ ✅ RESOLVIDO 2026-06-26
+`AttendanceRecord`, `AthletePayment`, `Quota`, `DirectionSalaryPayment` agora têm campo `clubId` explícito no schema e estão incluídos no `TENANTED` set de `prisma-tenant.ts`. Migration `20260626000001_add_clubid_to_payment_models` com backfill via UPDATE das tabelas pai. Extensão Prisma agora inclui também operação `upsert` (injeta `clubId` no bloco `create`). Todas as 6 routes afetadas atualizadas para usar `db` em vez de `prisma` global.
 
 ---
 
@@ -54,7 +57,64 @@ Migration `20260511000004_fix_direction_member_columns` aplicada no deploy de Ju
 
 ---
 
+## 🔴 Bugs Activos
+
+### ~~[SEC-024] Setup route sem CSRF, sem rate limit, sem audit log~~ ✅ RESOLVIDO 2026-06-26
+Rate limit (`setup:${ip}`, 3 req/15min) + `logAudit` adicionados a `src/app/api/setup/route.ts`. CSRF não se aplica (route está fora do middleware CSRF por design — criação de conta pré-auth).
+
+---
+
+### ~~[SEC-025] Templates de email interpolam variáveis user-controlled sem HTML escaping~~ ✅ RESOLVIDO 2026-06-26
+Função `escHtml()` adicionada a `src/lib/email.ts`. Todas as variáveis interpoladas nos templates (clubName, email, tempPassword, appUrl, name, resetUrl) agora escapadas.
+
+---
+
 ## 🟡 Débito Técnico
+
+### [DEBT-018] Middleware não verifica `tokenVersion` — páginas carregam após logout
+**Encontrado:** 2026-06-26 (análise de código)  
+`middleware.ts` usa `jwtVerify(token, secret)` que verifica só assinatura e expiração. Não consulta DB para verificar `tokenVersion`. Após logout (ou reset de permissões), o token do utilizador fica com `tokenVersion` inválido — as API routes rejeitam (401) mas as páginas Next.js ainda carregam (esqueleto HTML sem dados).  
+**Impacto real:** baixo — o utilizador vê a página em branco durante <1s antes de ser forçado a re-login pela primeira chamada API. Dados nunca expostos.  
+**Fix a considerar:** adicionar um endpoint leve `GET /api/auth/me` que verifica tokenVersion, e chamar no middleware antes de `NextResponse.next()`. Trade-off: 1 query DB extra por page navigation. Alternativa: aceitar o comportamento atual (dados protegidos, UX aceitável).
+
+---
+
+### ~~[UX-001] Formatação monetária hardcoded `'pt-PT'` no dashboard home~~ ✅ RESOLVIDO 2026-06-26
+`getNumberLocale(lang)` adicionado a `src/lib/date-locale.ts`. Dashboard `page.tsx` usa `numLocale` em vez de `'pt-PT'` em todos os 13 lugares. Componentes `RevenueChart` e `ExpensesChart` recebem `numLocale` como prop.
+
+---
+
+### ~~[DEBT-019] `seed-test-clubs.ts` sem guard de ambiente~~ ✅ RESOLVIDO 2026-06-26
+Guard `if (process.env.NODE_ENV === 'production') throw new Error(...)` adicionado no topo do script.
+
+---
+
+### ~~[DEBT-020] Teste de isolamento tenant não cobre vetores de ataque reais~~ ✅ RESOLVIDO 2026-06-26
+4 testes adicionados a `src/tests/tenant-isolation.test.ts`: findUnique IDOR, updateMany cross-tenant (count=0), deleteMany cross-tenant (count=0), nested relation (include não vaza dados de outro clube).
+
+---
+
+### ~~[DEBT-021] `use-toast.ts` — useEffect com `[state]` como dependência~~ ✅ RESOLVIDO 2026-06-26
+`}, [state])` → `}, [])` em `src/hooks/use-toast.ts:186`. Listener registado uma vez no mount.
+
+---
+
+### [INFRA-002] Preços MRR no backoffice `/platform` hardcoded — desincroniza com Stripe
+**Encontrado:** 2026-06-26 (análise de código)  
+`src/app/platform/page.tsx` usa `PRICE_MONTHLY = 59` e `PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12` hardcoded para calcular MRR/ARR. Se os preços Stripe mudarem, o dashboard mostrará valores errados sem qualquer aviso.  
+**Fix a considerar:** guardar os valores reais dos Price IDs em `env` (já existem `STRIPE_PRICE_MONTHLY`/`YEARLY`) e fazer `stripe.prices.retrieve()` a cada load da página, ou criar uma tabela `StripePrice` que o webhook actualiza.
+
+---
+
+### ~~[UX-002] Validação client-side de email no registo aceita strings inválidas~~ ✅ RESOLVIDO 2026-06-26
+Regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` substituiu `!form.email.includes('@')` em `register/page.tsx`.
+
+---
+
+### ~~[UX-003] Importação de playbook no quadro táctico sem validação de schema~~ ✅ RESOLVIDO 2026-06-26
+Zod schema `playbookSchema` adicionado a `BoardToolbar.tsx`. `safeParse` valida estrutura antes de `loadPlaybook`. JSON inválido é silenciosamente ignorado.
+
+---
 
 ### ~~[DEBT-011] Dashboard i18n — páginas restantes por atualizar~~ ✅ RESOLVIDO 2026-06-19
 Sistema: `useDashT`, `useDashLabels`, `getDateLocale`, `messages/dashboard/*.json` (5 langs). Todas as páginas completas. `useDashLabels` extendido com `sponsorTypes`, `auditActions`, `auditEntities`.
@@ -173,6 +233,11 @@ Secção "O produto real" adicionada à landing page: fundo escuro, tab switcher
 
 ---
 
+### ~~[SEO-001] Landing page sem `hreflang`~~ ✅ RESOLVIDO 2026-06-26
+`generateMetadata` com `alternates.languages` adicionado a `src/app/[locale]/layout.tsx`. Cobre pt/es/en/fr/it + x-default=pt.
+
+---
+
 ### [FEAT-001] Perfil de Atleta — melhorias UX
 - [ ] Histórico de materiais (não só ativos)
 - [x] ~~Dropdown de navegação entre atletas~~ (implementado 2026-05-27)
@@ -273,3 +338,13 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-23 | SEC-012: `Math.random()` para password temporária + plaintext em metadata | `randomBytes(16).toString('base64url')` (Node.js `crypto`). Password continua em metadata Stripe (aceite — acesso ao Stripe implica trust). |
 | 2026-06-23 | DEBT-015: Register sem transação DB — registos órfãos em falha | `prisma.$transaction(async tx => ...)` envolve `club.create` + `user.create`. Em caso de falha, `.catch` faz `stripe.customers.del(customer.id)` antes de re-throw. |
 | 2026-06-23 | DEBT-016: `db.attendanceRecord` em routes não-tenanted | `prisma.attendanceRecord` com filtros explícitos: `athlete: { clubId }` em `athletes/[id]/attendance`, `session: { clubId }` em `attendance/[id]/records` (GET + PUT final read). |
+| 2026-06-26 | SEC-013: Admin permissions GET expunha users de todos os clubes | `where: { clubId }` adicionado a `prisma.user.findMany` em `admin/permissions/route.ts`. |
+| 2026-06-26 | SEC-014/015/016: GET de AthletePayment, Quota e DirectionSalaryPayment sem filtro de clube | Filtros `athlete: { clubId }`, `member: { clubId }`, `member: { clubId }` adicionados às queries GET em `athletes/[id]/payments`, `members/[id]/quotas`, `direction/[id]/salary`. |
+| 2026-06-26 | SEC-017: Prisma Extension não interceptava `findUnique`, `update`, `delete` — IDOR sistémico em todas as rotas `[id]` | `findUnique`, `update`, `delete` adicionados à extensão em `src/lib/prisma-tenant.ts`. Todos injetam `clubId` no `where`. Cobre automaticamente athletes, members, sponsors, materials, travel, direction, training, trainingSchedule, trainingSession, textileItem, auditLog. |
+| 2026-06-26 | SEC-018: Admin reset-password sem verificação de clube — podia redefinir password de user de outro clube | `where: { id, clubId }` em `prisma.user.findUnique` em `admin/users/[id]/route.ts`. |
+| 2026-06-26 | SEC-019: Playbook upsert sem verificar ownership do treino | `db.training.findUnique({ where: { id } })` adicionado antes do upsert em `training/[id]/playbook/route.ts`. Com SEC-017 resolvido, esta chamada já filtra por `clubId`. |
+| 2026-06-26 | SEC-020: Admin criar utilizador sem clubId — user criado com clubId=null | `clubId` adicionado ao `prisma.user.create` em `admin/users/route.ts`. Utilizadores criados pelo admin pertenciam a null (sem clube). |
+| 2026-06-26 | SEC-021: Admin alterar permissões sem verificar clube do target — IDOR | Verificação `prisma.user.findUnique({ where: { id: userId, clubId } })` adicionada em `admin/permissions/[userId]/route.ts` antes do upsert de permissões. |
+| 2026-06-26 | SEC-022: Club CANCELLED/SUSPENDED não bloqueava chamadas API pós-login | `getDbForRequest()` em `src/lib/db.ts` agora verifica `club.status` a cada request. Retorna `null` (→ 401) se CANCELLED ou SUSPENDED. |
+| 2026-06-26 | SEC-023: Upload de logo sem registo no audit log | `logAudit(..., 'CREATE', 'SponsorLogo', filename, { size })` adicionado em `api/upload/route.ts` (R2 e fallback local). |
+| 2026-06-26 | BUG-014: loginSchema aceitava passwords de 6 caracteres — inconsistente com min(8) em todo o resto | `min(6)` → `min(8)` em `loginSchema` em `src/lib/validations.ts`. |

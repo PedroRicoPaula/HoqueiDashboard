@@ -102,10 +102,11 @@ enum AgeGroup { SUB11 SUB13 SUB15 SUB17 SUB19 SENIORS }
 ### AthletePayment
 ```prisma
 AthletePayment {
+  clubId    (FK Club, onDelete: Cascade)    ← TENANTED (adicionado migration 20260626000001)
   athleteId (FK Athlete, onDelete: Cascade)
   month (1-12), year, paid Boolean, amount Float?, paidAt?, notes?
   unique: (athleteId, month, year)
-  indexes: (athleteId, year), (year, month)
+  indexes: clubId, (athleteId, year), (year, month)
 }
 ```
 
@@ -118,9 +119,10 @@ Member {
   index: name
 }
 Quota {
+  clubId   (FK Club, onDelete: Cascade)   ← TENANTED (adicionado migration 20260626000001)
   memberId (FK Member, Cascade), month, year, paid, amount Float?, paidAt?, notes String?
   unique: (memberId, month, year)
-  index: (memberId, year)
+  indexes: clubId, (memberId, year)
   // amount: guardado no momento do pagamento (evita imprecisão se monthlyQuota mudar)
   // notes: texto livre opcional (ex: "pago por transferência")
 }
@@ -190,6 +192,7 @@ DirectionMember {
 ```prisma
 DirectionSalaryPayment {
   id       String          @id @default(uuid())
+  clubId   String          FK → Club (onDelete: Cascade)  ← TENANTED (adicionado migration 20260626000001)
   memberId String          FK → DirectionMember (onDelete: Cascade)
   month    Int             (1-12)
   year     Int
@@ -198,7 +201,7 @@ DirectionSalaryPayment {
   paidAt   DateTime?
   notes    String?
   unique: (memberId, month, year)
-  index: (memberId, year)
+  indexes: clubId, (memberId, year)
 }
 ```
 > Historial de pagamento de salários mensais. Espelha o modelo `Quota` dos sócios.
@@ -251,6 +254,7 @@ TrainingSession {
 }
 
 AttendanceRecord {
+  clubId    (FK Club, onDelete: Cascade)       ← TENANTED (adicionado migration 20260626000001)
   sessionId (FK TrainingSession, Cascade)
   athleteId (FK Athlete, Cascade)
   present Boolean @default(false)
@@ -258,18 +262,7 @@ AttendanceRecord {
   paidByAthlete Boolean @default(false)   ← atleta pagou este treino específico
   paidAmount    Float?                    ← valor pago (relevante para SPECIFIC)
   unique: (sessionId, athleteId)
-  indexes: athleteId, sessionId
-}
-```
-> `paidByAthlete` e `paidAmount` são relevantes apenas para `sessionType = SPECIFIC`.
-> Para treinos regulares estes campos ficam `false`/`null` (nunca gravados pela UI).
-AttendanceRecord {
-  sessionId (FK TrainingSession, Cascade)
-  athleteId (FK Athlete, Cascade)
-  present Boolean @default(false)
-  notes?
-  unique: (sessionId, athleteId)
-  indexes: athleteId, sessionId
+  indexes: clubId, athleteId, sessionId
 }
 enum SessionType { GENERAL GOALKEEPERS FIELD_PLAYERS SPECIFIC }
 ```
@@ -356,6 +349,7 @@ RateLimit {
 | `20260607000001_sponsor_enhancements` | Jun 2026 | Re-adiciona `logoUrl` + 5 campos novos: `sponsorTypes String[]`, `equipmentZones Int[]`, `bannerCount Int?`, `includesSticks Boolean`, `includesShinguards Boolean` | ✅ aplicada |
 | `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
 | *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
+| `20260626000001_add_clubid_to_payment_models` | Jun 2026 | `clubId FK → Club (NOT NULL, CASCADE)` em `AthletePayment`, `Quota`, `DirectionSalaryPayment`, `AttendanceRecord`. Backfill via UPDATE das tabelas pai. Indexes `clubId_idx` em cada tabela. Resolve DEBT-017. | ✅ aplicada |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:

@@ -83,14 +83,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 ```
 
 **Regra multi-tenant:**
-- Usar `db` (de `getDbForRequest`) para modelos TENANTED: Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog
-- Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord, RateLimit
-- **Nunca adicionar `where: { clubId }` manualmente** — a extension injeta automaticamente em `findMany/findFirst/update/delete`
+- Usar `db` (de `getDbForRequest`) para **todos os modelos TENANTED (15)**:
+  Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, **AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord**
+- Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, RateLimit
+- **Nunca adicionar `where: { clubId }` manualmente em modelos TENANTED** — a extension injeta automaticamente em `findMany`, `findFirst`, `findUnique`, `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`
+- **`upsert` em modelos TENANTED** — a extension injeta `clubId` **só no bloco `create`**, nunca no `where` (para não quebrar unique constraints como `athleteId_month_year`). Usar `db.X.upsert(...)` normalmente.
 - **Em `create()`, passar `clubId` explicitamente** — Prisma 7 usa `Exact<>` strict typing que exige `clubId` no objeto `data`. A Extension injeta em runtime mas o compilador TS não vê isso. Padrão:
   ```typescript
   const { user, db, clubId } = ctx
   const item = await db.athlete.create({ data: { ...parsed.data, clubId } })
   ```
+  Excepção: modelos com unique constraint composta (ex: `athleteId_month_year`) — o `upsert` injeta `clubId` automaticamente, não é necessário passá-lo no `create`.
 ```
 
 **Template PUT/POST com audit:**
@@ -260,6 +263,14 @@ import { getDateLocale } from '@/lib/date-locale'
 format(date, "d MMMM yyyy", { locale: getDateLocale(clubLanguage) })
 ```
 **Nunca usar `{ locale: pt }` hardcoded nas páginas do dashboard.**
+
+### `getNumberLocale(lang)` — locale para formatação de números
+```typescript
+import { getNumberLocale } from '@/lib/date-locale'
+const numLocale = getNumberLocale(clubLanguage)  // ex: 'en-GB', 'fr-FR', 'pt-PT'
+value.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+```
+**Nunca usar `toLocaleString('pt-PT', ...)` hardcoded** — clubes ES/FR/IT usam separadores de milhar diferentes.
 
 ### Adicionar novas chaves
 Adicionar a chave nos **5 ficheiros** `messages/dashboard/*.json` em simultâneo.
