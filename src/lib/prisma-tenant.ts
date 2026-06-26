@@ -4,6 +4,8 @@ const TENANTED = new Set([
   'athlete', 'member', 'sponsor', 'material', 'travel',
   'directionmember', 'training', 'trainingschedule',
   'trainingsession', 'textileitem', 'auditlog',
+  // Payment/attendance models now have explicit clubId (migration 20260626000001)
+  'athletepayment', 'quota', 'directionsalarypayment', 'attendancerecord',
 ])
 
 function isTenanted(model: string) {
@@ -22,6 +24,10 @@ export function getTenantClient(clubId: string) {
           if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
           return query(args)
         },
+        async findUnique({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
+          if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
+          return query(args)
+        },
         async create({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
           if (isTenanted(model)) {
             const data = args.data as Record<string, unknown>
@@ -36,7 +42,15 @@ export function getTenantClient(clubId: string) {
           }
           return query(args)
         },
+        async update({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
+          if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
+          return query(args)
+        },
         async updateMany({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
+          if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
+          return query(args)
+        },
+        async delete({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
           if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
           return query(args)
         },
@@ -54,6 +68,14 @@ export function getTenantClient(clubId: string) {
         },
         async groupBy({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
           if (isTenanted(model)) args.where = { ...(args.where as object), clubId }
+          return query(args)
+        },
+        async upsert({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
+          if (isTenanted(model)) {
+            // Only inject into create data — where must reference the existing unique constraint exactly
+            const create = args.create as Record<string, unknown>
+            args.create = { ...create, clubId }
+          }
           return query(args)
         },
       },
