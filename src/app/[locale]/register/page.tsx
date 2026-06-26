@@ -40,7 +40,7 @@ export default function RegisterPage() {
 
   function validateStep1() {
     if (!form.name.trim()) return t('clubNameRequired')
-    if (!form.email.trim() || !form.email.includes('@')) return t('emailInvalid')
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return t('emailInvalid')
     return null
   }
 

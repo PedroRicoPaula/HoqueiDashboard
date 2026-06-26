@@ -11,7 +11,7 @@ import { MATERIAL_STATE_COLORS } from '@/lib/constants'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useAuthStore } from '@/store/authStore'
-import { getDateLocale } from '@/lib/date-locale'
+import { getDateLocale, getNumberLocale } from '@/lib/date-locale'
 
 interface Revenue {
   seasonLabel: string
@@ -64,7 +64,7 @@ interface DashboardStats {
   expenses: Expenses
 }
 
-function RevenueChart({ revenue, t }: { revenue: Revenue; t: ReturnType<typeof useDashT> }) {
+function RevenueChart({ revenue, t, numLocale }: { revenue: Revenue; t: ReturnType<typeof useDashT>; numLocale: string }) {
   const categories = [
     { label: t('dashboard.monthlyFees'), value: revenue.athleteFees, color: 'bg-blue-500' },
     { label: t('dashboard.memberQuotas'), value: revenue.memberQuotas, color: 'bg-emerald-500' },
@@ -101,7 +101,7 @@ function RevenueChart({ revenue, t }: { revenue: Revenue; t: ReturnType<typeof u
             <div key={cat.label} className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-sm flex-shrink-0 ${cat.color}`} />
               <span className="text-sm flex-1">{cat.label}</span>
-              <span className="text-sm font-semibold tabular-nums">{cat.value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
+              <span className="text-sm font-semibold tabular-nums">{cat.value.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
               <span className="text-xs text-muted-foreground w-12 text-right">{pct.toFixed(1)}%</span>
             </div>
           )
@@ -109,7 +109,7 @@ function RevenueChart({ revenue, t }: { revenue: Revenue; t: ReturnType<typeof u
         <div className="flex items-center gap-3 pt-2 border-t">
           <div className="w-3 h-3 flex-shrink-0" />
           <span className="text-sm font-semibold flex-1">{t('common.total')}</span>
-          <span className="text-sm font-bold tabular-nums text-primary">{total.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
+          <span className="text-sm font-bold tabular-nums text-primary">{total.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
           <span className="w-12" />
         </div>
       </div>
@@ -117,7 +117,7 @@ function RevenueChart({ revenue, t }: { revenue: Revenue; t: ReturnType<typeof u
   )
 }
 
-function ExpensesChart({ expenses, t }: { expenses: Expenses; t: ReturnType<typeof useDashT> }) {
+function ExpensesChart({ expenses, t, numLocale }: { expenses: Expenses; t: ReturnType<typeof useDashT>; numLocale: string }) {
   const categories = [
     { label: t('dashboard.hockeyMaterials'), value: expenses.materialsClubCost, color: 'bg-orange-500' },
     { label: t('dashboard.textiles'), value: expenses.textilesClubCost, color: 'bg-rose-500' },
@@ -154,7 +154,7 @@ function ExpensesChart({ expenses, t }: { expenses: Expenses; t: ReturnType<type
             <div key={cat.label} className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-sm flex-shrink-0 ${cat.color}`} />
               <span className="text-sm flex-1">{cat.label}</span>
-              <span className="text-sm font-semibold tabular-nums">{cat.value.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
+              <span className="text-sm font-semibold tabular-nums">{cat.value.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
               <span className="text-xs text-muted-foreground w-12 text-right">{pct.toFixed(1)}%</span>
             </div>
           )
@@ -162,7 +162,7 @@ function ExpensesChart({ expenses, t }: { expenses: Expenses; t: ReturnType<type
         <div className="flex items-center gap-3 pt-2 border-t">
           <div className="w-3 h-3 flex-shrink-0" />
           <span className="text-sm font-semibold flex-1">{t('common.total')}</span>
-          <span className="text-sm font-bold tabular-nums text-destructive">{total.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
+          <span className="text-sm font-bold tabular-nums text-destructive">{total.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€</span>
           <span className="w-12" />
         </div>
       </div>
@@ -175,6 +175,7 @@ export default function DashboardPage() {
   const labels = useDashLabels()
   const lang = useAuthStore((s) => s.clubLanguage)
   const dateLocale = getDateLocale(lang)
+  const numLocale = getNumberLocale(lang)
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -346,7 +347,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {stats?.revenue ? (
-              <RevenueChart revenue={stats.revenue} t={t} />
+              <RevenueChart revenue={stats.revenue} t={t} numLocale={numLocale} />
             ) : (
               <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
             )}
@@ -361,7 +362,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.monthlyFees')} ({t('dashboard.season')} {stats?.revenue?.seasonLabel})</p>
                   <p className="text-xl font-bold text-blue-600">
-                    {(stats?.revenue.athleteFees ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.revenue.athleteFees ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                 </div>
                 <Euro className="h-5 w-5 text-blue-400 opacity-60" />
@@ -375,7 +376,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.memberQuotas')} ({new Date().getFullYear()})</p>
                   <p className="text-xl font-bold text-emerald-600">
-                    {(stats?.revenue.memberQuotas ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.revenue.memberQuotas ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                 </div>
                 <Euro className="h-5 w-5 text-emerald-400 opacity-60" />
@@ -389,7 +390,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.sponsors')} ({t('common.active')})</p>
                   <p className="text-xl font-bold text-purple-600">
-                    {(stats?.revenue.sponsors ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.revenue.sponsors ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                 </div>
                 <Euro className="h-5 w-5 text-purple-400 opacity-60" />
@@ -415,7 +416,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {stats?.expenses ? (
-              <ExpensesChart expenses={stats.expenses} t={t} />
+              <ExpensesChart expenses={stats.expenses} t={t} numLocale={numLocale} />
             ) : (
               <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
             )}
@@ -430,7 +431,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.hockeyMaterials')} ({t('dashboard.accumulated')})</p>
                   <p className="text-xl font-bold text-orange-600">
-                    {(stats?.expenses.materialsClubCost ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.expenses.materialsClubCost ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                   {(stats?.materialCosts.savedByAthletes ?? 0) > 0 && (
                     <p className="text-xs text-green-600">
@@ -449,7 +450,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.textiles')} ({t('dashboard.accumulated')})</p>
                   <p className="text-xl font-bold text-rose-600">
-                    {(stats?.expenses.textilesClubCost ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.expenses.textilesClubCost ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                   {(stats?.textiles.savedByAthletes ?? 0) > 0 && (
                     <p className="text-xs text-green-600">
@@ -468,7 +469,7 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">{t('dashboard.directionSalaries')} ({stats?.expenses.year})</p>
                   <p className="text-xl font-bold text-violet-600">
-                    {(stats?.expenses.directionSalaries ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                    {(stats?.expenses.directionSalaries ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                   </p>
                 </div>
                 <HardHat className="h-5 w-5 text-violet-400 opacity-60" />
@@ -492,19 +493,19 @@ export default function DashboardPage() {
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{t('dashboard.totalRevenue')}</p>
                     <p className="text-lg font-bold text-primary">
-                      {totalRevenue.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                      {totalRevenue.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{t('dashboard.totalExpenses')}</p>
                     <p className="text-lg font-bold text-destructive">
-                      {totalExpenses.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                      {totalExpenses.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">{t('dashboard.netBalance')}</p>
                     <p className={`text-xl font-bold ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-                      {isPositive ? '+' : ''}{balance.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
+                      {isPositive ? '+' : ''}{balance.toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
                     </p>
                   </div>
                 </div>

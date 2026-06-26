@@ -1,12 +1,26 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { useTacticalStore } from '@/store/tacticalStore'
 import { User, Circle, Triangle, Play, Square, Save, Loader2, Video, FileJson, RotateCcw, X } from 'lucide-react'
 import type { ElementType } from '@/types/training.types'
 import { canvasDrawField, canvasDrawElements, ELEMENT_COLORS } from './HockeyField'
 import { cn } from '@/lib/utils'
+
+const playbookSchema = z.object({
+  name: z.string().optional(),
+  elements: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['player', 'opponent', 'ball', 'cone']),
+    label: z.string().optional(),
+  })),
+  frames: z.array(z.object({
+    frameIndex: z.number().int().min(0),
+    positions: z.record(z.object({ x: z.number(), y: z.number() })),
+  })),
+})
 
 interface BoardToolbarProps {
   onSave: () => void
@@ -47,8 +61,11 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
     const reader = new FileReader()
     reader.onload = ev => {
       try {
-        const data = JSON.parse(ev.target?.result as string)
-        useTacticalStore.getState().loadPlaybook(data)
+        const raw = JSON.parse(ev.target?.result as string)
+        const result = playbookSchema.safeParse(raw)
+        if (result.success) {
+          useTacticalStore.getState().loadPlaybook(result.data)
+        }
       } catch { /* ignore malformed file */ }
     }
     reader.readAsText(file)
