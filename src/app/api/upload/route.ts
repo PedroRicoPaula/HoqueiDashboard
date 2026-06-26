@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: Request) {
   try {
@@ -68,7 +69,9 @@ export async function POST(req: Request) {
         ContentType: file.type,
       }))
       const publicUrl = process.env.R2_PUBLIC_URL!.replace(/\/$/, '')
-      return NextResponse.json({ url: `${publicUrl}/sponsors/${filename}` })
+      const url = `${publicUrl}/sponsors/${filename}`
+      await logAudit(req, user.id, user.email, 'CREATE', 'SponsorLogo', filename, { size: file.size })
+      return NextResponse.json({ url })
     }
 
     // Local dev fallback — dynamic import keeps fs out of the Cloudflare bundle
@@ -77,6 +80,7 @@ export async function POST(req: Request) {
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'sponsors')
     await mkdir(uploadDir, { recursive: true })
     await writeFile(path.join(uploadDir, filename), buffer)
+    await logAudit(req, user.id, user.email, 'CREATE', 'SponsorLogo', filename, { size: file.size })
     return NextResponse.json({ url: `/uploads/sponsors/${filename}` })
 
   } catch (error) {

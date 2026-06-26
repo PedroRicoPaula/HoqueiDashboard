@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user: admin } = ctx
+    const { user: admin, clubId } = ctx
     if (!hasPermission(admin.permissions, 'isAdmin')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -27,7 +27,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const target = await prisma.user.findUnique({ where: { id } })
+    const target = await prisma.user.findUnique({ where: { id, clubId } })
     if (!target) return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
 
     const hashed = await hashPassword(parsed.data.password)

@@ -31,7 +31,7 @@ export async function PUT(
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editTraining')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -41,6 +41,9 @@ export async function PUT(
     if (!parsed.success) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
+
+    const training = await db.training.findUnique({ where: { id } })
+    if (!training) return NextResponse.json({ error: 'Treino não encontrado' }, { status: 404 })
 
     const playbook = await prisma.playbook.upsert({
       where: { trainingId: id },

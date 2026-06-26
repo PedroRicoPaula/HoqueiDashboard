@@ -10,10 +10,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ userId: 
     const { userId } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, clubId } = ctx
     if (!hasPermission(user.permissions, 'isAdmin')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
+
+    const targetUser = await prisma.user.findUnique({ where: { id: userId, clubId } })
+    if (!targetUser) return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
 
     const body = await req.json()
     const {

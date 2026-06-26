@@ -16,6 +16,9 @@ export async function getDbForRequest(req: Request) {
   const clubId = user.clubId
   if (!clubId) return null
 
+  const club = await prisma.club.findUnique({ where: { id: clubId }, select: { status: true } })
+  if (!club || club.status === 'CANCELLED' || club.status === 'SUSPENDED') return null
+
   const db = getTenantClient(clubId)
   return { user, db, clubId }
 }

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, clubId } = ctx
     if (!hasPermission(user.permissions, 'isAdmin')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         name,
         email,
         password: hashed,
+        clubId,
         permissions: {
           create: { viewAthletes: true, viewMembers: true, viewTraining: true, viewTravel: true },
         },
