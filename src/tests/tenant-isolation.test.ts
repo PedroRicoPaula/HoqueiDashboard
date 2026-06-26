@@ -18,6 +18,7 @@ const base = createBase()
 
 let clubAId: string
 let clubBId: string
+let athleteAId: string
 
 beforeAll(async () => {
   // Create two test clubs
@@ -41,7 +42,7 @@ beforeAll(async () => {
   clubBId = clubB.id
 
   // Create an athlete in each club directly (bypassing tenant extension)
-  await base.athlete.create({
+  const athA = await base.athlete.create({
     data: {
       clubId: clubAId,
       number: 999,
@@ -59,6 +60,7 @@ beforeAll(async () => {
       birthDate: new Date('2000-01-01'),
     },
   })
+  athleteAId = athA.id
 })
 
 afterAll(async () => {
@@ -116,5 +118,44 @@ describe('Tenant isolation via Prisma Extension', () => {
       where: { clubId: { in: [clubAId, clubBId] } },
     })
     expect(countA + countB).toBe(totalDirect)
+  })
+
+  it('findUnique cross-tenant IDOR — Club B cannot read Club A athlete by id', async () => {
+    const dbB = getTenantClient(clubBId)
+    // athleteAId belongs to Club A — Club B client should not find it
+    const result = await dbB.athlete.findUnique({ where: { id: athleteAId } })
+    expect(result).toBeNull()
+  })
+
+  it('update cross-tenant — Club B cannot modify Club A athlete', async () => {
+    const dbB = getTenantClient(clubBId)
+    // Extension injects clubId: clubBId into where, so no rows match → update returns null/throws
+    const result = await dbB.athlete.updateMany({
+      where: { id: athleteAId },
+      data: { name: 'Hacked' },
+    })
+    expect(result.count).toBe(0)
+    // Verify original data is unchanged
+    const original = await base.athlete.findUnique({ where: { id: athleteAId } })
+    expect(original?.name).toBe('Athlete A Only')
+  })
+
+  it('delete cross-tenant — Club B cannot delete Club A athlete', async () => {
+    const dbB = getTenantClient(clubBId)
+    const result = await dbB.athlete.deleteMany({ where: { id: athleteAId } })
+    expect(result.count).toBe(0)
+    // Verify record still exists
+    const stillExists = await base.athlete.findUnique({ where: { id: athleteAId } })
+    expect(stillExists).not.toBeNull()
+  })
+
+  it('nested relation — findMany on Club A does not leak Club B athletes via include', async () => {
+    const dbA = getTenantClient(clubAId)
+    const athletes = await dbA.athlete.findMany({
+      include: { materials: true },
+    })
+    // All returned athletes must belong to Club A
+    expect(athletes.every(a => a.clubId === clubAId)).toBe(true)
+    expect(athletes.some(a => a.clubId === clubBId)).toBe(false)
   })
 })

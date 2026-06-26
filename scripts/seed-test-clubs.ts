@@ -2,6 +2,10 @@
  * Seed 3 test clubs with realistic data for local development.
  * Run with: npx tsx scripts/seed-test-clubs.ts
  */
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('seed-test-clubs.ts must not run in production')
+}
+
 import { PrismaClient, type AgeGroup } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { randomBytes, pbkdf2 as pbkdf2Cb } from 'crypto'
