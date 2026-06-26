@@ -1,3 +1,7 @@
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 interface SendEmailOptions {
   to: string
   subject: string
@@ -49,19 +53,19 @@ export function welcomeEmailHtml(clubName: string, email: string, tempPassword: 
       <h1 style="margin:0;font-size:22px;color:#111827">Bem-vindo ao HoqueiManager!</h1>
     </div>
 
-    <p style="color:#374151;margin-bottom:8px">O clube <strong>${clubName}</strong> foi registado com sucesso.</p>
+    <p style="color:#374151;margin-bottom:8px">O clube <strong>${escHtml(clubName)}</strong> foi registado com sucesso.</p>
     <p style="color:#374151;margin-bottom:24px">As suas credenciais de acesso são:</p>
 
     <div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px">Email</p>
-      <p style="margin:0 0 16px;font-weight:600;color:#111827">${email}</p>
+      <p style="margin:0 0 16px;font-weight:600;color:#111827">${escHtml(email)}</p>
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px">Palavra-passe temporária</p>
-      <p style="margin:0;font-weight:600;color:#111827;font-size:18px;letter-spacing:2px">${tempPassword}</p>
+      <p style="margin:0;font-weight:600;color:#111827;font-size:18px;letter-spacing:2px">${escHtml(tempPassword)}</p>
     </div>
 
     <p style="color:#dc2626;font-size:13px;margin-bottom:24px">⚠️ Por segurança, altere a palavra-passe no primeiro login.</p>
 
-    <a href="${appUrl}/login" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
+    <a href="${escHtml(appUrl)}/login" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">
       Entrar no Dashboard →
     </a>
 
@@ -88,10 +92,10 @@ export function resetPasswordEmailHtml(name: string, resetUrl: string): string {
       <h1 style="margin:0;font-size:22px;color:#111827">Redefinir Palavra-passe</h1>
     </div>
 
-    <p style="color:#374151;margin-bottom:24px">Olá <strong>${name}</strong>,</p>
+    <p style="color:#374151;margin-bottom:24px">Olá <strong>${escHtml(name)}</strong>,</p>
     <p style="color:#374151;margin-bottom:24px">Recebemos um pedido para redefinir a palavra-passe da sua conta. Clique no botão abaixo para continuar.</p>
 
-    <a href="${resetUrl}" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:24px">
+    <a href="${escHtml(resetUrl)}" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:24px">
       Redefinir Palavra-passe →
     </a>
 

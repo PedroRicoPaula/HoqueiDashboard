@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { setupSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+import { logAudit } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -16,6 +18,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const ip = getClientIp(req)
+    const rateLimit = await checkRateLimit(`setup:${ip}`, { windowMs: 15 * 60 * 1000, max: 3 })
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Demasiadas tentativas. Tente mais tarde.' }, { status: 429 })
+    }
+
     const count = await prisma.user.count()
     if (count > 0) {
       return NextResponse.json({ error: 'Setup já concluído' }, { status: 409 })
@@ -30,7 +38,7 @@ export async function POST(req: Request) {
     const { name, email, password } = parsed.data
     const hashed = await hashPassword(password)
 
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         name,
         email,
@@ -52,6 +60,8 @@ export async function POST(req: Request) {
         },
       },
     })
+
+    await logAudit(req, user.id, user.email, 'CREATE', 'User', user.id, { setup: true })
 
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
