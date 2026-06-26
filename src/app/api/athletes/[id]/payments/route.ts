@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
@@ -19,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -29,7 +28,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       ? parseInt(searchParams.get('year')!)
       : new Date().getFullYear()
 
-    const payments = await prisma.athletePayment.findMany({
+    const payments = await db.athletePayment.findMany({
       where: { athleteId: id, year },
       orderBy: { month: 'asc' },
     })
@@ -62,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const athlete = await db.athlete.findUnique({ where: { id } })
     if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 404 })
 
-    const payment = await prisma.athletePayment.upsert({
+    const payment = await db.athletePayment.upsert({
       where: { athleteId_month_year: { athleteId: id, month, year } },
       update: {
         paid,

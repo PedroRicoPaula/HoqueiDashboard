@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getDbForRequest } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
@@ -65,10 +64,9 @@ export async function GET(req: Request) {
         where: { contractEnd: { lte: thirtyDaysFromNow, gte: now } },
         orderBy: { contractEnd: 'asc' },
       }),
-      prisma.quota.count({
+      db.quota.count({
         where: {
           paid: false,
-          member: { clubId: ctx.clubId },
           OR: [
             { year: { lt: currentYear } },
             { year: currentYear, month: { lt: currentMonth } },
@@ -89,11 +87,10 @@ export async function GET(req: Request) {
           })
         : Promise.resolve([] as { id: string; payments: { id: string }[] }[]),
       // Athlete fee revenue for current season
-      prisma.athletePayment.aggregate({
+      db.athletePayment.aggregate({
         _sum: { amount: true },
         where: {
           paid: true,
-          athlete: { clubId: ctx.clubId },
           OR: [
             { year: seasonStart, month: { in: [9, 10, 11, 12] } },
             { year: seasonEnd, month: { in: [1, 2, 3, 4, 5, 6] } },
@@ -101,8 +98,8 @@ export async function GET(req: Request) {
         },
       }),
       // Member quotas paid this year — use stored amount, fallback to current monthlyQuota
-      prisma.quota.findMany({
-        where: { paid: true, year: currentYear, member: { clubId: ctx.clubId } },
+      db.quota.findMany({
+        where: { paid: true, year: currentYear },
         select: { amount: true, member: { select: { monthlyQuota: true } } },
       }),
       // Active sponsor annual contributions
@@ -123,15 +120,12 @@ export async function GET(req: Request) {
       db.trainingSession.count({
         where: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
       }),
-      // Attendance: records in last 30 days — prisma global (AttendanceRecord not in TENANTED)
-      prisma.attendanceRecord.aggregate({
+      // Attendance: records in last 30 days
+      db.attendanceRecord.aggregate({
         _count: { id: true },
         where: {
           present: true,
-          session: {
-            clubId: ctx.clubId,
-            date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
-          },
+          session: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
         },
       }),
       // Textile: total count assigned
@@ -147,9 +141,9 @@ export async function GET(req: Request) {
         where: { paidByAthlete: false, paidAmount: { not: null } },
       }),
       // Direction: salaries paid this year
-      prisma.directionSalaryPayment.aggregate({
+      db.directionSalaryPayment.aggregate({
         _sum: { amount: true },
-        where: { paid: true, year: currentYear, member: { clubId: ctx.clubId } },
+        where: { paid: true, year: currentYear },
       }),
     ])
 

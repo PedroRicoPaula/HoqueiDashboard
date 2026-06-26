@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
@@ -19,7 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewDirection')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -27,7 +26,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const { searchParams } = new URL(req.url)
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear()
 
-    const payments = await prisma.directionSalaryPayment.findMany({
+    const payments = await db.directionSalaryPayment.findMany({
       where: { memberId: id, year },
       orderBy: { month: 'asc' },
     })
@@ -62,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const memberSalary = (member as { salary: number | null }).salary
 
-    const payment = await prisma.directionSalaryPayment.upsert({
+    const payment = await db.directionSalaryPayment.upsert({
       where: { memberId_month_year: { memberId: id, month, year } },
       update: {
         paid,
