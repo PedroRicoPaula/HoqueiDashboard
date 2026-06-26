@@ -23,6 +23,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
+    // Verify direction member belongs to this club before reading child records
+    const dirMember = await db.directionMember.findUnique({ where: { id } })
+    if (!dirMember) return NextResponse.json({ error: 'Membro não encontrado' }, { status: 404 })
+
     const { searchParams } = new URL(req.url)
     const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear()
 

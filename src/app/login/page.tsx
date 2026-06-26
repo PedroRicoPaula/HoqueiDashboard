@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ArrowLeft } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -153,6 +153,13 @@ export default function LoginPage() {
         <Suspense fallback={<div className="h-64" />}>
           <LoginForm />
         </Suspense>
+
+        <div className="text-center mt-6">
+          <Link href="/pt" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Página principal
+          </Link>
+        </div>
       </div>
     </div>
   )

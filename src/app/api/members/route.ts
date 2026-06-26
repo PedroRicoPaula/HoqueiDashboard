@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db, clubId } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'viewMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -40,16 +40,15 @@ export async function GET(req: Request) {
     }
 
     const toResult = (members: MemberRow[]) =>
-      members.map((m) => {
-        const paidCount = m.quotas.filter((q) => q.paid).length
+      members.map(({ quotas, ...rest }) => {
+        const paidCount = quotas.filter((q) => q.paid).length
         const pastMonthCount = currentMonth - 1
-        const lateMonths = m.monthlyQuota > 0
+        const lateMonths = rest.monthlyQuota > 0
           ? Array.from({ length: pastMonthCount }, (_, i) => i + 1).filter((month) => {
-              const quota = m.quotas.find((q) => q.month === month)
+              const quota = quotas.find((q) => q.month === month)
               return !quota?.paid
             }).length
           : 0
-        const { quotas: _quotas, ...rest } = m
         return { ...rest, paidCount, lateMonths }
       })
 
@@ -80,7 +79,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db, clubId } = ctx
+    const { user, db } = ctx
     if (!hasPermission(user.permissions, 'editMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -91,7 +90,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const member = await db.member.create({ data: { ...parsed.data, clubId } })
+    // Compute next sequential number for this club
+    const maxResult = await db.member.aggregate({ _max: { number: true } })
+    const nextNumber = ((maxResult as { _max: { number: number | null } })._max.number ?? 0) + 1
+
+    const member = await db.member.create({ data: { ...parsed.data, number: nextNumber, clubId: ctx.clubId } })
     await logAudit(req, user.id, user.email, 'CREATE', 'Member', (member as { id: string }).id, { name: (member as { name: string }).name })
     return NextResponse.json(member, { status: 201 })
   } catch (error) {

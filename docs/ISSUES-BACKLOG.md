@@ -338,13 +338,23 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-23 | SEC-012: `Math.random()` para password temporária + plaintext em metadata | `randomBytes(16).toString('base64url')` (Node.js `crypto`). Password continua em metadata Stripe (aceite — acesso ao Stripe implica trust). |
 | 2026-06-23 | DEBT-015: Register sem transação DB — registos órfãos em falha | `prisma.$transaction(async tx => ...)` envolve `club.create` + `user.create`. Em caso de falha, `.catch` faz `stripe.customers.del(customer.id)` antes de re-throw. |
 | 2026-06-23 | DEBT-016: `db.attendanceRecord` em routes não-tenanted | `prisma.attendanceRecord` com filtros explícitos: `athlete: { clubId }` em `athletes/[id]/attendance`, `session: { clubId }` em `attendance/[id]/records` (GET + PUT final read). |
+| 2026-06-25 | BUG-001 (build blocker): `<a href="/fees">` no perfil de atleta | Substituído por `<Link href="/fees">` + import `next/link` em `athletes/[id]/page.tsx:742`. |
+| 2026-06-25 | SEC-012 FULL FIX: Completamente removido `tempPassword` do fluxo de registo | Webhook `checkout.session.completed` cria `PasswordResetToken` (24h); email "Definir Palavra-passe" via Resend. `welcomeEmailHtml(clubName, email, setPasswordUrl)`. |
+| 2026-06-25 | Rate limit em `/api/register` e `/api/auth/reset-password` | 5/hora por IP no register; 5/15min no reset-password. `logAudit` com ação `REGISTER` adicionado. |
+| 2026-06-25 | CSRF inline + `isSuperAdmin` em `/api/setup` | `validateCsrf(req)` no início do POST. `isSuperAdmin: true` no user criado. |
+| 2026-06-25 | `logAudit` no webhook Stripe e `/api/auth/forgot-password` | 4 handlers do webhook + forgot-password auditados. `AuditAction` alargado com 6 novos tipos. |
+| 2026-06-25 | CSP `img-src` dinâmico para R2 custom domain | `next.config.mjs` lê `R2_PUBLIC_URL` em build time. Fallback: `https://*.r2.dev`. |
+| 2026-06-25 | `<img>` → `<Image>` em `sponsors/page.tsx` | Logos e icons de zona usam `next/image`. |
 | 2026-06-26 | SEC-013: Admin permissions GET expunha users de todos os clubes | `where: { clubId }` adicionado a `prisma.user.findMany` em `admin/permissions/route.ts`. |
-| 2026-06-26 | SEC-014/015/016: GET de AthletePayment, Quota e DirectionSalaryPayment sem filtro de clube | Filtros `athlete: { clubId }`, `member: { clubId }`, `member: { clubId }` adicionados às queries GET em `athletes/[id]/payments`, `members/[id]/quotas`, `direction/[id]/salary`. |
-| 2026-06-26 | SEC-017: Prisma Extension não interceptava `findUnique`, `update`, `delete` — IDOR sistémico em todas as rotas `[id]` | `findUnique`, `update`, `delete` adicionados à extensão em `src/lib/prisma-tenant.ts`. Todos injetam `clubId` no `where`. Cobre automaticamente athletes, members, sponsors, materials, travel, direction, training, trainingSchedule, trainingSession, textileItem, auditLog. |
-| 2026-06-26 | SEC-018: Admin reset-password sem verificação de clube — podia redefinir password de user de outro clube | `where: { id, clubId }` em `prisma.user.findUnique` em `admin/users/[id]/route.ts`. |
-| 2026-06-26 | SEC-019: Playbook upsert sem verificar ownership do treino | `db.training.findUnique({ where: { id } })` adicionado antes do upsert em `training/[id]/playbook/route.ts`. Com SEC-017 resolvido, esta chamada já filtra por `clubId`. |
-| 2026-06-26 | SEC-020: Admin criar utilizador sem clubId — user criado com clubId=null | `clubId` adicionado ao `prisma.user.create` em `admin/users/route.ts`. Utilizadores criados pelo admin pertenciam a null (sem clube). |
-| 2026-06-26 | SEC-021: Admin alterar permissões sem verificar clube do target — IDOR | Verificação `prisma.user.findUnique({ where: { id: userId, clubId } })` adicionada em `admin/permissions/[userId]/route.ts` antes do upsert de permissões. |
-| 2026-06-26 | SEC-022: Club CANCELLED/SUSPENDED não bloqueava chamadas API pós-login | `getDbForRequest()` em `src/lib/db.ts` agora verifica `club.status` a cada request. Retorna `null` (→ 401) se CANCELLED ou SUSPENDED. |
-| 2026-06-26 | SEC-023: Upload de logo sem registo no audit log | `logAudit(..., 'CREATE', 'SponsorLogo', filename, { size })` adicionado em `api/upload/route.ts` (R2 e fallback local). |
-| 2026-06-26 | BUG-014: loginSchema aceitava passwords de 6 caracteres — inconsistente com min(8) em todo o resto | `min(6)` → `min(8)` em `loginSchema` em `src/lib/validations.ts`. |
+| 2026-06-26 | SEC-014/015/016: GET de payments/quotas/salary sem filtro de clube | Modelos movidos para TENANTED; routes usam `db` em vez de `prisma` global. |
+| 2026-06-26 | SEC-017: Prisma Extension não interceptava `findUnique`, `update`, `delete` — IDOR sistémico | `findUnique`, `update`, `delete` adicionados à extensão em `src/lib/prisma-tenant.ts`. |
+| 2026-06-26 | SEC-018: Admin reset-password sem verificação de clube | `where: { id, clubId }` em `admin/users/[id]/route.ts`. |
+| 2026-06-26 | SEC-019: Playbook upsert sem verificar ownership do treino | `db.training.findUnique({ where: { id } })` antes do upsert. |
+| 2026-06-26 | SEC-020: Admin criar utilizador sem clubId | `clubId` adicionado ao `prisma.user.create` em `admin/users/route.ts`. |
+| 2026-06-26 | SEC-021: Admin alterar permissões de user de outro clube — IDOR | `prisma.user.findUnique({ where: { id: userId, clubId } })` antes do upsert. |
+| 2026-06-26 | SEC-022: Club CANCELLED/SUSPENDED não bloqueava chamadas API | `getDbForRequest()` verifica `club.status`; retorna `null` se CANCELLED ou SUSPENDED. |
+| 2026-06-26 | SEC-023: Upload de logo sem registo no audit log | `logAudit` adicionado em `api/upload/route.ts`. |
+| 2026-06-26 | SEC-024: Setup sem rate limit nem audit log | Rate limit 3/15min + `logAudit` adicionados em `api/setup/route.ts`. |
+| 2026-06-26 | SEC-025: HTML injection em templates de email | `escHtml()` aplicada a todos os valores user-controlled em `src/lib/email.ts`. |
+| 2026-06-26 | BUG-014: loginSchema aceitava passwords de 6 caracteres | `min(6)` → `min(8)` em `loginSchema` em `src/lib/validations.ts`. |
+| 2026-06-26 | DEBT-017: Tenant isolation implícito em 4 modelos + upsert não coberto | Schema + migration `20260626000001` + TENANTED set alargado + upsert interceptor. |

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { setupSchema } from '@/lib/validations'
 import { logger } from '@/lib/logger'
+import { validateCsrf, csrfError } from '@/lib/csrf'
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 import { logAudit } from '@/lib/audit'
 
@@ -17,6 +18,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!validateCsrf(req)) return csrfError()
+
   try {
     const ip = getClientIp(req)
     const rateLimit = await checkRateLimit(`setup:${ip}`, { windowMs: 15 * 60 * 1000, max: 3 })
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
         name,
         email,
         password: hashed,
+        isSuperAdmin: true,
         permissions: {
           create: {
             viewAthletes: true, editAthletes: true,

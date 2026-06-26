@@ -1,5 +1,10 @@
 import { prisma } from './prisma'
 
+// Models with a direct clubId column — Extension auto-injects clubId on all operations.
+// Child models (AthletePayment, Quota, DirectionSalaryPayment, Playbook) are NOT listed:
+// they have no clubId column and are protected via parent ownership checks in each route.
+// AttendanceRecord: also no clubId — routes protect via `session: { clubId }` join filter;
+// any new AttendanceRecord endpoint MUST include that filter explicitly.
 const TENANTED = new Set([
   'athlete', 'member', 'sponsor', 'material', 'travel',
   'directionmember', 'training', 'trainingschedule',

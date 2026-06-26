@@ -23,6 +23,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
+    // Verify athlete belongs to this club before reading child records
+    const athlete = await db.athlete.findUnique({ where: { id } })
+    if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 404 })
+
     const { searchParams } = new URL(req.url)
     const year = searchParams.get('year')
       ? parseInt(searchParams.get('year')!)

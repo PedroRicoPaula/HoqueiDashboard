@@ -4,9 +4,16 @@ import { hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
 import { validateCsrf, csrfError } from '@/lib/csrf'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 export async function POST(req: Request) {
   if (!validateCsrf(req)) return csrfError()
+
+  const ip = getClientIp(req)
+  const limit = await checkRateLimit(`reset:${ip}`, { windowMs: 15 * 60 * 1000, max: 5 })
+  if (!limit.allowed) {
+    return NextResponse.json({ error: 'Muitos pedidos. Aguarde.' }, { status: 429 })
+  }
 
   try {
     const { token, password } = await req.json()

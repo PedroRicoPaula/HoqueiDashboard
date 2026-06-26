@@ -5,7 +5,7 @@
 **Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
 **URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-06-16
+**Data última auditoria:** 2026-06-25
 
 > ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
@@ -63,7 +63,7 @@ RESEND_API_KEY                  → re_... (email transacional — boas-vindas +
 2. **Next.js 15 async params** — todos os route handlers usam `{ params }: { params: Promise<{ id: string }> }` e `const { id } = await params`. Nunca `params.id` direto.
 3. **JWT expira em 24h** — definido em `signToken()`. Não aumentar.
 4. **`getSecret()` valida o JWT_SECRET** — rejeita se vazio, <32 chars, ou contém "change-in-production". Vai crashar em build se errado.
-5. **CSRF no middleware** — já feito para rotas de página. API routes não precisam chamar `validateCsrf` manualmente (middleware trata).
+5. **CSRF no middleware** — já feito para rotas de página. API routes não precisam chamar `validateCsrf` manualmente (middleware trata). **Excepção: `/api/setup`** está excluído do matcher do middleware (`matcher` negation list) — tem `validateCsrf(req)` inline no POST handler.
 6. **Audit log em toda operação de escrita** — chamar `logAudit(req, user.id, user.email, action, entity, entityId, details)` em todos os POST/PUT/DELETE. Inclui logins (sucesso e falha).
 7. **CSP headers em `next.config.mjs`** — qualquer novo domínio externo precisa ser adicionado às diretivas corretas. Stripe já adicionado: `js.stripe.com` (script-src), `api.stripe.com` (connect-src), `js.stripe.com`+`hooks.stripe.com` (frame-src).
 8. **Cookie de auth: `hm_token`** — nome fixo, usado em middleware e `getTokenFromCookies`. Nunca usar `hcpdl_token`.
@@ -71,6 +71,8 @@ RESEND_API_KEY                  → re_... (email transacional — boas-vindas +
 10. **MULTI-TENANT OBRIGATÓRIO — usar `getDbForRequest(req)`** em vez de `prisma` direto em todas as API routes do dashboard. Retorna `{ user, db, clubId }` ou `null` se não autenticado, sem `clubId`, ou clube com status `CANCELLED`/`SUSPENDED`. O `db` é um Prisma Extension que injeta `clubId` automaticamente em **todas** as operações de modelos tenanted (`findUnique`, `findMany`, `findFirst`, `create`, `createMany`, `upsert` (só em `create`), `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`). **Modelos tenanted (15):** Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord. **Modelos NÃO tenanted (usar `prisma` global):** User, Permission, Playbook, RateLimit. Ver `src/lib/db.ts` e `src/lib/prisma-tenant.ts`.
 11. **Stripe webhook — sem CSRF** — `/api/stripe/webhook` está excluído do CSRF check (tem verificação de assinatura própria via `stripe.webhooks.constructEvent`). Não adicionar CSRF a este endpoint.
 12. **`isSuperAdmin` → acesso a `/platform` apenas** — super admin não tem `clubId`, não pode aceder ao dashboard de nenhum clube. Redireccionado para `/platform` no login.
+13. **Fluxo de registo de clubes — sem credenciais em claro** — `POST /api/register` cria User com password placeholder. O webhook `checkout.session.completed` cria `PasswordResetToken` (24h) e envia email com link `/reset-password?token=...` via Resend. `RESEND_API_KEY` é **obrigatório em produção** — sem ele o utilizador não recebe o email de boas-vindas e não consegue fazer login.
+14. **`AuditAction` type em `src/lib/audit.ts`** — ao chamar `logAudit()` com uma nova ação, **sempre** adicionar ao union type primeiro. O compilador TS rejeita ações não declaradas. Ações actuais: `CREATE | UPDATE | DELETE | LOGIN | LOGIN_FAIL | LOGOUT | CHANGE_PASSWORD | CHANGE_PERMISSIONS | PASSWORD_RESET | PASSWORD_RESET_REQUEST | UPDATE_CLUB_LOGO | REMOVE_CLUB_LOGO | REGISTER | SUBSCRIPTION_ACTIVATED | PAYMENT_SUCCEEDED | PAYMENT_FAILED | SUBSCRIPTION_CANCELLED`.
 
 ---
 
@@ -163,7 +165,7 @@ messages/                      # Traduções next-intl
 
 ---
 
-## Estado Atual (2026-06-19)
+## Estado Atual (2026-06-25)
 
 ### Infraestrutura Base (herdada do HCPDL)
 - ✅ Next.js 15 App Router + TypeScript + Prisma 7 + shadcn/ui + Zustand + Zod v4
@@ -195,6 +197,15 @@ messages/                      # Traduções next-intl
 - ✅ **Landing page melhorada**: How it works, social proof, FAQ expandida, CTA corrigida, links corrigidos
 - ✅ **Labels i18n nas páginas**: dashboard, atletas, mensalidades, membros, materiais, têxteis, direção, assiduidades usam `useDashLabels()`
 - ✅ **date-fns locale dinâmico**: `getDateLocale()` baseado no idioma do clube
+
+### Auditoria de Segurança e Build (2026-06-25) — commit c83ac59
+- ✅ **Fluxo de registo seguro**: sem `tempPassword` — utilizador define password via email com link `PasswordResetToken`
+- ✅ **Rate limit**: adicionado a `/api/register` (5/hora) e `/api/auth/reset-password` (5/15min)
+- ✅ **Setup route**: CSRF inline + `isSuperAdmin: true` para o super admin criado
+- ✅ **Audit completo**: `logAudit` adicionado a forgot-password, webhook Stripe (4 eventos), register
+- ✅ **AuditAction type**: alargado com REGISTER, SUBSCRIPTION_ACTIVATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, SUBSCRIPTION_CANCELLED, PASSWORD_RESET_REQUEST
+- ✅ **CSP img-src dinâmico**: lê `R2_PUBLIC_URL` em build time para permitir custom domains R2
+- ✅ **Build limpo**: 0 erros TypeScript, 58 páginas geradas
 
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed

@@ -23,7 +23,7 @@ export async function GET(req: Request) {
 
     // Show: LOGIN_FAIL (anyone) + all actions from non-admin users
     const adminPerms = await prisma.permission.findMany({
-      where: { isAdmin: true },
+      where: { isAdmin: true, user: { clubId: ctx.clubId } },
       select: { userId: true },
     })
     const adminIds = adminPerms.map((p: { userId: string }) => p.userId)

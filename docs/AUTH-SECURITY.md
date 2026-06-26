@@ -185,6 +185,8 @@ O `INSERT ... ON CONFLICT DO UPDATE` é **atómico ao nível da base de dados** 
 - `POST /api/auth/login` → 10 req / 15 min por IP
 - `POST /api/auth/change-password` → 5 req / 15 min por IP
 - `POST /api/auth/forgot-password` → 5 req / 15 min por IP
+- `POST /api/auth/reset-password` → 5 req / 15 min por IP
+- `POST /api/register` → 5 req / 60 min por IP
 
 ### Extração de IP (ordem de prioridade)
 1. `CF-Connecting-IP` — Cloudflare (não pode ser falsificado atrás do CF)
@@ -205,7 +207,7 @@ Content-Security-Policy:
   script-src  'self' 'unsafe-inline' https://js.stripe.com     ← produção (unsafe-eval REMOVIDO — SEC-005)
               'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com  ← dev only
   style-src   'self' 'unsafe-inline'                            ← Tailwind inline styles
-  img-src     'self' data: blob: https://*.r2.dev               ← logos R2 + base64
+  img-src     'self' data: blob: <R2_ORIGIN>                    ← dinâmico: origin de R2_PUBLIC_URL ou https://*.r2.dev como fallback
   connect-src 'self' https://api.stripe.com
   font-src    'self' data:                                      ← base64 fonts (Geist)
   frame-src   https://js.stripe.com https://hooks.stripe.com
@@ -247,6 +249,8 @@ Mensagem de erro e `accept` do input corrigidos para "PNG e JPG" (SVG foi removi
 
 ## Riscos Conhecidos (ver ISSUES-BACKLOG.md)
 
+> Todos os riscos críticos identificados nas auditorias de 2026-06-02, 2026-06-23, 2026-06-25 e 2026-06-26 foram resolvidos. Ver [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md) para detalhes.
+
 ---
 
 ## ErrorBoundary + ChunkLoadError
@@ -280,6 +284,10 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 | SEC-006 | ~~BAIXO~~ | `pavilionUrl` aceita qualquer string sem validação de URL | ✅ Resolvido 2026-06-02 |
 | SEC-007 | ~~BAIXO~~ | Sem `Strict-Transport-Security` header explícito | ✅ Resolvido 2026-06-02 |
 | SEC-008 | ~~BAIXO~~ | Export de audit log sem limite de registos | ✅ Resolvido 2026-06-02 |
+| SEC-009 | ~~ALTO~~ | Cross-tenant data leak em dashboard stats | ✅ Resolvido 2026-06-22 |
+| SEC-010 | ~~MÉDIO~~ | `/privacy` e `/terms` atrás de auth | ✅ Resolvido 2026-06-22 |
+| SEC-011 | ~~ALTO~~ | Attendance aggregate cross-tenant no dashboard | ✅ Resolvido 2026-06-23 |
+| SEC-012 | ~~CRÍTICO~~ | `tempPassword` em metadata Stripe + `Math.random()` | ✅ Resolvido 2026-06-25 (set-password flow via PasswordResetToken) |
 
 ## Vulnerabilidades Auditoria 2026-06-26
 
@@ -299,6 +307,37 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 | SEC-025 | ~~BAIXO~~ | Templates de email sem HTML escaping — XSS em clientes sem sandbox | ✅ Resolvido 2026-06-26 |
 
 **Sem débito de segurança ativo relevante.** Ver ISSUES-BACKLOG.md para issues menores.
+
+---
+
+## Fluxo de Registo (sem tempPassword)
+
+O fluxo seguro de onboarding (implementado 2026-06-25) evita expor credenciais:
+
+1. `POST /api/register` → cria `Club` + `User` com password placeholder (32 bytes aleatórios, ninguém sabe)
+2. Stripe Checkout → pagamento
+3. `checkout.session.completed` webhook → incrementa `tokenVersion`, cria `PasswordResetToken` (24h), envia email "Definir Palavra-passe" com link para `/reset-password?token=...`
+4. Utilizador clica no link → define a sua própria password → sessão iniciada
+
+**Sem** `tempPassword` em metadata Stripe. **Sem** credenciais em texto claro em email. `RESEND_API_KEY` é **obrigatório** para este fluxo funcionar — sem ele, o utilizador recebe o Stripe Checkout mas não recebe o email de boas-vindas.
+
+---
+
+## AuditAction — Tipos Completos
+
+```typescript
+// src/lib/audit.ts
+export type AuditAction =
+  | 'CREATE' | 'UPDATE' | 'DELETE'
+  | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT'
+  | 'CHANGE_PASSWORD' | 'CHANGE_PERMISSIONS'
+  | 'PASSWORD_RESET' | 'PASSWORD_RESET_REQUEST'
+  | 'UPDATE_CLUB_LOGO' | 'REMOVE_CLUB_LOGO'
+  | 'REGISTER'
+  | 'SUBSCRIPTION_ACTIVATED' | 'PAYMENT_SUCCEEDED' | 'PAYMENT_FAILED' | 'SUBSCRIPTION_CANCELLED'
+```
+
+Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.
 
 ---
 

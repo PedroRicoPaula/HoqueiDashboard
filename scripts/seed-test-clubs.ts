@@ -224,12 +224,13 @@ async function seedClub(club: typeof CLUBS[0]) {
   }
   console.log(`  ✓ ${paymentCount} athlete payments (season ${seasonStart}/${seasonStart + 1})`)
 
-  // Create members
+  // Create members — number is now per-club sequential (no autoincrement)
   const createdMembers = await Promise.all(
-    club.members.map((m) =>
+    club.members.map((m, idx) =>
       prisma.member.create({
         data: {
           clubId: createdClub.id,
+          number: idx + 1,
           name: m.name,
           email: m.email,
           monthlyQuota: m.monthlyQuota,

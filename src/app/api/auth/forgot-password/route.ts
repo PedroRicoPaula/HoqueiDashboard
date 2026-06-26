@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, resetPasswordEmailHtml } from '@/lib/email'
 import { logger } from '@/lib/logger'
+import { logAudit } from '@/lib/audit'
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 import { validateCsrf, csrfError } from '@/lib/csrf'
 import crypto from 'crypto'
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
       subject: 'Redefinir palavra-passe — HoqueiManager',
       html: resetPasswordEmailHtml(user.name, resetUrl),
     })
+
+    await logAudit(req, user.id, user.email, 'PASSWORD_RESET_REQUEST', 'User', user.id, {})
 
     return NextResponse.json({ ok: true })
   } catch (err) {

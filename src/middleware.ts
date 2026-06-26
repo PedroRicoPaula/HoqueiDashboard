@@ -68,7 +68,11 @@ export async function middleware(req: NextRequest) {
 
   // ── Auth: verify JWT ──
   const token = req.cookies.get('hm_token')?.value
-  if (!token) return NextResponse.redirect(new URL('/login', req.url))
+  if (!token) {
+    // Root without auth → landing page, all other paths → login
+    const dest = pathname === '/' ? '/pt' : '/login'
+    return NextResponse.redirect(new URL(dest, req.url))
+  }
 
   let payload: Record<string, unknown>
   try {
