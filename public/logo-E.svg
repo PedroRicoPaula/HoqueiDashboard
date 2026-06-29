@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="8" fill="#f0fdf4"/>
+  <rect x="4" y="4" width="192" height="192" rx="6" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+  <!-- Colchetes desportivos nos cantos -->
+  <path d="M16 32 L16 16 L32 16" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="butt"/>
+  <path d="M168 16 L184 16 L184 32" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="butt"/>
+  <path d="M16 168 L16 184 L32 184" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="butt"/>
+  <path d="M168 184 L184 184 L184 168" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="butt"/>
+  <!-- Stick: cabo preto diagonal, pá mais comprida -->
+  <line x1="148" y1="32" x2="68" y2="142" stroke="#111827" stroke-width="6" stroke-linecap="butt"/>
+  <path d="M68 142 Q60 152 44 156 Q28 159 22 154" stroke="#111827" stroke-width="6" stroke-linecap="butt" fill="none"/>
+  <!-- Bola acima da ponta da pá -->
+  <circle cx="24" cy="148" r="6" fill="#111827"/>
+  <!-- HD verde -->
+  <text x="108" y="104" font-family="Arial Black, sans-serif" font-weight="900" font-size="78" fill="#15803d" text-anchor="middle" dominant-baseline="middle" letter-spacing="-4">HD</text>
+</svg>

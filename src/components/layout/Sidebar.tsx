@@ -132,19 +132,13 @@ export function Sidebar() {
     >
       {/* Club branding */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-white/10">
-        {clubLogo ? (
-          <Image
-            src={clubLogo}
-            alt={clubName}
-            width={36}
-            height={36}
-            className="rounded-full flex-shrink-0 object-contain"
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-bold text-white">{clubName.charAt(0).toUpperCase()}</span>
-          </div>
-        )}
+        <Image
+          src={clubLogo ?? '/logoHD.png'}
+          alt={clubName}
+          width={36}
+          height={36}
+          className="rounded-full flex-shrink-0 object-contain"
+        />
         <div className="min-w-0">
           <p className="font-bold text-sm leading-tight truncate text-white">{clubName}</p>
           <p className="text-xs text-white/50 leading-tight">{t('nav.manage')}</p>

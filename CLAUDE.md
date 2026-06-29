@@ -213,4 +213,4 @@ messages/                      # Traduções next-intl
 - ⏳ Preencher `RESEND_API_KEY` no `.env` (Resend.com → API Keys)
 - ⏳ Deploy Vercel + env vars produção + webhook Stripe produção
 - ⏳ Registar `hoqueimanager.com` + apontar DNS para Vercel
-- ⏳ Criar `public/logo.png` (ícone PWA)
+- ✅ `public/logoHD.svg` + `public/logoHD.png` + `public/logo.png` criados (logo HD, ícone PWA 512×512)

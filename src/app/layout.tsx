@@ -19,6 +19,10 @@ export const metadata: Metadata = {
   title: 'HoqueiManager',
   description: 'Gestão completa para clubes de hóquei em patins',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/logoHD.png',
+    apple: '/logoHD.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
