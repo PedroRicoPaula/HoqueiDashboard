@@ -5,7 +5,7 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-06-26)_
+_(sem bugs activos conhecidos — 2026-06-29)_
 
 ### ~~[DEBT-017] Tenant isolation implícito em 4 modelos~~ ✅ RESOLVIDO 2026-06-26
 `AttendanceRecord`, `AthletePayment`, `Quota`, `DirectionSalaryPayment` agora têm campo `clubId` explícito no schema e estão incluídos no `TENANTED` set de `prisma-tenant.ts`. Migration `20260626000001_add_clubid_to_payment_models` com backfill via UPDATE das tabelas pai. Extensão Prisma agora inclui também operação `upsert` (injeta `clubId` no bloco `create`). Todas as 6 routes afetadas atualizadas para usar `db` em vez de `prisma` global.
@@ -358,3 +358,8 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-26 | SEC-025: HTML injection em templates de email | `escHtml()` aplicada a todos os valores user-controlled em `src/lib/email.ts`. |
 | 2026-06-26 | BUG-014: loginSchema aceitava passwords de 6 caracteres | `min(6)` → `min(8)` em `loginSchema` em `src/lib/validations.ts`. |
 | 2026-06-26 | DEBT-017: Tenant isolation implícito em 4 modelos + upsert não coberto | Schema + migration `20260626000001` + TENANTED set alargado + upsert interceptor. |
+| 2026-06-29 | CRITICAL: `prisma` não importado em `src/lib/db.ts` — crash em todas as API routes | `import { prisma } from './prisma'` adicionado. Todas as 42 routes do dashboard chamavam `getDbForRequest()` que fazia `prisma.club.findUnique` sem o import. ReferenceError em runtime. |
+| 2026-06-29 | CRITICAL: `logAudit()` não incluía `clubId` — audit log vazio em todos os clubes | `getUserFromRequest(req)` adicionado dentro de `logAudit()` em `src/lib/audit.ts` para extrair `clubId` do JWT automaticamente. Antes: todas as entradas tinham `clubId=null` → extensão Prisma filtrava tudo → página de auditoria mostrava zero entradas. |
+| 2026-06-29 | HIGH: Stripe `cancel_url` apontava para dashboard em vez da landing | `NEXT_PUBLIC_APP_URL` → `NEXT_PUBLIC_LANDING_URL` (fallback `hoqueimanager.com`) em `src/app/api/register/route.ts`. Utilizadores que cancelavam o checkout recebiam 404. |
+| 2026-06-29 | TS-ERROR: `z.record()` em Zod v4 requer 2 argumentos | `z.record(z.object({...}))` → `z.record(z.string(), z.object({...}))` em `BoardToolbar.tsx`. Zod v4 exige key schema explícito. Causava erros TS2554 + tipo errado em `loadPlaybook()`. |
+| 2026-06-29 | MEDIUM: loginSchema cliente usava `min(6)` vs `min(8)` no servidor | `min(6)` → `min(8)` em `loginSchema` de `src/app/login/page.tsx`. Inconsistência causava erro 400 opaco para passwords de 6-7 chars. Mensagem `?registered=1` corrigida (dizia "senha temporária", fluxo real é set-password link). |

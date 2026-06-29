@@ -249,7 +249,7 @@ Mensagem de erro e `accept` do input corrigidos para "PNG e JPG" (SVG foi removi
 
 ## Riscos Conhecidos (ver ISSUES-BACKLOG.md)
 
-> Todos os riscos críticos identificados nas auditorias de 2026-06-02, 2026-06-23, 2026-06-25 e 2026-06-26 foram resolvidos. Ver [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md) para detalhes.
+> Todos os riscos críticos identificados nas auditorias de 2026-06-02, 2026-06-23, 2026-06-25, 2026-06-26 e 2026-06-29 foram resolvidos. Ver [ISSUES-BACKLOG.md](ISSUES-BACKLOG.md) para detalhes.
 
 ---
 
@@ -338,6 +338,10 @@ export type AuditAction =
 ```
 
 Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.
+
+### clubId em logAudit (fix 2026-06-29)
+
+`logAudit()` em `src/lib/audit.ts` extrai automaticamente o `clubId` do JWT via `getUserFromRequest(req)`. Não é necessário passar `clubId` como argumento — a função resolve-o internamente. Eventos de rotas não autenticadas (LOGIN_FAIL, PASSWORD_RESET_REQUEST) ficam com `clubId = null` na BD, o que é correto: não pertencem a nenhum clube específico e são invisíveis nos audit logs por clube (o filtro tenant exclui-os). Se for necessário ver eventos de sistema, consultar diretamente via Prisma Studio ou export da super admin.
 
 ---
 

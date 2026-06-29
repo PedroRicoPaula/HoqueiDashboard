@@ -200,6 +200,14 @@ notes: z.string().nullable().optional()
 ```
 Afeta em especial forms com `buildPayload` manual (ex: Têxteis). Forms com `react-hook-form` enviam `""` (string vazia) → não têm este problema.
 
+**⚠️ `z.record()` em Zod v4 requer 2 argumentos** — em Zod v3, `z.record(valueSchema)` era válido. Em Zod v4, o primeiro argumento é obrigatoriamente o key schema:
+```typescript
+// ❌ Zod v4 rejeita — TS2554: Expected 2-3 arguments, but got 1
+positions: z.record(z.object({ x: z.number(), y: z.number() }))
+// ✅ correto em Zod v4
+positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() }))
+```
+
 ### Client Components — Fetch Pattern
 ```typescript
 const fetchData = useCallback(async () => {
