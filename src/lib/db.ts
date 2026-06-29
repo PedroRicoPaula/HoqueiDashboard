@@ -1,5 +1,6 @@
 import { getUserFromRequest } from './auth'
 import { getTenantClient } from './prisma-tenant'
+import { prisma } from './prisma'
 import { NextResponse } from 'next/server'
 
 export type DbHandler = Awaited<ReturnType<typeof getDbForRequest>>

@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { clubId: club.id, userId: user.id },
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?registered=1`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/${language}/register?cancelled=1`,
+      cancel_url: `${process.env.NEXT_PUBLIC_LANDING_URL ?? 'https://hoqueimanager.com'}/${language}/register?cancelled=1`,
       subscription_data: {
         metadata: { clubId: club.id },
       },

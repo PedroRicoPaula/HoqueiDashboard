@@ -16,7 +16,7 @@ import { Loader2, ArrowLeft } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Palavra-passe deve ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'Palavra-passe deve ter pelo menos 8 caracteres'),
 })
 
 type LoginForm = z.infer<typeof loginSchema>
@@ -82,7 +82,7 @@ function LoginForm() {
     <>
       {registered && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Conta criada! Verifique o email para a senha temporária e entre aqui.
+          Registo completo! Verifique o seu email para definir a palavra-passe e entrar.
         </div>
       )}
 
