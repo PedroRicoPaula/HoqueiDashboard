@@ -8,8 +8,7 @@ import { CookieBanner } from '@/components/landing/CookieBanner'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://hoqueimanager.com'
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
-  const { locale } = await params
+export async function generateMetadata(): Promise<Metadata> {
   const languages: Record<string, string> = {}
   for (const l of routing.locales) {
     languages[l] = `${APP_URL}/${l}`
