@@ -18,7 +18,7 @@ const playbookSchema = z.object({
   })),
   frames: z.array(z.object({
     frameIndex: z.number().int().min(0),
-    positions: z.record(z.object({ x: z.number(), y: z.number() })),
+    positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() })),
   })),
 })
 
