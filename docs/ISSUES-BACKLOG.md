@@ -5,10 +5,30 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-06-26)_
+_(sem bugs activos conhecidos — 2026-07-06)_
+
+### ~~[BUG-015] `getDbForRequest` crashava com `ReferenceError: prisma is not defined` — TODAS as rotas de dashboard~~ ✅ RESOLVIDO 2026-07-06
+**Encontrado:** 2026-07-06 (typecheck sem truncar output — ver nota de processo abaixo).
+Commit `c83ac59` (2026-06-25, limpeza de warnings) removeu `import { prisma } from './prisma'` de `src/lib/db.ts` por estar "unused" nessa altura. Commit seguinte `efd46cd` (2026-06-26, SEC-022) voltou a usar `prisma.club.findUnique(...)` dentro de `getDbForRequest()` sem repor o import. Isto ficou em `main` desde 26 de junho — **qualquer chamada a `getDbForRequest()` (usado por praticamente todas as rotas API do dashboard) rebentava com `ReferenceError` em runtime**, e o `next build` também devia falhar no typecheck. Não detectado antes porque as verificações de typecheck desta sessão (e possivelmente builds anteriores) estavam a usar `tail -N` sobre o output, cortando erros fora da janela.
+**Fix:** import reposto em `db.ts`. **Acção recomendada:** confirmar se o deploy Vercel de produção está mesmo a servir código pós-26-jun sem este erro (se o build falhou silenciosamente e o Vercel ficou a servir a build anterior, o site pode estar bem; se o build passou por algum motivo — ex. `ignoreBuildErrors` — o dashboard em produção pode estar completamente inacessível). **Verificar isto na Vercel antes de mais nada.**
+
+### ~~[BUG-016] 6 sites de `upsert`/`create` sem `clubId` explícito — mascarado por client Prisma desatualizado~~ ✅ RESOLVIDO 2026-07-06
+**Encontrado:** 2026-07-06, ao regenerar o client Prisma local (estava desactualizado desde a migration `20260626000001`, sem `clubId` nos tipos de `AthletePayment`/`Quota`/`DirectionSalaryPayment`/`AttendanceRecord` — por isso o TypeScript nunca acusou estes erros).
+Rotas afectadas (todas seguiam o padrão de outras rotas como `athletes/route.ts` que já passam `clubId` explícito, mas estas quatro não): `athletes/[id]/payments/route.ts`, `attendance/[id]/records/route.ts`, `direction/[id]/salary/route.ts`, `members/[id]/quotas/route.ts` — mais 2 ocorrências em `scripts/seed-test-clubs.ts`. Sem `clubId` no bloco `create`, o Prisma rejeitaria em runtime assim que o client fosse regenerado (o que aconteceu nesta sessão) — ou seja, estas rotas estavam prestes a partir no primeiro `prisma generate` que alguém corresse.
+**Fix:** `clubId` adicionado ao `create` de cada upsert, seguindo o padrão já usado nas restantes rotas.
+
+### ~~[BUG-017] `BoardToolbar.tsx` — `z.record()` com 1 argumento (API Zod v3, quebra em v4)~~ ✅ RESOLVIDO 2026-07-06
+**Encontrado:** 2026-07-06, no mesmo typecheck sem truncar.
+`playbookSchema` (adicionado em UX-003, 2026-06-26) usava `z.record(z.object({...}))` — assinatura de 1 argumento do Zod v3. O projeto já está em Zod v4 (`^4.3.6`), que exige `z.record(keySchema, valueSchema)`. Erro de compilação, bloquearia o build. **Fix:** `z.record(z.string(), z.object({ x: z.number(), y: z.number() }))`.
+
+### ~~[SEC-026] Prisma Extension `upsert` não protegia o `where` — IDOR potencial~~ ✅ RESOLVIDO 2026-07-06
+**Encontrado:** 2026-07-06 (análise de código + TDD contra BD real).
+Extensão em `prisma-tenant.ts` injectava `clubId` só no bloco `create` do `upsert`, nunca no `where`. Como o `where` de um upsert usa sempre uma unique constraint composta sem `clubId` (ex. `athleteId_month_year` em `AthletePayment`/`Quota`/`DirectionSalaryPayment`, `sessionId_athleteId` em `AttendanceRecord`), um upsert chamado com uma chave composta pertencente a outro clube (ex. `athleteId` de outro clube) sobreporia esse registo silenciosamente — protegido apenas pelo facto de todas as rotas actuais validarem o `athleteId`/`memberId` antes de chamar upsert, não pela framework.
+**Fix:** extensão agora corre um `findFirst` (via helper `flattenUniqueWhere`, que achata a chave composta do `WhereUniqueInput` para um `WhereInput` plano) antes do upsert, e lança erro se o registo encontrado pertencer a outro clube. Tentativas de meter `clubId` directo no `where` do upsert falharam — o `WhereUniqueInput` gerado pelo Prisma para estes modelos não aceita `clubId` como filtro extra.
+Teste de regressão adicionado a `src/tests/tenant-isolation.test.ts` (upsert cross-tenant). CI novo (`.github/workflows/ci.yml`) corre este teste contra Postgres efémero em cada push/PR — usa `prisma db push` em vez de `migrate deploy` por causa do INFRA-001 (ver abaixo).
 
 ### ~~[DEBT-017] Tenant isolation implícito em 4 modelos~~ ✅ RESOLVIDO 2026-06-26
-`AttendanceRecord`, `AthletePayment`, `Quota`, `DirectionSalaryPayment` agora têm campo `clubId` explícito no schema e estão incluídos no `TENANTED` set de `prisma-tenant.ts`. Migration `20260626000001_add_clubid_to_payment_models` com backfill via UPDATE das tabelas pai. Extensão Prisma agora inclui também operação `upsert` (injeta `clubId` no bloco `create`). Todas as 6 routes afetadas atualizadas para usar `db` em vez de `prisma` global.
+`AttendanceRecord`, `AthletePayment`, `Quota`, `DirectionSalaryPayment` agora têm campo `clubId` explícito no schema e estão incluídos no `TENANTED` set de `prisma-tenant.ts`. Migration `20260626000001_add_clubid_to_payment_models` com backfill via UPDATE das tabelas pai. Extensão Prisma agora inclui também operação `upsert` (injecta `clubId` no `create` + valida ownership no `where`, ver [SEC-026](#) acima). Todas as 6 routes afetadas atualizadas para usar `db` em vez de `prisma` global.
 
 ---
 
@@ -136,6 +156,7 @@ Migration `20260511000001_direction_athlete_trainergroups` assumia coluna `train
 ### [INFRA-001] Club table ausente das migrations — `prisma db push` obrigatório em dev fresh
 **Encontrado:** 2026-06-19  
 A tabela `Club` e colunas `clubId` em modelos tenanted foram adicionadas ao schema mas não geradas como migration explícita. `prisma migrate dev` falha em BD nova. **Workaround dev:** usar `prisma db push` em vez de `migrate dev` para sincronizar schema em fresh install. Produção usa `migrate deploy` que aplica migrations históricas — esta issue não afeta produção (Club existia antes do deploy das migrations). Fix correto: squash das migrations ou nova migration base.
+**Consequência prática vista em 2026-07-06:** a BD dev local (sem tabela `_prisma_migrations` — foi criada só via `db push`) nunca tinha recebido a migration `20260626000001` (colunas `clubId` em `AthletePayment`/`Quota`/`DirectionSalaryPayment`/`AttendanceRecord`). O client Prisma gerado localmente também estava desatualizado (mesma causa: `prisma generate` não corria há dias). Isto mascarou os bugs BUG-016/BUG-017 do TypeScript — só apareceram depois de regenerar o client. Aplicada a migration manualmente via `psql -f` (idempotente, com backfill, sem perda de dados) para corrigir a BD local. **Se outro dev tiver o mesmo sintoma:** correr `npx prisma generate` e aplicar a migration em falta manualmente ou via `prisma db push --accept-data-loss` (só se a BD estiver vazia).
 
 ---
 
