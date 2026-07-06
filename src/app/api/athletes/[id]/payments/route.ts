@@ -49,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editFees')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -74,6 +74,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         notes: notes ?? null,
       },
       create: {
+        clubId,
         athleteId: id,
         month,
         year,

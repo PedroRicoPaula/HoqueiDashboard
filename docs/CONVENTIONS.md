@@ -87,14 +87,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, **AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord**
 - Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, RateLimit
 - **Nunca adicionar `where: { clubId }` manualmente em modelos TENANTED** — a extension injeta automaticamente em `findMany`, `findFirst`, `findUnique`, `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`
-- **`upsert` em modelos TENANTED** — a extension injeta `clubId` **só no bloco `create`**, nunca no `where` (para não quebrar unique constraints como `athleteId_month_year`). Usar `db.X.upsert(...)` normalmente.
-- **Em `create()`, passar `clubId` explicitamente** — Prisma 7 usa `Exact<>` strict typing que exige `clubId` no objeto `data`. A Extension injeta em runtime mas o compilador TS não vê isso. Padrão:
+- **`upsert` em modelos TENANTED** — a extension injeta `clubId` no bloco `create` **e** valida ownership via `findFirst` antes de correr (lança erro se o registo encontrado pertencer a outro clube). O `where` de compound key (`athleteId_month_year`, etc.) não é alterado — o `WhereUniqueInput` gerado pelo Prisma para estes modelos não aceita `clubId` como filtro extra. Ver SEC-026 em `docs/AUTH-SECURITY.md`.
+- **Em `create()` E no `create` de `upsert()`, passar `clubId` explicitamente — SEMPRE, sem exceção.** Prisma 7 usa `Exact<>` strict typing que exige `clubId` no objeto `data`. A Extension injeta em runtime mas o compilador TS não vê isso — omitir `clubId` só não dá erro de compilação se o client Prisma gerado estiver desatualizado (ver BUG-016 em `docs/ISSUES-BACKLOG.md`, causado exactamente por esta confusão). **Não existe excepção para modelos com unique constraint composta** — passa `clubId` sempre, mesmo em `upsert`. Padrão:
   ```typescript
   const { user, db, clubId } = ctx
   const item = await db.athlete.create({ data: { ...parsed.data, clubId } })
+  // upsert: clubId também no create
+  await db.athletePayment.upsert({
+    where: { athleteId_month_year: { athleteId, month, year } },
+    create: { clubId, athleteId, month, year, paid },
+    update: { paid },
+  })
   ```
-  Excepção: modelos com unique constraint composta (ex: `athleteId_month_year`) — o `upsert` injeta `clubId` automaticamente, não é necessário passá-lo no `create`.
-```
 
 **Template PUT/POST com audit:**
 ```typescript

@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editMembers')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const quota = await db.quota.upsert({
       where: { memberId_month_year: { memberId: id, month, year } },
       update: { paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
-      create: { memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
+      create: { clubId, memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
     })
 
     await logAudit(req, user.id, user.email, 'UPDATE', 'Quota', quota.id, { month, year, paid })
