@@ -158,4 +158,36 @@ describe('Tenant isolation via Prisma Extension', () => {
     expect(athletes.every(a => a.clubId === clubAId)).toBe(true)
     expect(athletes.some(a => a.clubId === clubBId)).toBe(false)
   })
+
+  it('upsert cross-tenant — Club B cannot overwrite Club A payment sharing the same non-clubId unique key', async () => {
+    const dbA = getTenantClient(clubAId)
+    // Club A creates its payment record first
+    await dbA.athletePayment.upsert({
+      where: { athleteId_month_year: { athleteId: athleteAId, month: 6, year: 2026 } },
+      create: { athleteId: athleteAId, month: 6, year: 2026, paid: true, amount: 30 },
+      update: { paid: true, amount: 30 },
+    } as Parameters<typeof dbA.athletePayment.upsert>[0])
+
+    const dbB = getTenantClient(clubBId)
+    // Club B tries to upsert using Club A's athleteId + same month/year (same unique key).
+    // Must not silently update Club A's row — where is now scoped by clubId, so this either
+    // finds nothing (create path, which then throws on the DB unique constraint) or is rejected.
+    await expect(
+      dbB.athletePayment.upsert({
+        where: { athleteId_month_year: { athleteId: athleteAId, month: 6, year: 2026 } },
+        create: { athleteId: athleteAId, month: 6, year: 2026, paid: false, amount: 999 },
+        update: { paid: false, amount: 999 },
+      } as Parameters<typeof dbB.athletePayment.upsert>[0])
+    ).rejects.toThrow()
+
+    // Club A's original row must be untouched
+    const original = await base.athletePayment.findUnique({
+      where: { athleteId_month_year: { athleteId: athleteAId, month: 6, year: 2026 } },
+    })
+    expect(original?.amount).toBe(30)
+    expect(original?.paid).toBe(true)
+
+    // Cleanup
+    await base.athletePayment.deleteMany({ where: { athleteId: athleteAId } })
+  })
 })

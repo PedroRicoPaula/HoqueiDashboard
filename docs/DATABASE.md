@@ -393,6 +393,8 @@ npx prisma db seed   # cria superadmin
 
 Fix técnico correto (futuro): squash das migrations para incluir Club na migration init, ou criar migration `20260616000001_multi_tenant_base` com o CREATE TABLE Club e ALTER TABLE ... ADD COLUMN clubId.
 
+**Se já tens uma BD dev criada por `db push` e o schema ganhou colunas novas depois disso** (ex. a migration `20260626000001_add_clubid_to_payment_models`): correr `npx prisma db push` outra vez recusa-se se houver dados existentes que ficariam com a coluna nova sem valor. Nesse caso aplica a migration à mão: `psql -d hoqueimanager -f prisma/migrations/<pasta>/migration.sql` (já tem backfill, não perde dados). **Também correr `npx prisma generate`** — o client gerado localmente não actualiza sozinho, e campos em falta nos tipos gerados escondem erros de TypeScript reais (ver BUG-016 em `docs/ISSUES-BACKLOG.md`).
+
 ---
 
 ## Índices Importantes

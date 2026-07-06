@@ -211,6 +211,7 @@ async function seedClub(club: typeof CLUBS[0]) {
       const paid = isLast2 ? Math.random() > 0.4 : true
       await prisma.athletePayment.create({
         data: {
+          clubId: createdClub.id,
           athleteId: athlete.id,
           year,
           month,
@@ -247,6 +248,7 @@ async function seedClub(club: typeof CLUBS[0]) {
       const paid = month < currentMonth ? Math.random() > 0.1 : Math.random() > 0.5
       await prisma.quota.create({
         data: {
+          clubId: createdClub.id,
           memberId: member.id,
           year: currentYear,
           month,

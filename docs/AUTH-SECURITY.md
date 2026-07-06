@@ -116,7 +116,7 @@ Modelos tenanted (auto-filtrados): Athlete, Member, Sponsor, Material, Travel, D
 
 Modelos NÃO tenanted (sem `clubId` no schema — usar `prisma` global): User, Permission, Playbook, RateLimit.
 
-A extensão também cobre `upsert`: injeta `clubId` no bloco `create` (nunca no `where`, para não quebrar unique constraints).
+A extensão também cobre `upsert`: injeta `clubId` no bloco `create`. O `where` de um upsert usa sempre uma unique constraint composta (ex. `athleteId_month_year`) que o `WhereUniqueInput` gerado pelo Prisma não permite estender com `clubId` — por isso a extensão faz um `findFirst` (com o `where` achatado via `flattenUniqueWhere`) antes de correr o upsert, e lança erro se o registo encontrado pertencer a outro clube. Sem este check, um upsert por chave composta partilhada entre clubes (ex. mesmo `athleteId` de outro clube, caso a rota não valide o `athleteId` primeiro) sobreporia dados de outro clube silenciosamente. Ver `src/lib/prisma-tenant.ts`.
 
 ### API Route Level
 ```typescript
@@ -305,6 +305,7 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 | SEC-022 | ~~MÉDIO~~ | Club CANCELLED/SUSPENDED não bloqueava API pós-login | ✅ Resolvido 2026-06-26 |
 | SEC-023 | ~~BAIXO~~ | Upload de logo sem audit log | ✅ Resolvido 2026-06-26 |
 | SEC-025 | ~~BAIXO~~ | Templates de email sem HTML escaping — XSS em clientes sem sandbox | ✅ Resolvido 2026-06-26 |
+| SEC-026 | ~~ALTO~~ | Prisma Extension `upsert` só injectava `clubId` no `create`, nunca no `where` — upsert por chave composta partilhada (athleteId+month+year, etc.) podia sobrepor registo de outro clube se a rota não validasse o `athleteId`/`memberId` primeiro | ✅ Resolvido 2026-07-06 |
 
 **Sem débito de segurança ativo relevante.** Ver ISSUES-BACKLOG.md para issues menores.
 

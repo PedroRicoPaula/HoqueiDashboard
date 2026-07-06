@@ -35,7 +35,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    const { user, db } = ctx
+    const { user, db, clubId } = ctx
     if (!hasPermission(user.permissions, 'editAttendance')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -57,6 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         db.attendanceRecord.upsert({
           where: { sessionId_athleteId: { sessionId, athleteId: r.athleteId } },
           create: {
+            clubId,
             sessionId, athleteId: r.athleteId, present: r.present, notes: r.notes,
             paidByAthlete: r.paidByAthlete ?? false,
             paidAmount: r.paidAmount ?? null,

@@ -1,10 +1,9 @@
 import { prisma } from './prisma'
 
 // Models with a direct clubId column — Extension auto-injects clubId on all operations.
-// Child models (AthletePayment, Quota, DirectionSalaryPayment, Playbook) are NOT listed:
-// they have no clubId column and are protected via parent ownership checks in each route.
-// AttendanceRecord: also no clubId — routes protect via `session: { clubId }` join filter;
-// any new AttendanceRecord endpoint MUST include that filter explicitly.
+// AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord have clubId directly
+// (migration 20260626000001) and are listed below. Playbook has no clubId column — it is
+// protected via parent Training ownership checks in its route, not by this extension.
 const TENANTED = new Set([
   'athlete', 'member', 'sponsor', 'material', 'travel',
   'directionmember', 'training', 'trainingschedule',
@@ -15,6 +14,20 @@ const TENANTED = new Set([
 
 function isTenanted(model: string) {
   return TENANTED.has(model.toLowerCase())
+}
+
+// WhereUniqueInput wraps compound keys in a named object, e.g. { athleteId_month_year: { athleteId, month, year } }.
+// findFirst/findMany take a plain WhereInput, so flatten any such wrapper into top-level fields.
+function flattenUniqueWhere(where: Record<string, unknown>): Record<string, unknown> {
+  const flat: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(where)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(flat, value as Record<string, unknown>)
+    } else {
+      flat[key] = value
+    }
+  }
+  return flat
 }
 
 export function getTenantClient(clubId: string) {
@@ -77,7 +90,19 @@ export function getTenantClient(clubId: string) {
         },
         async upsert({ model, args, query }: { model: string; args: Record<string, unknown>; query: (args: Record<string, unknown>) => Promise<unknown> }) {
           if (isTenanted(model)) {
-            // Only inject into create data — where must reference the existing unique constraint exactly
+            // Prisma's generated WhereUniqueInput for these models rejects clubId as an
+            // extra filter (compound key only), so it can't be merged into args.where like
+            // the other operations. Instead, resolve ownership via findFirst before running
+            // the upsert — otherwise it could match and silently overwrite another club's
+            // row sharing the same non-clubId unique key (e.g. athleteId+month+year).
+            const delegateName = model.charAt(0).toLowerCase() + model.slice(1)
+            const delegate = (prisma as unknown as Record<string, {
+              findFirst: (args: { where: unknown }) => Promise<{ clubId: string } | null>
+            }>)[delegateName]
+            const existing = await delegate.findFirst({ where: flattenUniqueWhere(args.where as Record<string, unknown>) })
+            if (existing && existing.clubId !== clubId) {
+              throw new Error(`Tenant isolation violation: upsert on ${model} matched a row belonging to another club`)
+            }
             const create = args.create as Record<string, unknown>
             args.create = { ...create, clubId }
           }
