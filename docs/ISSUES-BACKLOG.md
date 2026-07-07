@@ -99,6 +99,14 @@ Função `escHtml()` adicionada a `src/lib/email.ts`. Todas as variáveis interp
 
 ---
 
+### [DEBT-022] `getTokenFromCookies` — regex sem âncora de início
+**Encontrado:** 2026-07-06/07 (análise de segurança)  
+`src/lib/auth.ts` extrai o token com `cookieHeader.match(/hm_token=([^;]+)/)` — sem âncora `^`/`(?:^|;\s*)`, um cookie cujo nome termine em `hm_token` (ex. `evil_hm_token=xxx`) também faria match e seria lido como se fosse o token real.  
+**Impacto real:** baixo/teórico — exige que outro cookie com esse nome exista no mesmo browser jar, o que já implicaria outro vector de ataque (XSS ou subdomínio hostil) para o injectar.  
+**Fix a considerar:** `/(?:^|;\s*)hm_token=([^;]+)/`.
+
+---
+
 ### ~~[UX-001] Formatação monetária hardcoded `'pt-PT'` no dashboard home~~ ✅ RESOLVIDO 2026-06-26
 `getNumberLocale(lang)` adicionado a `src/lib/date-locale.ts`. Dashboard `page.tsx` usa `numLocale` em vez de `'pt-PT'` em todos os 13 lugares. Componentes `RevenueChart` e `ExpensesChart` recebem `numLocale` como prop.
 
