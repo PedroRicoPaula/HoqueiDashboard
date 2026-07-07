@@ -91,19 +91,18 @@ Função `escHtml()` adicionada a `src/lib/email.ts`. Todas as variáveis interp
 
 ## 🟡 Débito Técnico
 
-### [DEBT-018] Middleware não verifica `tokenVersion` — páginas carregam após logout
-**Encontrado:** 2026-06-26 (análise de código)  
-`middleware.ts` usa `jwtVerify(token, secret)` que verifica só assinatura e expiração. Não consulta DB para verificar `tokenVersion`. Após logout (ou reset de permissões), o token do utilizador fica com `tokenVersion` inválido — as API routes rejeitam (401) mas as páginas Next.js ainda carregam (esqueleto HTML sem dados).  
-**Impacto real:** baixo — o utilizador vê a página em branco durante <1s antes de ser forçado a re-login pela primeira chamada API. Dados nunca expostos.  
-**Fix a considerar:** adicionar um endpoint leve `GET /api/auth/me` que verifica tokenVersion, e chamar no middleware antes de `NextResponse.next()`. Trade-off: 1 query DB extra por page navigation. Alternativa: aceitar o comportamento atual (dados protegidos, UX aceitável).
+### ~~[DEBT-018] Middleware não verifica `tokenVersion` — páginas carregam após logout~~ ✅ ACEITE POR DESIGN 2026-07-07
+`middleware.ts` usa `jwtVerify(token, secret)` que verifica só assinatura e expiração. Não consulta DB para verificar `tokenVersion`. Após logout (ou reset de permissões), o token do utilizador fica com `tokenVersion` inválido — as API routes rejeitam (401) mas as páginas Next.js ainda carregam (esqueleto HTML sem dados).
+**Impacto real:** baixo — o utilizador vê a página em branco durante <1s antes de ser forçado a re-login pela primeira chamada API. Dados nunca expostos.
+**Decisão (2026-07-07):** não implementar. Fix exigiria chamar `/api/auth/me` a partir do middleware em cada navegação (edge runtime não liga directo a Postgres) — latência extra em todas as navegações do dashboard, por um risco sem exposição real de dados. Custo não compensa o benefício.
 
 ---
 
-### [DEBT-022] `getTokenFromCookies` — regex sem âncora de início
+### ~~[DEBT-022] `getTokenFromCookies` — regex sem âncora de início~~ ✅ RESOLVIDO 2026-07-07
 **Encontrado:** 2026-07-06/07 (análise de segurança)  
-`src/lib/auth.ts` extrai o token com `cookieHeader.match(/hm_token=([^;]+)/)` — sem âncora `^`/`(?:^|;\s*)`, um cookie cujo nome termine em `hm_token` (ex. `evil_hm_token=xxx`) também faria match e seria lido como se fosse o token real.  
-**Impacto real:** baixo/teórico — exige que outro cookie com esse nome exista no mesmo browser jar, o que já implicaria outro vector de ataque (XSS ou subdomínio hostil) para o injectar.  
-**Fix a considerar:** `/(?:^|;\s*)hm_token=([^;]+)/`.
+`src/lib/auth.ts` extraía o token com `cookieHeader.match(/hm_token=([^;]+)/)` — sem âncora `^`/`(?:^|;\s*)`, um cookie cujo nome terminasse em `hm_token` (ex. `evil_hm_token=xxx`) também fazia match e era lido como se fosse o token real.
+**Impacto real:** baixo/teórico — exigia que outro cookie com esse nome existisse no mesmo browser jar, o que já implicaria outro vector de ataque (XSS ou subdomínio hostil) para o injectar.
+**Fix:** `/(?:^|;\s*)hm_token=([^;]+)/`.
 
 ---
 
@@ -127,10 +126,9 @@ Guard `if (process.env.NODE_ENV === 'production') throw new Error(...)` adiciona
 
 ---
 
-### [INFRA-002] Preços MRR no backoffice `/platform` hardcoded — desincroniza com Stripe
-**Encontrado:** 2026-06-26 (análise de código)  
-`src/app/platform/page.tsx` usa `PRICE_MONTHLY = 59` e `PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12` hardcoded para calcular MRR/ARR. Se os preços Stripe mudarem, o dashboard mostrará valores errados sem qualquer aviso.  
-**Fix a considerar:** guardar os valores reais dos Price IDs em `env` (já existem `STRIPE_PRICE_MONTHLY`/`YEARLY`) e fazer `stripe.prices.retrieve()` a cada load da página, ou criar uma tabela `StripePrice` que o webhook actualiza.
+### ~~[INFRA-002] Preços MRR no backoffice `/platform` hardcoded — desincroniza com Stripe~~ ✅ RESOLVIDO 2026-07-07
+`src/app/platform/page.tsx` usava `PRICE_MONTHLY = 59` e `PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12` hardcoded para calcular MRR/ARR.
+**Fix:** `getPrices()` busca os preços reais via `stripe.prices.retrieve()` usando `STRIPE_PRICE_MONTHLY`/`STRIPE_PRICE_YEARLY`, com cache em memória (5min TTL, ao nível do módulo — evita bater na API Stripe em cada load). Se a chamada Stripe falhar (ex. chaves ainda não configuradas), usa os valores antigos como fallback e regista o erro via `logger.error`.
 
 ---
 
