@@ -3,6 +3,8 @@ import { getUserFromRequest } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { Building2, Users, DollarSign, TrendingUp, Globe } from 'lucide-react'
+import Stripe from 'stripe'
+import { logger } from '@/lib/logger'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: 'Ativo', color: 'bg-green-100 text-green-700' },
@@ -12,8 +14,34 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   SUSPENDED: { label: 'Suspenso', color: 'bg-red-100 text-red-700' },
 }
 
-const PRICE_MONTHLY = 59
-const PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12
+// Fallback prices — only used if Stripe price fetch fails (e.g. keys not configured yet)
+const FALLBACK_PRICE_MONTHLY = 59
+const FALLBACK_PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12
+
+// Module-level cache: avoids hitting the Stripe API on every /platform load.
+// Persists across requests within the same server process/lambda instance.
+let priceCache: { monthly: number; yearlyMonthlyEquiv: number; fetchedAt: number } | null = null
+const PRICE_CACHE_TTL_MS = 5 * 60 * 1000
+
+async function getPrices(): Promise<{ monthly: number; yearlyMonthlyEquiv: number }> {
+  if (priceCache && Date.now() - priceCache.fetchedAt < PRICE_CACHE_TTL_MS) {
+    return priceCache
+  }
+  try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
+    const [monthlyPrice, yearlyPrice] = await Promise.all([
+      stripe.prices.retrieve(process.env.STRIPE_PRICE_MONTHLY!),
+      stripe.prices.retrieve(process.env.STRIPE_PRICE_YEARLY!),
+    ])
+    const monthly = (monthlyPrice.unit_amount ?? FALLBACK_PRICE_MONTHLY * 100) / 100
+    const yearly = (yearlyPrice.unit_amount ?? FALLBACK_PRICE_YEARLY_MONTHLY_EQUIV * 12 * 100) / 100
+    priceCache = { monthly, yearlyMonthlyEquiv: yearly / 12, fetchedAt: Date.now() }
+    return priceCache
+  } catch (error) {
+    logger.error('Failed to fetch Stripe prices for MRR calculation, using fallback:', error)
+    return { monthly: FALLBACK_PRICE_MONTHLY, yearlyMonthlyEquiv: FALLBACK_PRICE_YEARLY_MONTHLY_EQUIV }
+  }
+}
 
 export default async function PlatformPage() {
   const headersList = await headers()
@@ -22,12 +50,13 @@ export default async function PlatformPage() {
 
   if (!user || !user.isSuperAdmin) redirect('/login')
 
-  const [clubs, totalUsers] = await Promise.all([
+  const [clubs, totalUsers, prices] = await Promise.all([
     prisma.club.findMany({
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { users: true, athletes: true } } },
     }),
     prisma.user.count({ where: { isSuperAdmin: false } }),
+    getPrices(),
   ])
 
   const activeClubs = clubs.filter(c => c.status === 'ACTIVE')
@@ -42,8 +71,8 @@ export default async function PlatformPage() {
     c.stripePriceId === process.env.STRIPE_PRICE_YEARLY
   )
   const mrr = Math.round(
-    monthlyActiveClubs.length * PRICE_MONTHLY +
-    yearlyActiveClubs.length * PRICE_YEARLY_MONTHLY_EQUIV
+    monthlyActiveClubs.length * prices.monthly +
+    yearlyActiveClubs.length * prices.yearlyMonthlyEquiv
   )
   const arr = mrr * 12
 

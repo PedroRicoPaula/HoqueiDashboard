@@ -49,7 +49,7 @@
 
 ### Funcionalidades
 - **Stats 4-colunas**: clubes ativos, total utilizadores, MRR, ARR
-- **MRR/ARR real**: distingue planos mensais (€59/mês) vs anuais (€590/ano ÷ 12) via `stripePriceId`
+- **MRR/ARR real**: distingue planos mensais vs anuais via `stripePriceId`; valores dos preços vêm da API Stripe (`stripe.prices.retrieve`), não hardcoded
 - Tabela de todos os clubes: nome, email, país, estado, utilizadores, atletas, data de registo
 - Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
 - **Sidebar de estatísticas**: breakdown por estado (ativo/atraso/cancelado) e breakdown por país (top 5 + Outros)
@@ -58,13 +58,8 @@
 - `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
 - `src/app/platform/page.tsx` — Server Component, lê `prisma.club.findMany` com `_count { users, athletes }`
 
-### Constantes de preço (em `platform/page.tsx`)
-```typescript
-const PRICE_MONTHLY = 59
-const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY
-// Plano mensal: clubId.stripePriceId === STRIPE_PRICE_MONTHLY → €59/mês
-// Plano anual: qualquer outro → €590/ano ÷ 12 ≈ €49/mês para MRR
-```
+### Preços MRR/ARR (em `platform/page.tsx`)
+`getPrices()` busca os preços reais via `stripe.prices.retrieve(STRIPE_PRICE_MONTHLY/YEARLY)`, com cache em memória (5min TTL, nível de módulo — evita bater na API Stripe em cada load de `/platform`). Se a chamada falhar (ex. chaves não configuradas), usa fallback `59€`/`590€÷12` e regista o erro via `logger.error`. Clube é classificado mensal/anual comparando `club.stripePriceId` com os price IDs em env (ver [INFRA-002](ISSUES-BACKLOG.md) resolvido).
 
 ---
 
