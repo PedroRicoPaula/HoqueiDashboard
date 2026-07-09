@@ -5,6 +5,10 @@
 
 ## 🔴 Bugs Activos
 
+### [BUG-019] Email sender `noreply@hoqueimanager.com` falha sem domínio verificado no Resend ✅ RESOLVIDO 2026-07-09
+**Encontrado:** 2026-07-09 (auditoria pré-deploy). `src/lib/email.ts` hardcodava `noreply@hoqueimanager.com` como sender. O Resend rejeita envios de domínios não verificados — todos os emails de boas-vindas e reset de password falhariam silenciosamente em produção (log `[email] Resend error: 403/422`), bloqueando o fluxo de registo completo.
+**Fix:** sender alterado para `process.env.EMAIL_FROM ?? 'HoqueiManager <onboarding@resend.dev>'`. `onboarding@resend.dev` é o domínio pré-verificado do Resend, funciona imediatamente sem configuração. Quando o domínio `hoqueimanager.com` for verificado no Resend, basta adicionar `EMAIL_FROM=HoqueiManager <noreply@hoqueimanager.com>` ao Vercel — sem tocar no código.
+
 ### ~~[BUG-018] `src/app/icon.png` sobrepõe `metadata.icons` — favicon mostra ícone antigo~~ ✅ RESOLVIDO 2026-07-09
 **Encontrado:** 2026-07-09 (auditoria de ficheiros). **Fix (commit `cce8f83`):** `src/app/icon.png` substituído por cópia de `public/logoHD.png`.
 

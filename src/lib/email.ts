@@ -16,7 +16,7 @@ export async function sendEmail({ to, subject, html, from }: SendEmailOptions): 
     return false
   }
 
-  const sender = from ?? `HoqueiManager <noreply@hoqueimanager.com>`
+  const sender = from ?? (process.env.EMAIL_FROM ?? `HoqueiManager <onboarding@resend.dev>`)
 
   try {
     const res = await fetch('https://api.resend.com/emails', {

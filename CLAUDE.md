@@ -54,6 +54,7 @@ R2_ACCESS_KEY_ID                → R2 access key
 R2_SECRET_ACCESS_KEY            → R2 secret key
 R2_PUBLIC_URL                   → public URL do bucket R2
 RESEND_API_KEY                  → re_... (email transacional — boas-vindas + reset password)
+EMAIL_FROM                      → "HoqueiManager <noreply@hoqueimanager.com>" (opcional; fallback: onboarding@resend.dev — requer domínio verificado no Resend para usar endereço custom)
 ```
 
 ---
