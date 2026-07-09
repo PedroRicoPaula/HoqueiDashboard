@@ -11,8 +11,15 @@
 
 ### Funcionalidades
 - Landing page marketing em 5 idiomas (PT/ES/EN/FR/IT) via `next-intl`
-- Seletor de idioma no nav (muda para `/{locale}`)
+- **Nav**: logo + nome (`hidden sm:block`), language switcher (`hidden md:flex`), login (`hidden sm:inline`), botão registar sempre visível. Em mobile: só logo + botão registar.
 - Secções: Hero → Social proof → **Product preview** → How it works → Features → Pricing → FAQ → CTA → Footer
+- **Hero**: tipo responsivo (`text-4xl sm:text-5xl lg:text-6xl`), botão CTA full-width em mobile, login como CTA secundário visível apenas em mobile
+- **Social proof**: grid com `divide-x divide-y` e bordas — aspecto de card table em vez de espaço aberto
+- **How it works**: cards com border em mobile, step circles com sombra verde
+- **Features**: `group-hover` no ícone, sombra suave verde em hover
+- **Pricing** (`PricingToggle.tsx`): badge `-17%` sempre visível no tab anual (não só quando selecionado), badge "Clube completo" acima do card
+- **CTA final**: anéis decorativos de fundo, gradiente `from-green-600 to-green-700`
+- **Footer**: duas linhas — (1) logo + links nav; (2) copyright + "Feito por Pedro Paula" + locale switcher
 - **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
 - Sem trial — messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
 - Registo 2 passos: (1) dados do clube, (2) seleção de plano; mensagens de validação i18n
