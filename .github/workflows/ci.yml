@@ -45,7 +45,8 @@ jobs:
         # prisma migrate deploy cannot run here: the migration history has a known gap
         # (Club table was never captured as a migration — see docs/ISSUES-BACKLOG.md INFRA-001).
         # db push builds the schema directly, matching the documented dev workaround.
-        run: npx prisma db push --skip-generate
+        # --skip-generate was removed in Prisma 7; generate runs via postinstall in npm ci.
+        run: npx prisma db push
 
       - name: Typecheck
         run: npx tsc --noEmit
