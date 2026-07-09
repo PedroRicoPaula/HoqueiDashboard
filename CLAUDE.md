@@ -47,6 +47,7 @@ STRIPE_WEBHOOK_SECRET           → whsec_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY → pk_live_...
 STRIPE_PRICE_MONTHLY            → price_... (€59/mês)
 STRIPE_PRICE_YEARLY             → price_... (€590/ano)
+NEXT_PUBLIC_LANDING_URL         → https://hoqueimanager.com (cancel_url do Stripe Checkout; fallback hardcoded se ausente)
 R2_BUCKET_NAME                  → Cloudflare R2 bucket (logos patrocinadores)
 R2_ACCOUNT_ID                   → Cloudflare account ID
 R2_ACCESS_KEY_ID                → R2 access key

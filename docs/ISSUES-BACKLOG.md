@@ -5,7 +5,10 @@
 
 ## 🔴 Bugs Activos
 
-_(sem bugs activos conhecidos — 2026-07-06)_
+### [BUG-018] `src/app/icon.png` sobrepõe `metadata.icons` — favicon mostra ícone antigo
+**Encontrado:** 2026-07-09 (auditoria de ficheiros).
+`src/app/icon.png` existe no diretório `app/`. No Next.js 15 App Router, ficheiros `icon.*` neste diretório têm prioridade sobre qualquer declaração em `metadata.icons` de `layout.tsx`. O favicon que o browser recebe é o antigo `icon.png` (do HCPDL), não o `logoHD.png` declarado em `metadata.icons`.
+**Fix:** substituir `src/app/icon.png` pelo conteúdo de `public/logoHD.png` (copiar o ficheiro).
 
 ### ~~[BUG-015] `getDbForRequest` crashava com `ReferenceError: prisma is not defined` — TODAS as rotas de dashboard~~ ✅ RESOLVIDO 2026-07-06
 **Encontrado:** 2026-07-06 (typecheck sem truncar output — ver nota de processo abaixo).
