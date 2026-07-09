@@ -657,7 +657,7 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 **Páginas:** `/login`, `/setup`, `/forgot-password`, `/reset-password`  
 **APIs:**
 - `POST /api/auth/login` → autenticar, set cookie `hm_token`; resposta inclui `clubPrimaryColor` (HSL string do preset do clube)
-- `POST /api/auth/logout` → clear cookie, increment tokenVersion
+- `POST /api/auth/logout` → clear cookie, increment tokenVersion, redirect 302 para `/login` (não JSON — suporta native form POST do platform layout e fetch do Sidebar)
 - `GET /api/auth/me` → devolver user + permissions
 - `POST /api/auth/change-password` → mudar password (rate limited: 5/15min)
 - `POST /api/auth/forgot-password` → gera token, envia email Resend com link `/reset-password?token=...`
