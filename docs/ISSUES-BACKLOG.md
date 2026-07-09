@@ -5,10 +5,8 @@
 
 ## 🔴 Bugs Activos
 
-### [BUG-018] `src/app/icon.png` sobrepõe `metadata.icons` — favicon mostra ícone antigo
-**Encontrado:** 2026-07-09 (auditoria de ficheiros).
-`src/app/icon.png` existe no diretório `app/`. No Next.js 15 App Router, ficheiros `icon.*` neste diretório têm prioridade sobre qualquer declaração em `metadata.icons` de `layout.tsx`. O favicon que o browser recebe é o antigo `icon.png` (do HCPDL), não o `logoHD.png` declarado em `metadata.icons`.
-**Fix:** substituir `src/app/icon.png` pelo conteúdo de `public/logoHD.png` (copiar o ficheiro).
+### ~~[BUG-018] `src/app/icon.png` sobrepõe `metadata.icons` — favicon mostra ícone antigo~~ ✅ RESOLVIDO 2026-07-09
+**Encontrado:** 2026-07-09 (auditoria de ficheiros). **Fix (commit `cce8f83`):** `src/app/icon.png` substituído por cópia de `public/logoHD.png`.
 
 ### ~~[BUG-015] `getDbForRequest` crashava com `ReferenceError: prisma is not defined` — TODAS as rotas de dashboard~~ ✅ RESOLVIDO 2026-07-06
 **Encontrado:** 2026-07-06 (typecheck sem truncar output — ver nota de processo abaixo).
@@ -162,10 +160,13 @@ Migration `20260511000001_direction_athlete_trainergroups` assumia coluna `train
 
 ---
 
-### [INFRA-001] Club table ausente das migrations — `prisma db push` obrigatório em dev fresh
-**Encontrado:** 2026-06-19  
-A tabela `Club` e colunas `clubId` em modelos tenanted foram adicionadas ao schema mas não geradas como migration explícita. `prisma migrate dev` falha em BD nova. **Workaround dev:** usar `prisma db push` em vez de `migrate dev` para sincronizar schema em fresh install. Produção usa `migrate deploy` que aplica migrations históricas — esta issue não afeta produção (Club existia antes do deploy das migrations). Fix correto: squash das migrations ou nova migration base.
-**Consequência prática vista em 2026-07-06:** a BD dev local (sem tabela `_prisma_migrations` — foi criada só via `db push`) nunca tinha recebido a migration `20260626000001` (colunas `clubId` em `AthletePayment`/`Quota`/`DirectionSalaryPayment`/`AttendanceRecord`). O client Prisma gerado localmente também estava desatualizado (mesma causa: `prisma generate` não corria há dias). Isto mascarou os bugs BUG-016/BUG-017 do TypeScript — só apareceram depois de regenerar o client. Aplicada a migration manualmente via `psql -f` (idempotente, com backfill, sem perda de dados) para corrigir a BD local. **Se outro dev tiver o mesmo sintoma:** correr `npx prisma generate` e aplicar a migration em falta manualmente ou via `prisma db push --accept-data-loss` (só se a BD estiver vazia).
+### [INFRA-001] Club table ausente das migrations — `prisma db push` usado em produção
+**Encontrado:** 2026-06-19. **Actualizado:** 2026-07-09.
+A tabela `Club` e colunas `clubId` em modelos tenanted foram adicionadas ao schema mas não geradas como migration explícita. `prisma migrate deploy` falha numa BD Neon fresca (migration `20260619000001` tenta `ALTER TABLE "Club"` mas a tabela não existe no histórico de migrations).
+**Fix aplicado 2026-07-09 (commit `ad3a9ad`):** build script (`package.json`) alterado de `prisma migrate deploy` para `prisma db push`. O `prisma db push` lê o `schema.prisma` actual e sincroniza a BD sem depender do histórico de migrations — funciona correctamente tanto em BD fresca (cria tudo) como em BD existente (additive only).
+**Workaround CI:** `.github/workflows/ci.yml` já usava `prisma db push` por este motivo. CI fix adicional em `61ba4d0`: flag `--skip-generate` removida (não existe no Prisma 7 — `prisma generate` corre via `postinstall` em `npm ci`).
+**Fix correcto de longo prazo:** criar migration `20260616000001_saas_multitenant` com o SQL completo de criação da tabela `Club`, enum `ClubStatus`, e todos os `ALTER TABLE ... ADD COLUMN clubId` — permite voltar a `prisma migrate deploy`.
+**Consequência prática vista em 2026-07-06:** a BD dev local (sem tabela `_prisma_migrations`) mascarou os bugs BUG-016/BUG-017. **Se outro dev tiver o mesmo sintoma:** correr `npx prisma generate` e depois `npx prisma db push`.
 
 ---
 
