@@ -21,7 +21,8 @@
 - **Fluxo pós-pagamento seguro (set-password):** webhook `checkout.session.completed` → incrementa `tokenVersion` do user → cria `PasswordResetToken` (24h) → envia email "Definir Palavra-passe" via Resend (`welcomeEmailHtml`). O utilizador clica no link, define a sua password, e só então pode fazer login. Zero credenciais em metadata Stripe ou email em claro.
 - Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento e regista `logAudit` em todos os eventos
 - **Cookie consent banner** (`CookieBanner.tsx`): aparece na 1ª visita, persiste aceitação em `localStorage` chave `hm_cookie_consent`
-- **Política de Privacidade** (`/{locale}/privacy`) e **Termos de Utilização** (`/{locale}/terms`) — Server Components, link no footer
+- **Política de Privacidade** (`/{locale}/privacy`) e **Termos de Utilização** (`/{locale}/terms`) — Server Components, link no footer. Email de contacto: `pedroricopaula@gmail.com` (substituiu placeholders `@hoqueimanager.com`).
+- **Footer** (landing + privacy + terms): crédito "Feito por Pedro Paula" com link para `https://pedropaula.com/`
 
 ### Ficheiros chave
 - `src/app/[locale]/layout.tsx` — NextIntlClientProvider + CookieBanner
@@ -657,7 +658,7 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 **Páginas:** `/login`, `/setup`, `/forgot-password`, `/reset-password`  
 **APIs:**
 - `POST /api/auth/login` → autenticar, set cookie `hm_token`; resposta inclui `clubPrimaryColor` (HSL string do preset do clube)
-- `POST /api/auth/logout` → clear cookie, increment tokenVersion, redirect 302 para `/login` (não JSON — suporta native form POST do platform layout e fetch do Sidebar)
+- `POST /api/auth/logout` → clear cookie, increment tokenVersion, redirect 302 para `/` (middleware redireciona para `/{locale}` da landing — não devolve JSON; suporta native form POST do platform layout e fetch do Sidebar)
 - `GET /api/auth/me` → devolver user + permissions
 - `POST /api/auth/change-password` → mudar password (rate limited: 5/15min)
 - `POST /api/auth/forgot-password` → gera token, envia email Resend com link `/reset-password?token=...`
