@@ -8,7 +8,9 @@ import { logAudit } from '@/lib/audit'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
+}
 
 const registerSchema = z.object({
   name: z.string().min(2).max(100),
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
       ? process.env.STRIPE_PRICE_MONTHLY!
       : process.env.STRIPE_PRICE_YEARLY!
 
+    const stripe = getStripe()
     const customer = await stripe.customers.create({ name, email })
 
     const slug = await uniqueSlug(slugify(name))

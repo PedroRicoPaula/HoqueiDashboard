@@ -6,9 +6,8 @@ import { sendEmail, welcomeEmailHtml } from '@/lib/email'
 import Stripe from 'stripe'
 import crypto from 'crypto'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
-
 export async function POST(req: Request) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
   const sig = req.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
 
