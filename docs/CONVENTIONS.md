@@ -160,6 +160,23 @@ import { prisma } from '@/lib/prisma'
 import { usePermissions } from '@/hooks/usePermissions'
 ```
 
+### SDKs externos — nunca instanciar a nível do módulo
+Next.js executa o corpo do módulo durante `Collecting page data` no build. SDKs que lançam ao construir sem credenciais (ex: `new Stripe(undefined)`) fazem o build falhar mesmo que o endpoint nunca seja chamado.
+
+**Regra:** instanciar sempre dentro do handler, não no topo do ficheiro.
+```typescript
+// ❌ — falha no build se STRIPE_SECRET_KEY não estiver definida
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '...' })
+export async function POST(req: Request) { ... }
+
+// ✅ — instanciar dentro do handler (ou numa factory chamada dentro do handler)
+export async function POST(req: Request) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '...' })
+  ...
+}
+```
+Aplica-se ao Stripe SDK e a qualquer outro cliente que leia env vars obrigatórias no construtor.
+
 ### Error Handling nas APIs
 ```typescript
 // Sempre distinguir erros Prisma conhecidos:
