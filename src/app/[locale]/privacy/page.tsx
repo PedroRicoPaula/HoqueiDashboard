@@ -94,7 +94,7 @@ export default async function PrivacyPage({
               <li>Oposição ao tratamento</li>
               <li>Apresentar queixa à CNPD (Portugal) ou à autoridade de supervisão do seu país</li>
             </ul>
-            <p className="mt-3">Para exercer estes direitos, contacte: <strong>privacidade@hoqueimanager.com</strong></p>
+            <p className="mt-3">Para exercer estes direitos, contacte: <a href="mailto:pedroricopaula@gmail.com" className="text-green-700 hover:underline">pedroricopaula@gmail.com</a></p>
           </section>
 
           <section>
@@ -108,16 +108,16 @@ export default async function PrivacyPage({
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">9. Contacto</h2>
             <p>
-              Para questões de privacidade: <strong>privacidade@hoqueimanager.com</strong><br />
-              Para questões gerais: <strong>suporte@hoqueimanager.com</strong>
+              Para questões de privacidade ou gerais: <a href="mailto:pedroricopaula@gmail.com" className="text-green-700 hover:underline">pedroricopaula@gmail.com</a>
             </p>
           </section>
 
         </div>
       </main>
 
-      <footer className="py-8 px-4 bg-gray-900 text-gray-400 text-sm text-center">
-        © {new Date().getFullYear()} HoqueiManager. Todos os direitos reservados.
+      <footer className="py-8 px-4 bg-gray-900 text-gray-400 text-sm text-center space-y-1">
+        <p>© {new Date().getFullYear()} HoqueiManager. Todos os direitos reservados.</p>
+        <p>Feito por <a href="https://pedropaula.com/" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Pedro Paula</a></p>
       </footer>
     </div>
   )

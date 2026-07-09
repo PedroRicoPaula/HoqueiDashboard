@@ -13,8 +13,7 @@ export async function POST(req: Request) {
     await logAudit(req, user.id, user.email, 'LOGOUT', 'User', user.id, {})
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const response = NextResponse.redirect(`${appUrl}/login`)
+  const response = NextResponse.redirect(new URL('/', req.url))
   response.cookies.set('hm_token', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

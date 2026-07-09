@@ -66,7 +66,7 @@ export default async function TermsPage({
             <h2 className="text-xl font-semibold text-gray-900 mb-3">5. Garantia de 14 Dias</h2>
             <p>
               Se não ficar satisfeito com o serviço nos primeiros 14 dias após a subscrição, poderá solicitar
-              o reembolso total através de <strong>suporte@hoqueimanager.com</strong>.
+              o reembolso total através de <a href="mailto:pedroricopaula@gmail.com" className="text-green-700 hover:underline">pedroricopaula@gmail.com</a>.
             </p>
           </section>
 
@@ -125,14 +125,15 @@ export default async function TermsPage({
 
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">12. Contacto</h2>
-            <p><strong>suporte@hoqueimanager.com</strong></p>
+            <p><a href="mailto:pedroricopaula@gmail.com" className="text-green-700 hover:underline">pedroricopaula@gmail.com</a></p>
           </section>
 
         </div>
       </main>
 
-      <footer className="py-8 px-4 bg-gray-900 text-gray-400 text-sm text-center">
-        © {new Date().getFullYear()} HoqueiManager. Todos os direitos reservados.
+      <footer className="py-8 px-4 bg-gray-900 text-gray-400 text-sm text-center space-y-1">
+        <p>© {new Date().getFullYear()} HoqueiManager. Todos os direitos reservados.</p>
+        <p>Feito por <a href="https://pedropaula.com/" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Pedro Paula</a></p>
       </footer>
     </div>
   )

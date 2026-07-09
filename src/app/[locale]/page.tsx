@@ -216,6 +216,7 @@ export default async function LandingPage({
               <Link href={`/${locale}/privacy`} className="hover:text-white transition-colors">{t('footer.privacy')}</Link>
               <Link href={`/${locale}/terms`} className="hover:text-white transition-colors">{t('footer.terms')}</Link>
             </div>
+            <span>Feito por <a href="https://pedropaula.com/" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Pedro Paula</a></span>
           </div>
           <div className="flex gap-6">
             {['pt', 'es', 'en', 'fr', 'it'].map((loc) => (
