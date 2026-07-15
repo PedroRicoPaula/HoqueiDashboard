@@ -5,6 +5,24 @@
 
 ## 🔴 Bugs Activos
 
+### ~~[BUG-022] Contador de têxteis mostra "itemns" em vez de "itens"~~ ✅ RESOLVIDO 2026-07-15
+**Encontrado:** 2026-07-15 (QA Playwright). Texto do contador de registos na página `/textiles` apresenta o plural com typo: "2 itemns" em vez de "2 itens".
+**Fix:** `item{items.length !== 1 ? 'ns' : ''}` → `{items.length !== 1 ? 'itens' : 'item'}` em `src/app/(dashboard)/textiles/page.tsx` linha 331.
+
+---
+
+### ~~[BUG-021] Chaves i18n `colorTheme`/`colorThemeNote` em falta em todos os locales — exibição de chave raw na página de Definições~~ ✅ RESOLVIDO 2026-07-15
+**Encontrado:** 2026-07-15 (QA Playwright). A página `/settings` mostrava os textos brutos `settings.colorTheme` e `settings.colorThemeNote` em vez das traduções. O padrão `t('key') || 'fallback'` em `settings/page.tsx` (linhas 221 e 225) não funciona com next-intl: quando a chave não existe, `t()` devolve a própria string da chave (truthy), pelo que o fallback nunca é ativado.
+**Fix:** chaves adicionadas ao objeto `"settings"` nos 5 ficheiros: `messages/dashboard/pt.json`, `en.json`, `es.json`, `fr.json`, `it.json`.
+
+---
+
+### ~~[BUG-020] Loop infinito no React — página de Patrocinadores inutilizável (Radix `react-presence` bug)~~ ✅ RESOLVIDO 2026-07-15
+**Encontrado:** 2026-07-15 (QA Playwright). A página `/sponsors` entrava em loop de re-renders infinito ao abrir, tornando-se completamente inacessível. Causa: `@radix-ui/react-presence@1.1.5` chama `setNode()` via `React.startTransition()` durante a fase de commit do React quando um `<Checkbox>` do Radix é renderizado dentro de uma tabela com estado controlado — produz um ciclo de setState → re-render → setState.
+**Fix:** componente `<Checkbox>` do Radix substituído por componente custom `<CheckMark>` em `src/app/(dashboard)/sponsors/page.tsx`. Não usa `Presence`, não tem efeito colateral no commit. Estado checked resolvido por lógica direta sem portal/animation wrapper.
+
+---
+
 ### [BUG-019] Email sender `noreply@hoqueimanager.com` falha sem domínio verificado no Resend ✅ RESOLVIDO 2026-07-09
 **Encontrado:** 2026-07-09 (auditoria pré-deploy). `src/lib/email.ts` hardcodava `noreply@hoqueimanager.com` como sender. O Resend rejeita envios de domínios não verificados — todos os emails de boas-vindas e reset de password falhariam silenciosamente em produção (log `[email] Resend error: 403/422`), bloqueando o fluxo de registo completo.
 **Fix:** sender alterado para `process.env.EMAIL_FROM ?? 'HoqueiManager <onboarding@resend.dev>'`. `onboarding@resend.dev` é o domínio pré-verificado do Resend, funciona imediatamente sem configuração. Quando o domínio `hoqueimanager.com` for verificado no Resend, basta adicionar `EMAIL_FROM=HoqueiManager <noreply@hoqueimanager.com>` ao Vercel — sem tocar no código.
@@ -399,3 +417,9 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-06-29 | HIGH: Stripe `cancel_url` apontava para dashboard em vez da landing | `NEXT_PUBLIC_APP_URL` → `NEXT_PUBLIC_LANDING_URL` (fallback `hoqueimanager.com`) em `src/app/api/register/route.ts`. Utilizadores que cancelavam o checkout recebiam 404. |
 | 2026-06-29 | TS-ERROR: `z.record()` em Zod v4 requer 2 argumentos | `z.record(z.object({...}))` → `z.record(z.string(), z.object({...}))` em `BoardToolbar.tsx`. Zod v4 exige key schema explícito. Causava erros TS2554 + tipo errado em `loadPlaybook()`. |
 | 2026-06-29 | MEDIUM: loginSchema cliente usava `min(6)` vs `min(8)` no servidor | `min(6)` → `min(8)` em `loginSchema` de `src/app/login/page.tsx`. Inconsistência causava erro 400 opaco para passwords de 6-7 chars. Mensagem `?registered=1` corrigida (dizia "senha temporária", fluxo real é set-password link). |
+| 2026-07-15 | BUG-020: Loop infinito em Patrocinadores — Radix `react-presence` crash | `<Checkbox>` Radix substituído por `<CheckMark>` custom em `sponsors/page.tsx`. Página estava completamente inutilizável. |
+| 2026-07-15 | BUG-021: i18n keys `colorTheme`/`colorThemeNote` em falta em Definições | Chaves adicionadas aos 5 ficheiros `messages/dashboard/*.json`. `t('key') \|\| fallback` não funciona com next-intl (devolve key string truthy quando key não existe). |
+| 2026-07-15 | BUG-022: Contador de têxteis "itemns" (typo) | `item{items.length !== 1 ? 'ns' : ''}` → `{items.length !== 1 ? 'itens' : 'item'}` em `textiles/page.tsx:331`. |
+| 2026-07-15 | FEAT: Importação CSV FPP para Atletas | `parseCsv` agora strip quotes dos headers; `parseAgeGroup` mapeia "Sénior Masculino - 3ª Divisão" → SENIORS, "Sub-19 Masculino" → SUB19, etc.; `rowToAthlete` usa `num_fpp` como número e `escal_o` como escalão (normalização da coluna "Num FPP" e "Escalão" da FPP). |
+| 2026-07-15 | FEAT: Importação CSV FPP para Direção | `parseDirectionCsv()` agrupa pessoas por Num FPP e mescla cargos; `POST /api/direction` aceita array; UI com botão "Importar CSV FPP" + dialog com pré-visualização em `direction/page.tsx`. |
+| 2026-07-15 | FEAT: Secção "Primeiros Passos" no dashboard | Card com 4 ações guiadas (Atletas, Mensalidades, Sócios, Definições) mostrado quando clube tem 0 atletas. i18n em 5 línguas (`messages/dashboard/*.json` chave `onboarding`). |

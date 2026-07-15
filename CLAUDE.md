@@ -5,7 +5,7 @@
 **Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
 **URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-06-25
+**Data última auditoria:** 2026-07-15
 
 > ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
@@ -167,7 +167,7 @@ messages/                      # Traduções next-intl
 
 ---
 
-## Estado Atual (2026-06-25)
+## Estado Atual (2026-07-15)
 
 ### Infraestrutura Base (herdada do HCPDL)
 - ✅ Next.js 15 App Router + TypeScript + Prisma 7 + shadcn/ui + Zustand + Zod v4
@@ -208,6 +208,14 @@ messages/                      # Traduções next-intl
 - ✅ **AuditAction type**: alargado com REGISTER, SUBSCRIPTION_ACTIVATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, SUBSCRIPTION_CANCELLED, PASSWORD_RESET_REQUEST
 - ✅ **CSP img-src dinâmico**: lê `R2_PUBLIC_URL` em build time para permitir custom domains R2
 - ✅ **Build limpo**: 0 erros TypeScript, 58 páginas geradas
+
+### QA + UX (2026-07-15)
+- ✅ **BUG-020**: Loop infinito em Patrocinadores (Radix `react-presence`) — `<Checkbox>` substituído por `<CheckMark>` custom
+- ✅ **BUG-021**: i18n keys `colorTheme`/`colorThemeNote` em falta em Definições — adicionadas aos 5 locales
+- ✅ **BUG-022**: Contador de têxteis "itemns" (typo) corrigido para "itens"
+- ✅ **CSV FPP Atletas**: `parseCsv` strip quotes nos headers; `parseAgeGroup` mapeia valores FPP ("Sénior Masculino" → SENIORS, "Sub-19 Masculino" → SUB19); `rowToAthlete` usa `num_fpp` e `escal_o`
+- ✅ **CSV FPP Direção**: `parseDirectionCsv()` agrupa por Num FPP + mescla cargos; API `/api/direction` aceita array; botão "Importar CSV FPP" + dialog na página Direção
+- ✅ **Onboarding card**: card "Primeiros Passos" no dashboard quando clube tem 0 atletas (4 ações com links, i18n 5 línguas)
 
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed

@@ -331,6 +331,41 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* Onboarding — shown only when club has 0 athletes */}
+      {(stats?.counts.athletes ?? 0) === 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HardHat className="h-5 w-5 text-primary" />
+              {t('dashboard.onboarding.title')}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{t('dashboard.onboarding.subtitle')}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                { key: 'step1', href: '/athletes', icon: Users },
+                { key: 'step2', href: '/fees', icon: Euro },
+                { key: 'step3', href: '/members', icon: UserCheck },
+                { key: 'step4', href: '/settings', icon: HardHat },
+              ] as const).map(({ key, href, icon: Icon }) => (
+                <Link key={key} href={href}>
+                  <div className="flex gap-3 p-3 rounded-lg border bg-background hover:shadow-sm hover:border-primary/40 transition-all h-full">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{t(`dashboard.onboarding.${key}`)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{t(`dashboard.onboarding.${key}Desc`)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Revenue Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
