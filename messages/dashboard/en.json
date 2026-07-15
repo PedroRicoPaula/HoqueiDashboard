@@ -202,7 +202,19 @@
     "lateQuotasAlert": "Late Member Quotas",
     "quotasPending": "quota(s) to regularise",
     "upcomingTravels": "Upcoming Travels",
-    "balanceDisclaimer": "Revenue and expenses cover different periods — this balance is indicative, not accounting"
+    "balanceDisclaimer": "Revenue and expenses cover different periods — this balance is indicative, not accounting",
+    "onboarding": {
+      "title": "Getting Started",
+      "subtitle": "Welcome to HoqueiManager! Follow these steps to set up your club.",
+      "step1": "Add athletes",
+      "step1Desc": "Register athletes with personal details and age group. Use FPP CSV import to speed things up.",
+      "step2": "Set up monthly fees",
+      "step2Desc": "Define the monthly amount per athlete and record monthly payments.",
+      "step3": "Add members",
+      "step3Desc": "Register club members and manage their annual quotas.",
+      "step4": "Club settings",
+      "step4Desc": "Customise your club's name, logo and colour in settings."
+    }
   },
   "athletes": {
     "title": "Athletes",
@@ -469,7 +481,9 @@
     "uploadLogo": "Upload logo",
     "removeLogo": "Remove logo",
     "logoHint": "PNG or JPG, max 2MB. Recommended: 200×200px.",
-    "logoRemoved": "Logo removed"
+    "logoRemoved": "Logo removed",
+    "colorTheme": "Club color",
+    "colorThemeNote": "Choose the main color for your dashboard. Applied to sidebar, buttons and highlighted elements."
   },
   "admin": {
     "permissionsTitle": "Permissions",

@@ -11,6 +11,17 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Check } from 'lucide-react'
+
+function CheckMark({ checked }: { checked: boolean }) {
+  return (
+    <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+      checked ? 'bg-primary border-primary' : 'border-input bg-background'
+    }`}>
+      {checked && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />}
+    </div>
+  )
+}
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
@@ -480,7 +491,7 @@ export default function SponsorsPage() {
                     }`}
                     onClick={() => toggleType(t.value)}
                   >
-                    <Checkbox checked={selectedTypes.includes(t.value)} />
+                    <CheckMark checked={selectedTypes.includes(t.value)} />
                     <span className="text-sm">{t.label}</span>
                   </div>
                 ))}
@@ -502,7 +513,7 @@ export default function SponsorsPage() {
                       }`}
                       onClick={() => toggleZone(zone)}
                     >
-                      <Checkbox checked={selectedZones.includes(zone)} />
+                      <CheckMark checked={selectedZones.includes(zone)} />
                       <span className="text-xs">
                         <span className="font-semibold">{tr('sponsors.zone')} {zone}</span> — {ZONE_LABELS[zone]}
                       </span>
@@ -532,14 +543,14 @@ export default function SponsorsPage() {
                 className="flex items-center gap-2 cursor-pointer select-none"
                 onClick={() => setIncludesSticks((v) => !v)}
               >
-                <Checkbox checked={includesSticks} />
+                <CheckMark checked={includesSticks} />
                 <Label className="cursor-pointer font-normal text-sm">{tr('sponsors.sticksLabel')}</Label>
               </div>
               <div
                 className="flex items-center gap-2 cursor-pointer select-none"
                 onClick={() => setIncludesShinguards((v) => !v)}
               >
-                <Checkbox checked={includesShinguards} />
+                <CheckMark checked={includesShinguards} />
                 <Label className="cursor-pointer font-normal text-sm">{tr('sponsors.shinguardsLabel')}</Label>
               </div>
             </div>

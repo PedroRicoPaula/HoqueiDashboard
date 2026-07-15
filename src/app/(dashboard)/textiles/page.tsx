@@ -328,7 +328,7 @@ export default function TextilesPage() {
 
       {!loading && (
         <p className="text-sm text-muted-foreground">
-          {items.length} item{items.length !== 1 ? 'ns' : ''}
+          {items.length} {items.length !== 1 ? 'itens' : 'item'}
         </p>
       )}
 

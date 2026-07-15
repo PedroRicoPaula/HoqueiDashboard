@@ -202,7 +202,19 @@
     "lateQuotasAlert": "Quote Soci in Ritardo",
     "quotasPending": "quota/e da regolarizzare",
     "upcomingTravels": "Prossime Trasferte",
-    "balanceDisclaimer": "Ricavi e spese coprono periodi diversi — questo saldo è indicativo, non contabile"
+    "balanceDisclaimer": "Ricavi e spese coprono periodi diversi — questo saldo è indicativo, non contabile",
+    "onboarding": {
+      "title": "Primi passi",
+      "subtitle": "Benvenuto in HoqueiManager! Segui questi passaggi per configurare il tuo club.",
+      "step1": "Aggiungere atleti",
+      "step1Desc": "Registra gli atleti con i dati personali e la categoria. Usa l'importazione CSV FPP per velocizzare.",
+      "step2": "Configurare le quote mensili",
+      "step2Desc": "Definisci l'importo mensile per atleta e registra i pagamenti mensili.",
+      "step3": "Aggiungere soci",
+      "step3Desc": "Registra i soci del club e gestisci le loro quote annuali.",
+      "step4": "Impostazioni del club",
+      "step4Desc": "Personalizza nome, logo e colore del tuo club nelle impostazioni."
+    }
   },
   "athletes": {
     "title": "Atleti",
@@ -469,7 +481,9 @@
     "uploadLogo": "Carica logo",
     "removeLogo": "Rimuovi logo",
     "logoHint": "PNG o JPG, max 2MB. Consigliato: 200×200px.",
-    "logoRemoved": "Logo rimosso"
+    "logoRemoved": "Logo rimosso",
+    "colorTheme": "Colore del club",
+    "colorThemeNote": "Scegli il colore principale del tuo dashboard. Si applica alla barra laterale, pulsanti ed elementi in evidenza."
   },
   "admin": {
     "permissionsTitle": "Permessi",

@@ -202,7 +202,19 @@
     "lateQuotasAlert": "Cotisations Membres en Retard",
     "quotasPending": "cotisation(s) à régulariser",
     "upcomingTravels": "Prochains Déplacements",
-    "balanceDisclaimer": "Les revenus et dépenses couvrent des périodes différentes — ce solde est indicatif, non comptable"
+    "balanceDisclaimer": "Les revenus et dépenses couvrent des périodes différentes — ce solde est indicatif, non comptable",
+    "onboarding": {
+      "title": "Premiers pas",
+      "subtitle": "Bienvenue sur HoqueiManager ! Suivez ces étapes pour configurer votre club.",
+      "step1": "Ajouter des athlètes",
+      "step1Desc": "Enregistrez les athlètes avec leurs données personnelles et leur catégorie. Utilisez l'import CSV FPP pour accélérer.",
+      "step2": "Configurer les cotisations mensuelles",
+      "step2Desc": "Définissez le montant mensuel par athlète et enregistrez les paiements.",
+      "step3": "Ajouter des adhérents",
+      "step3Desc": "Enregistrez les adhérents du club et gérez leurs cotisations annuelles.",
+      "step4": "Paramètres du club",
+      "step4Desc": "Personnalisez le nom, le logo et la couleur de votre club dans les paramètres."
+    }
   },
   "athletes": {
     "title": "Athlètes",
@@ -469,7 +481,9 @@
     "uploadLogo": "Téléverser le logo",
     "removeLogo": "Supprimer le logo",
     "logoHint": "PNG ou JPG, max. 2 Mo. Recommandé : 200×200px.",
-    "logoRemoved": "Logo supprimé"
+    "logoRemoved": "Logo supprimé",
+    "colorTheme": "Couleur du club",
+    "colorThemeNote": "Choisissez la couleur principale de votre tableau de bord. Appliquée à la barre latérale, boutons et éléments en évidence."
   },
   "admin": {
     "permissionsTitle": "Permissions",
