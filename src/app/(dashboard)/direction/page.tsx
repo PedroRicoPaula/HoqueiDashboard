@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Pencil, Trash2, Loader2, Mail, Phone, Euro, User, Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Mail, Phone, Euro, User, Calendar, ChevronLeft, ChevronRight, Upload, AlertCircle } from 'lucide-react'
 import { AGE_GROUPS, DIRECTION_ROLES, DIRECTION_ROLE_LABELS, DIRECTION_ROLE_COLORS, AGE_GROUP_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useDashLabels } from '@/hooks/useDashLabels'
@@ -62,6 +62,53 @@ interface SeniorAthlete {
   number: number
   phone?: string
   email?: string
+}
+
+// ─── CSV Import helpers (federation format) ───────────────────────────────────
+
+function parseFederationRole(escalao: string): string {
+  const lower = escalao.toLowerCase().trim()
+  if (lower.includes('treinador')) return 'TRAINER'
+  if (lower.includes('delegado')) return 'DIRECTOR'
+  if (lower.includes('diretor de campo') || lower.includes('director de campo')) return 'FIELD_DIRECTOR'
+  if (lower.includes('socorrista')) return 'SOCORRISTA'
+  if (lower.includes('seccionista')) return 'SECCIONISTA'
+  return 'DIRECTOR'
+}
+
+function parseDirectionCsv(text: string): { name: string; roles: string[] }[] {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim())
+  if (lines.length < 2) return []
+  const sep = lines[0].includes(';') ? ';' : ','
+  const headers = lines[0].split(sep).map((h) => h.trim().replace(/^["']|["']$/g, '').toLowerCase().replace(/[^a-z0-9_]/g, '_'))
+
+  const rows = lines.slice(1).map((line) => {
+    const cols = line.split(sep)
+    const obj: Record<string, string> = {}
+    headers.forEach((h, i) => { obj[h] = (cols[i] ?? '').trim().replace(/^["']|["']$/g, '') })
+    return obj
+  })
+
+  // Group by Num FPP (or name) to merge duplicate entries with different roles
+  const byKey = new Map<string, { name: string; roles: Set<string> }>()
+  for (const row of rows) {
+    const key = row['num_fpp'] || row['nome'] || row['name'] || ''
+    if (!key) continue
+    const name = row['nome'] || row['name'] || ''
+    // "Escalão" header → 'escal_o' after ã→_ normalisation
+    const escalao = row['escal_o'] || row['escalao'] || ''
+    const role = parseFederationRole(escalao)
+    if (!byKey.has(key)) {
+      byKey.set(key, { name, roles: new Set([role]) })
+    } else {
+      byKey.get(key)!.roles.add(role)
+    }
+  }
+
+  return Array.from(byKey.values()).filter((m) => m.name).map((m) => ({
+    name: m.name,
+    roles: Array.from(m.roles),
+  }))
 }
 
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -221,6 +268,13 @@ export default function DirectionPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: DirectionMember | null }>({ open: false, member: null })
   const [salaryModal, setSalaryModal] = useState<{ open: boolean; member: DirectionMember | null }>({ open: false, member: null })
 
+  // CSV import state
+  const [importOpen, setImportOpen] = useState(false)
+  const [importRows, setImportRows] = useState<{ name: string; roles: string[] }[]>([])
+  const [importError, setImportError] = useState('')
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
   const { can } = usePermissions()
   const { toast } = useToast()
 
@@ -336,6 +390,46 @@ export default function DirectionPage() {
     }
   }
 
+  // ─── CSV Import ─────────────────────────────────────────────────────────────
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError('')
+    setImportRows([])
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const rows = parseDirectionCsv(text)
+      if (rows.length === 0) { setImportError('Nenhuma linha válida encontrada. Confirma que é a listagem FPP de Não Atletas.'); return }
+      setImportRows(rows)
+    }
+    reader.readAsText(file, 'utf-8')
+  }
+
+  const handleImport = async () => {
+    if (importRows.length === 0) return
+    setImporting(true)
+    try {
+      const res = await fetch('/api/direction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(importRows),
+      })
+      const json = await res.json()
+      toast({ title: `${json.created} membro(s) importado(s)${json.errors?.length ? `, ${json.errors.length} erro(s)` : ''}` })
+      setImportOpen(false)
+      setImportRows([])
+      setImportError('')
+      if (fileRef.current) fileRef.current.value = ''
+      fetchMembers()
+    } catch {
+      toast({ title: 'Erro ao importar', variant: 'destructive' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   // ─── Delete ─────────────────────────────────────────────────────────────────
 
   const confirmDelete = async () => {
@@ -350,9 +444,15 @@ export default function DirectionPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         {can('editDirection') && (
-          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Novo Membro</Button>
+          <>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Importar CSV FPP</span>
+            </Button>
+            <Button onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Novo Membro</Button>
+          </>
         )}
       </div>
 
@@ -594,6 +694,64 @@ export default function DirectionPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, member: null })}>Cancelar</Button>
             <Button variant="destructive" onClick={confirmDelete}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import dialog */}
+      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) { setImportRows([]); setImportError('') } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Importar Membros via CSV FPP</DialogTitle>
+            <DialogDescription>
+              Carrega a <strong>Listagem de Inscrições — Não Atletas</strong> exportada do portal da FPP.
+              As pessoas com múltiplos cargos são automaticamente agrupadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.txt"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80 cursor-pointer"
+            />
+            {importError && (
+              <div className="rounded border border-red-200 bg-red-50 p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{importError}</p>
+              </div>
+            )}
+            {importRows.length > 0 && (
+              <div className="rounded border overflow-hidden">
+                <p className="text-xs font-medium text-muted-foreground bg-muted px-3 py-2">{importRows.length} membro(s) detetado(s) — pré-visualização (5 primeiros)</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-3 py-2 text-left">Nome</th>
+                        <th className="px-3 py-2 text-left">Cargos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.slice(0, 5).map((r, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-3 py-1.5">{r.name}</td>
+                          <td className="px-3 py-1.5">{r.roles.map((role) => DIRECTION_ROLE_LABELS[role] ?? role).join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={importRows.length === 0 || importing}>
+              {importing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Importar {importRows.length > 0 ? `${importRows.length} membro(s)` : ''}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

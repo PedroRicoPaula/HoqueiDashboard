@@ -89,7 +89,16 @@ const AGE_GROUP_MAP: Record<string, string> = {
 }
 
 function parseAgeGroup(v: string): string {
-  return AGE_GROUP_MAP[v.toLowerCase().trim()] ?? v.toUpperCase().trim()
+  const lower = v.toLowerCase().trim()
+  if (AGE_GROUP_MAP[lower]) return AGE_GROUP_MAP[lower]
+  // Federation format: "Sub-19 Masculino", "Sénior Masculino - 3ª Divisão", etc.
+  if (lower.includes('sub-11') || lower.startsWith('sub 11')) return 'SUB11'
+  if (lower.includes('sub-13') || lower.startsWith('sub 13')) return 'SUB13'
+  if (lower.includes('sub-15') || lower.startsWith('sub 15')) return 'SUB15'
+  if (lower.includes('sub-17') || lower.startsWith('sub 17')) return 'SUB17'
+  if (lower.includes('sub-19') || lower.startsWith('sub 19')) return 'SUB19'
+  if (lower.includes('sénior') || lower.includes('senior') || lower.includes('sénior')) return 'SENIORS'
+  return v.toUpperCase().trim()
 }
 
 function parseBirthDate(v: string): string {
@@ -105,7 +114,7 @@ function parseCsv(text: string): Record<string, string>[] {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim())
   if (lines.length < 2) return []
   const sep = lines[0].includes(';') ? ';' : ','
-  const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'))
+  const headers = lines[0].split(sep).map((h) => h.trim().replace(/^["']|["']$/g, '').toLowerCase().replace(/[^a-z0-9_]/g, '_'))
   return lines.slice(1).map((line) => {
     const cols = line.split(sep)
     const obj: Record<string, string> = {}
@@ -115,9 +124,11 @@ function parseCsv(text: string): Record<string, string>[] {
 }
 
 function rowToAthlete(row: Record<string, string>) {
-  const number = parseInt(row['numero'] ?? row['n_'] ?? row['number'] ?? row['n__'] ?? '')
+  // num_fpp = "Num FPP" from federation CSV (after header normalisation)
+  const number = parseInt(row['numero'] ?? row['n_'] ?? row['number'] ?? row['n__'] ?? row['num_fpp'] ?? '')
   const name = row['nome'] ?? row['name'] ?? ''
-  const ageGroupRaw = row['escalao'] ?? row['age_group'] ?? row['agegroup'] ?? row['escalão'] ?? ''
+  // escal_o = "Escalão" from federation CSV (ã → _ after normalisation)
+  const ageGroupRaw = row['escalao'] ?? row['age_group'] ?? row['agegroup'] ?? row['escal_o'] ?? ''
   const birthDateRaw = row['data_nascimento'] ?? row['data_nasc_'] ?? row['birthdate'] ?? row['data'] ?? ''
   return {
     number: isNaN(number) ? undefined : number,
@@ -559,9 +570,9 @@ export default function AthletesPage() {
           <DialogHeader>
             <DialogTitle>Importar Atletas via CSV</DialogTitle>
             <DialogDescription>
-              Carregue um ficheiro CSV com as colunas: <code className="bg-muted px-1 rounded text-xs">numero, nome, escalao, data_nascimento</code> (obrigatórias) + opcionais.
-              Escalão aceita: Sub-11, Sub-13, Sub-15, Sub-17, Sub-19, Seniores.
-              Data: DD/MM/AAAA ou AAAA-MM-DD.
+              Aceita a <strong>Listagem FPP</strong> exportada do portal da federação, ou um CSV personalizado com colunas:
+              <code className="bg-muted px-1 rounded text-xs ml-1">numero, nome, escalao, data_nascimento</code>.
+              Escalão aceita: Sub-11 a Sub-19, Seniores, ou os valores FPP (ex: &quot;Sénior Masculino&quot;).
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
