@@ -26,9 +26,18 @@ export function validateCsrf(req: Request): boolean {
     return false
   }
 
-  const allowedOrigin = new URL(appUrl).origin
-  if (origin) return origin === allowedOrigin
-  if (referer) return referer.startsWith(allowedOrigin)
+  const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL
+  const allowedOrigins = new Set<string>()
+  allowedOrigins.add(new URL(appUrl).origin)
+  if (landingUrl) {
+    const landingOrigin = new URL(landingUrl).origin
+    allowedOrigins.add(landingOrigin)
+    // also accept www. variant (e.g. https://www.hoqueimanager.com)
+    allowedOrigins.add(landingOrigin.replace('://', '://www.'))
+  }
+
+  if (origin) return allowedOrigins.has(origin)
+  if (referer) return [...allowedOrigins].some((o) => referer.startsWith(o))
   return false
 }
 
