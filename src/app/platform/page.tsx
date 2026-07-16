@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { Building2, Users, DollarSign, TrendingUp, Globe } from 'lucide-react'
 import Stripe from 'stripe'
 import { logger } from '@/lib/logger'
+import PlatformClubs from './PlatformClubs'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: 'Ativo', color: 'bg-green-100 text-green-700' },
@@ -14,12 +15,9 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   SUSPENDED: { label: 'Suspenso', color: 'bg-red-100 text-red-700' },
 }
 
-// Fallback prices — only used if Stripe price fetch fails (e.g. keys not configured yet)
 const FALLBACK_PRICE_MONTHLY = 59
 const FALLBACK_PRICE_YEARLY_MONTHLY_EQUIV = 590 / 12
 
-// Module-level cache: avoids hitting the Stripe API on every /platform load.
-// Persists across requests within the same server process/lambda instance.
 let priceCache: { monthly: number; yearlyMonthlyEquiv: number; fetchedAt: number } | null = null
 const PRICE_CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -60,14 +58,15 @@ export default async function PlatformPage() {
   ])
 
   const activeClubs = clubs.filter(c => c.status === 'ACTIVE')
+  const paidActiveClubs = activeClubs.filter(c => !c.isFreeClub)
+  const freeActiveClubs = activeClubs.filter(c => c.isFreeClub)
   const pastDueClubs = clubs.filter(c => c.status === 'PAST_DUE')
 
-  // MRR calculation: use price IDs to distinguish monthly vs annual where possible
-  // Fallback: monthly price × active clubs
-  const monthlyActiveClubs = activeClubs.filter(c =>
+  // MRR excludes free clubs
+  const monthlyActiveClubs = paidActiveClubs.filter(c =>
     c.stripePriceId === process.env.STRIPE_PRICE_MONTHLY || !c.stripePriceId
   )
-  const yearlyActiveClubs = activeClubs.filter(c =>
+  const yearlyActiveClubs = paidActiveClubs.filter(c =>
     c.stripePriceId === process.env.STRIPE_PRICE_YEARLY
   )
   const mrr = Math.round(
@@ -76,12 +75,26 @@ export default async function PlatformPage() {
   )
   const arr = mrr * 12
 
-  // Country distribution
+  // Country distribution (paid active only)
   const countryMap: Record<string, number> = {}
-  for (const club of activeClubs) {
+  for (const club of paidActiveClubs) {
     countryMap[club.country] = (countryMap[club.country] ?? 0) + 1
   }
   const countries = Object.entries(countryMap).sort((a, b) => b[1] - a[1])
+
+  // Serialize clubs for client component (convert Date → string)
+  const serializedClubs = clubs.map(c => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    country: c.country,
+    language: c.language,
+    status: c.status,
+    isFreeClub: c.isFreeClub,
+    statusChangedAt: c.statusChangedAt?.toISOString() ?? null,
+    createdAt: c.createdAt.toISOString(),
+    _count: c._count,
+  }))
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -97,8 +110,11 @@ export default async function PlatformPage() {
             <Building2 className="w-4 h-4 text-green-600" />
             <span className="text-xs text-gray-500">Clubes ativos</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{activeClubs.length}</p>
-          <p className="text-xs text-gray-400 mt-1">{clubs.length} total · {pastDueClubs.length} em atraso</p>
+          <p className="text-3xl font-bold text-gray-900">{paidActiveClubs.length}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {clubs.length} total · {pastDueClubs.length} em atraso
+            {freeActiveClubs.length > 0 && ` · ${freeActiveClubs.length} grátis`}
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 p-5">
@@ -129,58 +145,8 @@ export default async function PlatformPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Clubs table */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">Clubes</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Clube</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">País / Idioma</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden sm:table-cell">Atletas</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Estado</th>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Registo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {clubs.map((club) => {
-                  const st = STATUS_LABELS[club.status] ?? { label: club.status, color: 'bg-gray-100 text-gray-500' }
-                  return (
-                    <tr key={club.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3">
-                        <p className="font-medium text-gray-900">{club.name}</p>
-                        <p className="text-xs text-gray-400">{club.email}</p>
-                      </td>
-                      <td className="px-5 py-3">
-                        <p className="text-gray-600 uppercase text-xs font-medium">{club.country}</p>
-                        <p className="text-gray-400 text-xs">{club.language}</p>
-                      </td>
-                      <td className="px-5 py-3 text-gray-500 hidden sm:table-cell">{club._count.athletes}</td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${st.color}`}>
-                          {st.label}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-gray-400 text-xs hidden md:table-cell">
-                        {new Date(club.createdAt).toLocaleDateString('pt-PT')}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {clubs.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-12 text-center text-gray-400">
-                      Ainda sem clubes registados.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Interactive clubs table */}
+        <PlatformClubs initialClubs={serializedClubs} />
 
         {/* Sidebar stats */}
         <div className="space-y-4">
@@ -205,7 +171,7 @@ export default async function PlatformPage() {
           <div className="bg-white rounded-xl border border-gray-100 p-5">
             <div className="flex items-center gap-2 mb-4">
               <Globe className="w-4 h-4 text-gray-400" />
-              <h3 className="font-semibold text-gray-900">Países (ativos)</h3>
+              <h3 className="font-semibold text-gray-900">Países (pagos ativos)</h3>
             </div>
             <div className="space-y-2">
               {countries.map(([country, count]) => (
@@ -230,6 +196,12 @@ export default async function PlatformPage() {
                 <span className="text-gray-500">Plano anual</span>
                 <span className="font-medium">{yearlyActiveClubs.length} clubes</span>
               </div>
+              {freeActiveClubs.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Grátis</span>
+                  <span className="font-medium text-blue-600">{freeActiveClubs.length} clubes</span>
+                </div>
+              )}
               <div className="border-t pt-2 mt-2 flex justify-between font-semibold">
                 <span>MRR total</span>
                 <span className="text-green-700">€{mrr}</span>

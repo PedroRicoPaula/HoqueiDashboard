@@ -110,7 +110,7 @@ export async function POST(req: Request) {
 
         await prisma.club.update({
           where: { id: clubId },
-          data: { status: 'PAST_DUE' },
+          data: { status: 'PAST_DUE', statusChangedAt: new Date() },
         })
 
         await logAudit(req, null, clubId, 'PAYMENT_FAILED', 'Club', clubId, {
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
 
         await prisma.club.update({
           where: { id: clubId },
-          data: { status: 'CANCELLED' },
+          data: { status: 'CANCELLED', statusChangedAt: new Date() },
         })
 
         await logAudit(req, null, clubId, 'SUBSCRIPTION_CANCELLED', 'Club', clubId, {

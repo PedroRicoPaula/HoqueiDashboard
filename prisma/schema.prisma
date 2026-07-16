@@ -24,6 +24,8 @@ model Club {
   stripeSubscriptionId   String?           @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
+  isFreeClub             Boolean           @default(false)
+  statusChangedAt        DateTime?
   users                  User[]
   athletes               Athlete[]
   members                Member[]
