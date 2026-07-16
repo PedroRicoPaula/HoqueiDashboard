@@ -18,10 +18,11 @@ import {
 } from '@/components/ui/dialog'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Search, Pencil, Trash2, Loader2, Calendar, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Loader2, Calendar, ChevronLeft, ChevronRight, CheckCheck, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
 
 const MONTHS_FALLBACK = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -34,6 +35,7 @@ const memberSchema = z.object({
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   address: z.string().optional(),
   monthlyQuota: z.coerce.number().min(0),
+  seasonId: z.string().uuid('Época inválida').optional().nullable(),
 })
 type MemberForm = z.infer<typeof memberSchema>
 
@@ -47,6 +49,8 @@ interface Member {
   monthlyQuota: number
   paidCount: number
   lateMonths: number
+  seasonId?: string | null
+  season?: { id: string; name: string } | null
 }
 
 interface Quota {
@@ -240,6 +244,9 @@ export default function MembersPage() {
   const { toast } = useToast()
   const debouncedSearch = useDebounce(search)
 
+  const { seasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const selectedSeason = getSelectedSeason()
+
   const {
     register, handleSubmit, reset, formState: { errors },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -249,6 +256,7 @@ export default function MembersPage() {
     setLoading(true)
     const params = new URLSearchParams({ page: String(p) })
     if (debouncedSearch) params.set('search', debouncedSearch)
+    if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
     const res = await fetch(`/api/members?${params}`)
     if (res.ok) {
       const data = await res.json()
@@ -258,20 +266,28 @@ export default function MembersPage() {
       setPage(p)
     }
     setLoading(false)
-  }, [debouncedSearch])
+  }, [debouncedSearch, selectedSeasonId])
 
-  useEffect(() => { fetchMembers(1) }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchMembers(1) }, [debouncedSearch, selectedSeasonId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openCreate = () => {
     setEditingMember(null)
-    reset({ name: '', phone: '', email: '', address: '', monthlyQuota: 0 })
+    reset({ name: '', phone: '', email: '', address: '', monthlyQuota: 0, seasonId: selectedSeasonId ?? null })
     setSheetOpen(true)
   }
 
   const openEdit = (m: Member) => {
     setEditingMember(m)
-    reset({ name: m.name, phone: m.phone ?? '', email: m.email ?? '', address: m.address ?? '', monthlyQuota: m.monthlyQuota })
+    reset({ name: m.name, phone: m.phone ?? '', email: m.email ?? '', address: m.address ?? '', monthlyQuota: m.monthlyQuota, seasonId: m.season?.id ?? null })
     setSheetOpen(true)
+  }
+
+  const openQuotaModal = (m: Member) => {
+    const year = selectedSeason
+      ? new Date(selectedSeason.endDate).getFullYear()
+      : new Date().getFullYear()
+    setQuotaYear(year)
+    setQuotaModal({ open: true, member: m })
   }
 
   const onSubmit = async (data: MemberForm) => {
@@ -310,11 +326,22 @@ export default function MembersPage() {
         )}
       </div>
 
-      {!loading && (
-        <p className="text-sm text-muted-foreground">
-          {total} sócio{total !== 1 ? 's' : ''}
-        </p>
-      )}
+      <div className="flex items-center gap-3">
+        {!loading && (
+          <p className="text-sm text-muted-foreground">
+            {total} sócio{total !== 1 ? 's' : ''}
+          </p>
+        )}
+        {selectedSeason && (
+          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+            <CalendarDays className="h-3 w-3" />
+            {selectedSeason.name}
+          </span>
+        )}
+        {!selectedSeason && seasons.length === 0 && (
+          <span className="text-xs text-muted-foreground">Sem época selecionada — a mostrar todos os sócios</span>
+        )}
+      </div>
 
       <div className="rounded-md border bg-white overflow-x-auto">
         <Table>
@@ -373,7 +400,7 @@ export default function MembersPage() {
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" title="Quotas" onClick={() => { setQuotaModal({ open: true, member: m }); setQuotaYear(new Date().getFullYear()) }}>
+                    <Button variant="ghost" size="icon" title="Quotas" onClick={() => openQuotaModal(m)}>
                       <Calendar className="h-4 w-4" />
                     </Button>
                     {can('editMembers') && (
@@ -413,6 +440,23 @@ export default function MembersPage() {
             <SheetDescription>Preencha os dados do sócio</SheetDescription>
           </SheetHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-6">
+            {seasons.length > 0 && (
+              <div className="space-y-1">
+                <Label>Época</Label>
+                <select
+                  {...register('seasonId')}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Sem época</option>
+                  {seasons.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.isActive ? ' (ativa)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {errors.seasonId && <p className="text-xs text-destructive">{errors.seasonId.message}</p>}
+              </div>
+            )}
             <div className="space-y-1">
               <Label>Nome *</Label>
               <Input {...register('name')} />
@@ -454,7 +498,7 @@ export default function MembersPage() {
             <DialogTitle>Quotas - {quotaModal.member?.name}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center gap-3 mb-4">
-            <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y - 1)} disabled={quotaYear <= 2025}>{'<'}</Button>
+            <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y - 1)} disabled={quotaYear <= 2020}>{'<'}</Button>
             <span className="font-semibold">{quotaYear}</span>
             <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y + 1)} disabled={quotaYear >= new Date().getFullYear() + 1}>{'>'}</Button>
           </div>

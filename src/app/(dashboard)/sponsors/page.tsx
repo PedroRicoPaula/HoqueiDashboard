@@ -30,10 +30,11 @@ import {
 } from '@/components/ui/dialog'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
-import { Plus, Pencil, Trash2, Loader2, ExternalLink, Upload, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, ExternalLink, Upload, X, CalendarDays } from 'lucide-react'
 import { format, differenceInDays } from 'date-fns'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
 
 const SPONSOR_TYPE_BADGE: Record<string, string> = {
   EQUIPMENT_SENIOR:    'bg-blue-100 text-blue-800',
@@ -73,6 +74,7 @@ interface Sponsor {
   bannerCount?: number | null
   includesSticks: boolean
   includesShinguards: boolean
+  seasonId?: string | null
 }
 
 function ContractBadge({ contractEnd, tr }: { contractEnd: string; tr: (k: string, v?: Record<string,string>) => string }) {
@@ -115,6 +117,10 @@ export default function SponsorsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [formSeasonId, setFormSeasonId] = useState<string>('')
+
+  const { seasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const selectedSeason = getSelectedSeason()
 
   const { can } = usePermissions()
   const { toast } = useToast()
@@ -142,12 +148,14 @@ export default function SponsorsPage() {
   const fetchSponsors = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/sponsors')
+      const params = new URLSearchParams()
+      if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
+      const res = await fetch(`/api/sponsors?${params}`)
       if (res.ok) setSponsors(await res.json())
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [selectedSeasonId])
 
   useEffect(() => { fetchSponsors() }, [fetchSponsors])
 
@@ -158,6 +166,7 @@ export default function SponsorsPage() {
     setIncludesSticks(false)
     setIncludesShinguards(false)
     setLogoUrl(null)
+    setFormSeasonId(selectedSeasonId ?? '')
   }
 
   const openCreate = () => {
@@ -182,6 +191,7 @@ export default function SponsorsPage() {
     setIncludesSticks(s.includesSticks ?? false)
     setIncludesShinguards(s.includesShinguards ?? false)
     setLogoUrl(s.logoUrl ?? null)
+    setFormSeasonId(s.seasonId ?? '')
     setSheetOpen(true)
   }
 
@@ -222,6 +232,7 @@ export default function SponsorsPage() {
         bannerCount: bannerCount !== '' ? parseInt(bannerCount) : null,
         includesSticks,
         includesShinguards,
+        seasonId: formSeasonId || null,
       }
       const url = editingSponsor ? `/api/sponsors/${editingSponsor.id}` : '/api/sponsors'
       const method = editingSponsor ? 'PUT' : 'POST'
@@ -272,6 +283,17 @@ export default function SponsorsPage() {
               <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Season badge */}
+      {selectedSeason && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+            <CalendarDays className="h-3 w-3" />
+            {selectedSeason.name}
+          </span>
+          <span className="text-xs text-muted-foreground">{sponsors.length} patrocinador{sponsors.length !== 1 ? 'es' : ''}</span>
         </div>
       )}
 
@@ -435,6 +457,24 @@ export default function SponsorsPage() {
                 <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleLogoUpload} />
               </div>
             </div>
+
+            {seasons.length > 0 && (
+              <div className="space-y-1">
+                <Label>Época</Label>
+                <select
+                  value={formSeasonId}
+                  onChange={(e) => setFormSeasonId(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">Sem época</option>
+                  {seasons.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.isActive ? ' (ativa)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label>{tr('common.name')} *</Label>

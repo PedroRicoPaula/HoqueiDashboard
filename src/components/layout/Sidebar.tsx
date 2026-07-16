@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard, Users, UserCheck, CreditCard, Package, Handshake,
   Plane, Building2, Dumbbell, Settings, LogOut, ClipboardList,
-  FileBarChart, ClipboardCheck, Shirt, ChevronDown, Loader2, ShieldCheck,
+  FileBarChart, ClipboardCheck, Shirt, ChevronDown, Loader2, ShieldCheck, CalendarRange,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { SeasonSelector } from '@/components/season/SeasonSelector'
 import { useState, useEffect } from 'react'
 
 function useNavGroups(t: ReturnType<typeof useDashT>) {
@@ -51,10 +52,11 @@ function useNavGroups(t: ReturnType<typeof useDashT>) {
       id: 'gestao',
       label: t('nav.management'),
       items: [
-        { href: '/reports',           label: t('nav.reports'),     icon: FileBarChart,  permission: 'viewAthletes' },
-        { href: '/settings',          label: t('nav.settings'),    icon: Settings,      permission: 'isAdmin' },
-        { href: '/admin/permissions', label: t('nav.permissions'), icon: ShieldCheck,   permission: 'isAdmin' },
-        { href: '/admin/audit',       label: t('nav.activity'),    icon: ClipboardList, permission: 'isAdmin' },
+        { href: '/reports',           label: t('nav.reports'),     icon: FileBarChart,   permission: 'viewAthletes' },
+        { href: '/seasons',           label: t('nav.seasons'),     icon: CalendarRange,  permission: 'isAdmin' },
+        { href: '/settings',          label: t('nav.settings'),    icon: Settings,       permission: 'isAdmin' },
+        { href: '/admin/permissions', label: t('nav.permissions'), icon: ShieldCheck,    permission: 'isAdmin' },
+        { href: '/admin/audit',       label: t('nav.activity'),    icon: ClipboardList,  permission: 'isAdmin' },
       ],
     },
   ]
@@ -143,6 +145,11 @@ export function Sidebar() {
           <p className="font-bold text-sm leading-tight truncate text-white">{clubName}</p>
           <p className="text-xs text-white/50 leading-tight">{t('nav.manage')}</p>
         </div>
+      </div>
+
+      {/* Season selector */}
+      <div className="py-2 border-b border-white/10">
+        <SeasonSelector />
       </div>
 
       {/* Nav */}

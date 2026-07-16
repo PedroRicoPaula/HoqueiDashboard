@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -17,7 +18,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import {
   Check, X, Minus, ChevronLeft, ChevronRight,
-  Loader2, Euro, AlertTriangle, Users, CheckCircle2, MousePointerClick,
+  Loader2, Euro, AlertTriangle, Users, CheckCircle2, MousePointerClick, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -102,13 +103,31 @@ interface PaidCellDialog {
 
 export default function FeesPage() {
   const dashLabels = useDashLabels()
-  const SEASON_MONTHS = SEASON_MONTH_NUMS.map((sm) => ({
-    ...sm,
-    label: dashLabels.monthsShort?.[sm.month] ?? '',
-    labelFull: dashLabels.monthsFull?.[sm.month] ?? '',
-  }))
+  const { selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const selectedSeason = getSelectedSeason()
 
   const [seasonStart, setSeasonStart] = useState(getCurrentSeasonStart())
+  const [apiMonths, setApiMonths] = useState<Array<{ year: number; month: number }> | null>(null)
+
+  // Sync seasonStart from selected season's start year
+  useEffect(() => {
+    if (selectedSeason?.startDate) {
+      setSeasonStart(new Date(selectedSeason.startDate).getFullYear())
+    }
+  }, [selectedSeason?.startDate])
+
+  const activeMonths = useMemo(() => {
+    const source = apiMonths ?? SEASON_MONTH_NUMS.map((sm) => ({
+      year: getYearForSlot(seasonStart, sm.isSecondYear),
+      month: sm.month,
+    }))
+    return source.map(({ year, month }) => ({
+      year,
+      month,
+      label: dashLabels.monthsShort?.[month] ?? '',
+      labelFull: dashLabels.monthsFull?.[month] ?? '',
+    }))
+  }, [apiMonths, seasonStart, dashLabels])
   const [ageGroupFilter, setAgeGroupFilter] = useState('all')
   const [athletes, setAthletes] = useState<AthleteWithPayments[]>([])
   const [summary, setSummary] = useState<Summary | null>(null)
@@ -164,7 +183,12 @@ export default function FeesPage() {
 
   const fetchData = useCallback(async (p = page) => {
     setLoading(true)
-    const params = new URLSearchParams({ season: String(seasonStart), page: String(p) })
+    const params = new URLSearchParams({ page: String(p) })
+    if (selectedSeasonId) {
+      params.set('seasonId', selectedSeasonId)
+    } else {
+      params.set('season', String(seasonStart))
+    }
     if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
     const res = await fetch(`/api/fees?${params}`)
     if (res.ok) {
@@ -174,12 +198,14 @@ export default function FeesPage() {
       setPages(data.pages ?? 1)
       setTotal(data.total ?? 0)
       setPage(p)
+      if (data.months) setApiMonths(data.months)
+      else setApiMonths(null)
     }
     setLoading(false)
-  }, [seasonStart, ageGroupFilter, page])
+  }, [selectedSeasonId, seasonStart, ageGroupFilter, page])
 
-  useEffect(() => { fetchData(1) }, [seasonStart, ageGroupFilter]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setSelectedCells([]) }, [seasonStart, ageGroupFilter])
+  useEffect(() => { fetchData(1) }, [seasonStart, ageGroupFilter, selectedSeasonId]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setSelectedCells([]) }, [seasonStart, ageGroupFilter, selectedSeasonId])
 
   const isCellSelected = (athleteId: string, month: number, year: number) =>
     selectedCells.some((c) => c.athleteId === athleteId && c.month === month && c.year === year)
@@ -476,7 +502,7 @@ export default function FeesPage() {
     return () => handleUnpaidClick(athlete, month, year, labelFull)
   }
 
-  const seasonLabel = `${seasonStart}/${(seasonStart + 1).toString().slice(-2)}`
+  const seasonLabel = selectedSeason?.name ?? `${seasonStart}/${(seasonStart + 1).toString().slice(-2)}`
   const maxSeason = getMaxSeasonStart()
 
   return (
@@ -484,28 +510,43 @@ export default function FeesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSeasonStart((s) => s - 1)}
-            disabled={seasonStart <= MIN_SEASON}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-center w-24">
-            <span className="text-xl font-bold">{seasonLabel}</span>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">época desportiva</p>
+          {!selectedSeasonId && (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSeasonStart((s) => s - 1)}
+                disabled={seasonStart <= MIN_SEASON}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          <div className={`text-center ${selectedSeasonId ? '' : 'w-24'}`}>
+            {selectedSeasonId ? (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary">
+                <CalendarDays className="h-4 w-4" />
+                {seasonLabel}
+              </span>
+            ) : (
+              <>
+                <span className="text-xl font-bold">{seasonLabel}</span>
+                <p className="text-[10px] text-muted-foreground leading-none mt-0.5">época desportiva</p>
+              </>
+            )}
           </div>
-          {seasonStart < maxSeason ? (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setSeasonStart((s) => s + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <div className="w-9" />
+          {!selectedSeasonId && (
+            seasonStart < maxSeason ? (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSeasonStart((s) => s + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <div className="w-9" />
+            )
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -608,21 +649,20 @@ export default function FeesPage() {
                 <th className="text-left px-3 py-2.5 font-medium text-muted-foreground min-w-40 sticky left-8 bg-gray-50 z-10">Nome</th>
                 <th className="text-left px-2 py-2.5 font-medium text-muted-foreground w-20">Escalão</th>
                 <th className="text-right px-2 py-2.5 font-medium text-muted-foreground w-16">Mens.</th>
-                {SEASON_MONTHS.map((sm) => {
-                  const year = getYearForSlot(seasonStart, sm.isSecondYear)
-                  const curr = isMonthCurrent(sm.month, year)
-                  const past = isMonthPast(sm.month, year)
+                {activeMonths.map((sm) => {
+                  const curr = isMonthCurrent(sm.month, sm.year)
+                  const past = isMonthPast(sm.month, sm.year)
                   const canMarkColumn = canEdit && !selectionMode && (past || curr)
                   return (
                     <th
-                      key={`${sm.month}-${year}`}
+                      key={`${sm.month}-${sm.year}`}
                       className={cn(
                         'text-center px-1 py-2.5 font-medium w-12 text-xs select-none',
                         curr ? 'text-amber-600' : past ? 'text-muted-foreground' : 'text-gray-300',
                         canMarkColumn && 'cursor-pointer hover:bg-primary/10 hover:text-primary rounded transition-colors'
                       )}
-                      title={canMarkColumn ? `Marcar todos como pagos — ${sm.labelFull} ${year}` : `${sm.labelFull} ${year}`}
-                      onClick={canMarkColumn ? () => handleColumnBulkClick(sm.month, year, sm.labelFull) : undefined}
+                      title={canMarkColumn ? `Marcar todos como pagos — ${sm.labelFull} ${sm.year}` : `${sm.labelFull} ${sm.year}`}
+                      onClick={canMarkColumn ? () => handleColumnBulkClick(sm.month, sm.year, sm.labelFull) : undefined}
                     >
                       {sm.label}
                     </th>
@@ -656,17 +696,16 @@ export default function FeesPage() {
                   <td className="px-2 py-2 text-right text-xs text-muted-foreground">
                     {athlete.feeExempt ? '—' : `${athlete.monthlyFee.toFixed(0)}€`}
                   </td>
-                  {SEASON_MONTHS.map((sm) => {
-                    const year = getYearForSlot(seasonStart, sm.isSecondYear)
-                    const onClick = getCellClickHandler(athlete, sm.month, year, sm.labelFull)
-                    const payment = getPayment(athlete, sm.month, year)
-                    const cellKey = `${athlete.id}-${sm.month}-${year}`
+                  {activeMonths.map((sm) => {
+                    const onClick = getCellClickHandler(athlete, sm.month, sm.year, sm.labelFull)
+                    const payment = getPayment(athlete, sm.month, sm.year)
+                    const cellKey = `${athlete.id}-${sm.month}-${sm.year}`
                     return (
                       <td
-                        key={`${sm.month}-${year}`}
+                        key={`${sm.month}-${sm.year}`}
                         className={cn(
                           'px-0 py-0 h-10 w-12 text-center',
-                          getCellBg(athlete, sm.month, year),
+                          getCellBg(athlete, sm.month, sm.year),
                           onClick ? 'cursor-pointer' : '',
                           cellLoading.has(cellKey) ? 'pointer-events-none opacity-70' : '',
                         )}
@@ -675,13 +714,13 @@ export default function FeesPage() {
                           athlete.feeExempt
                             ? 'Atleta isento'
                             : payment?.paid
-                            ? `${sm.labelFull} ${year} — pago${payment.amount != null ? ` (${payment.amount}€)` : ''}`
+                            ? `${sm.labelFull} ${sm.year} — pago${payment?.amount != null ? ` (${payment?.amount}€)` : ''}`
                             : canEdit && !athlete.feeExempt
-                            ? `Registar pagamento — ${sm.labelFull} ${year}`
+                            ? `Registar pagamento — ${sm.labelFull} ${sm.year}`
                             : undefined
                         }
                       >
-                        <CellContent athlete={athlete} month={sm.month} year={year} />
+                        <CellContent athlete={athlete} month={sm.month} year={sm.year} />
                       </td>
                     )
                   })}
@@ -692,15 +731,13 @@ export default function FeesPage() {
                         <span className="text-muted-foreground">—</span>
                       </td>
                     )
-                    const paidTotal = SEASON_MONTHS.reduce((sum, sm) => {
-                      const yr = getYearForSlot(seasonStart, sm.isSecondYear)
-                      const p = getPayment(athlete, sm.month, yr)
+                    const paidTotal = activeMonths.reduce((sum, sm) => {
+                      const p = getPayment(athlete, sm.month, sm.year)
                       return sum + (p?.paid && p.amount != null ? p.amount : 0)
                     }, 0)
-                    const pendingTotal = SEASON_MONTHS.filter((sm) => {
-                      const yr = getYearForSlot(seasonStart, sm.isSecondYear)
-                      const p = getPayment(athlete, sm.month, yr)
-                      return athlete.monthlyFee > 0 && isMonthPast(sm.month, yr) && !p?.paid
+                    const pendingTotal = activeMonths.filter((sm) => {
+                      const p = getPayment(athlete, sm.month, sm.year)
+                      return athlete.monthlyFee > 0 && isMonthPast(sm.month, sm.year) && !p?.paid
                     }).length * athlete.monthlyFee
                     return (
                       <td key="total" className="px-3 py-2 text-right text-xs sticky right-0 bg-inherit z-10">

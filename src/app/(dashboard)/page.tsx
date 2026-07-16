@@ -12,6 +12,7 @@ import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useAuthStore } from '@/store/authStore'
 import { getDateLocale, getNumberLocale } from '@/lib/date-locale'
+import { useSeasonStore } from '@/store/seasonStore'
 
 interface Revenue {
   seasonLabel: string
@@ -176,6 +177,7 @@ export default function DashboardPage() {
   const lang = useAuthStore((s) => s.clubLanguage)
   const dateLocale = getDateLocale(lang)
   const numLocale = getNumberLocale(lang)
+  const { selectedSeasonId } = useSeasonStore()
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -186,7 +188,8 @@ export default function DashboardPage() {
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
     try {
-      const res = await fetch('/api/dashboard/stats')
+      const params = selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''
+      const res = await fetch(`/api/dashboard/stats${params}`)
       if (res.ok) {
         setStats(await res.json())
         setLastUpdated(new Date())
@@ -195,7 +198,7 @@ export default function DashboardPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [selectedSeasonId])
 
   useEffect(() => { loadStats() }, [loadStats])
 
