@@ -70,7 +70,7 @@ EMAIL_FROM                      → "HoqueiManager <noreply@hoqueimanager.com>" 
 7. **CSP headers em `next.config.mjs`** — qualquer novo domínio externo precisa ser adicionado às diretivas corretas. Stripe já adicionado: `js.stripe.com` (script-src), `api.stripe.com` (connect-src), `js.stripe.com`+`hooks.stripe.com` (frame-src).
 8. **Cookie de auth: `hm_token`** — nome fixo, usado em middleware e `getTokenFromCookies`. Nunca usar `hcpdl_token`.
 9. **`isAdmin` bypassa todas as permissões** — ver `hasPermission()` em `src/lib/permissions.ts`.
-10. **MULTI-TENANT OBRIGATÓRIO — usar `getDbForRequest(req)`** em vez de `prisma` direto em todas as API routes do dashboard. Retorna `{ user, db, clubId }` ou `null` se não autenticado, sem `clubId`, ou clube com status `CANCELLED`/`SUSPENDED`. O `db` é um Prisma Extension que injeta `clubId` automaticamente em **todas** as operações de modelos tenanted (`findUnique`, `findMany`, `findFirst`, `create`, `createMany`, `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`). Em `upsert`, injecta `clubId` no `create` **e** valida ownership via `findFirst` antes de correr (o `where` de compound key não aceita `clubId` extra no tipo gerado pelo Prisma — ver SEC-026 em `docs/AUTH-SECURITY.md`). **Modelos tenanted (15):** Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord. **Modelos NÃO tenanted (usar `prisma` global):** User, Permission, Playbook, RateLimit. Ver `src/lib/db.ts` e `src/lib/prisma-tenant.ts`.
+10. **MULTI-TENANT OBRIGATÓRIO — usar `getDbForRequest(req)`** em vez de `prisma` direto em todas as API routes do dashboard. Retorna `{ user, db, clubId }` ou `null` se não autenticado, sem `clubId`, ou clube com status `CANCELLED`/`SUSPENDED`. O `db` é um Prisma Extension que injeta `clubId` automaticamente em **todas** as operações de modelos tenanted (`findUnique`, `findMany`, `findFirst`, `create`, `createMany`, `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`). Em `upsert`, injecta `clubId` no `create` **e** valida ownership via `findFirst` antes de correr (o `where` de compound key não aceita `clubId` extra no tipo gerado pelo Prisma — ver SEC-026 em `docs/AUTH-SECURITY.md`). **Modelos tenanted (16):** Season, Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord. **Modelos NÃO tenanted (usar `prisma` global):** User, Permission, Playbook, RateLimit. Ver `src/lib/db.ts` e `src/lib/prisma-tenant.ts`.
 11. **Stripe webhook — sem CSRF** — `/api/stripe/webhook` está excluído do CSRF check (tem verificação de assinatura própria via `stripe.webhooks.constructEvent`). Não adicionar CSRF a este endpoint.
 12. **`isSuperAdmin` → acesso a `/platform` apenas** — super admin não tem `clubId`, não pode aceder ao dashboard de nenhum clube. Redireccionado para `/platform` no login.
 13. **Fluxo de registo de clubes — sem credenciais em claro** — `POST /api/register` cria User com password placeholder. O webhook `checkout.session.completed` cria `PasswordResetToken` (24h) e envia email com link `/reset-password?token=...` via Resend. `RESEND_API_KEY` é **obrigatório em produção** — sem ele o utilizador não recebe o email de boas-vindas e não consegue fazer login.
@@ -141,9 +141,10 @@ src/
 │   ├── landing/               # LanguageSwitcher, PricingToggle, FaqAccordion
 │   ├── auth/                  # ChangePasswordDialog
 │   ├── admin/                 # PermissionsModal, UserPermissionsTable
+│   ├── season/                # SeasonSelector (dropdown na Sidebar)
 │   ├── training/tactical/     # TacticalBoard, HockeyField, etc.
 │   └── ErrorBoundary.tsx
-├── store/                     # Zustand stores
+├── store/                     # Zustand stores (authStore, sidebarStore, seasonStore)
 ├── hooks/                     # usePermissions, useDebounce, use-toast
 ├── types/                     # training.types.ts
 ├── tests/
@@ -217,6 +218,22 @@ messages/                      # Traduções next-intl
 - ✅ **Vitest config fix**: `loadEnv` do Vite no config resolve DATABASE_URL de `.env.local` em ambiente de testes
 - ✅ **20 ataques testados**: CSRF, JWT manipulation, privilege escalation, XSS, SQL injection, path traversal, IDOR, tenant isolation, rate limit bypass, payload flood, open redirect — todos bloqueados
 - ✅ **Build limpo**: 0 erros TypeScript, 59 páginas geradas, 67/67 testes Vitest passam
+
+### Épocas Desportivas / Season Feature (2026-07-16) — 3 commits
+- ✅ **Modelo Season**: `id, clubId, name, startDate, endDate, isActive` — `@@unique([clubId, name])`
+- ✅ **seasonId nullable** em Member, Sponsor, AthletePayment, Quota (backward compat; NULL = época indeterminada)
+- ✅ **Member unique**: `[clubId, number]` → `[clubId, number, seasonId]` — mesmo número em épocas diferentes
+- ✅ **Season no TENANTED set**: Prisma Extension injeta `clubId` em todas as operações
+- ✅ **API /api/seasons**: CRUD completo — lista, criar, editar, ativar, eliminar (bloqueado se tem registos)
+- ✅ **seasonStore Zustand**: `seasons[], selectedSeasonId` persistido como `hm-season`
+- ✅ **SeasonSelector** na Sidebar: dropdown com badge "Ativa"; link "Gerir épocas" → /seasons
+- ✅ **/seasons page**: página de gestão de épocas (admin only) com CRUD inline
+- ✅ **/members**: filtra por época global; form inclui dropdown de época; QuotaCalendar usa ano final da época
+- ✅ **/sponsors**: filtra por época global; form inclui época; badge de época na toolbar
+- ✅ **/fees**: meses dinâmicos derivados de Season.startDate/endDate (não hardcoded Sep-Jun); cabeçalho com época
+- ✅ **Dashboard**: passa `?seasonId` ao stats API — counts e receitas filtrados pela época selecionada
+- ✅ **i18n**: `nav.seasons` em pt/en/es/fr/it (Épocas/Seasons/Temporadas/Saisons/Stagioni)
+- ✅ **Build**: 0 erros TypeScript, 60 páginas, 67/67 testes passam
 
 ### QA + UX (2026-07-15)
 - ✅ **BUG-020**: Loop infinito em Patrocinadores (Radix `react-presence`) — `<Checkbox>` substituído por `<CheckMark>` custom
