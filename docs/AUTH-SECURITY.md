@@ -211,6 +211,7 @@ O `INSERT ... ON CONFLICT DO UPDATE` é **atómico ao nível da base de dados** 
 - `POST /api/auth/forgot-password` → 5 req / 15 min por IP
 - `POST /api/auth/reset-password` → 5 req / 15 min por IP
 - `POST /api/register` → 5 req / 60 min por IP
+- `POST /api/platform/clubs` → 20 req / 60 min por super admin (`platform:create-club:{userId}`)
 
 ### Extração de IP (ordem de prioridade)
 1. `CF-Connecting-IP` — Cloudflare (não pode ser falsificado atrás do CF)
@@ -333,6 +334,16 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 **Sem débito de segurança ativo relevante.** Ver ISSUES-BACKLOG.md para issues menores.
 
+## Vulnerabilidades Auditoria 2026-07-16
+
+| ID | Severidade | Resumo | Estado |
+|----|-----------|--------|--------|
+| SEC-027 | ~~ALTO~~ | `POST /api/attendance/[id]/records` — athleteIds submetidos não validados contra clube atual; IDOR permitia associar atletas de outro clube a sessões | ✅ Resolvido 2026-07-16 (validação explícita de ownership antes de upsert) |
+| SEC-028 | ~~MÉDIO~~ | `DELETE /api/admin/audit` — body sem Zod validation; tipo inferido por `as any` permitia body malformado sem erro | ✅ Resolvido 2026-07-16 (discriminatedUnion Zod schema) |
+| SEC-029 | ~~MÉDIO~~ | `PUT /api/admin/permissions/[userId]` — body destructurado diretamente sem validação; campos extra ou mal-tipados passavam silenciosamente para o Prisma | ✅ Resolvido 2026-07-16 (permissionsSchema com 21 campos boolean) |
+| SEC-030 | ~~BAIXO~~ | `POST /api/platform/clubs` — sem rate limiting; super admin podia criar volume elevado de clubes por erro ou script | ✅ Resolvido 2026-07-16 (20/hora por super admin via `checkRateLimit`) |
+| SEC-031 | ~~BAIXO~~ | Platform APIs (criar/suspender/eliminar clube) sem audit log — operações críticas invisíveis | ✅ Resolvido 2026-07-16 (CREATE_FREE_CLUB, CHANGE_CLUB_STATUS, DELETE_CLUB) |
+
 ---
 
 ## Fluxo de Registo (sem tempPassword)
@@ -360,6 +371,7 @@ export type AuditAction =
   | 'UPDATE_CLUB_LOGO' | 'REMOVE_CLUB_LOGO'
   | 'REGISTER'
   | 'SUBSCRIPTION_ACTIVATED' | 'PAYMENT_SUCCEEDED' | 'PAYMENT_FAILED' | 'SUBSCRIPTION_CANCELLED'
+  | 'CREATE_FREE_CLUB' | 'CHANGE_CLUB_STATUS' | 'DELETE_CLUB'
 ```
 
 Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.

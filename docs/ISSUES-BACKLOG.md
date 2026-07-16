@@ -5,6 +5,30 @@
 
 ## 🔴 Bugs Activos
 
+### ~~[SEC-027] IDOR em `PUT /api/attendance/[id]/records` — athleteIds não validados contra clube~~ ✅ RESOLVIDO 2026-07-16
+**Encontrado:** 2026-07-16 (auditoria de segurança). Body `{ records: [{ athleteId, present }] }` aceitava qualquer `athleteId` sem verificar se pertencia ao clube autenticado. Embora o Prisma Extension injete `clubId` no `create` branch do `upsert`, o `where` usa `sessionId_athleteId` (sem `clubId`), pelo que um `athleteId` de outro clube seria aceite.  
+**Fix:** antes do loop de upsert, `db.athlete.findMany({ where: { id: { in: submittedIds } } })` (tenant-scoped) valida todos os IDs — qualquer ID não pertencente ao clube retorna 400.
+
+---
+
+### ~~[SEC-028] `DELETE /api/admin/audit` — body sem validação Zod, tipo inferido por cast `as any`~~ ✅ RESOLVIDO 2026-07-16
+**Encontrado:** 2026-07-16 (auditoria de segurança). Body do DELETE era tratado sem schema Zod — body malformado ou com campos extra passava silenciosamente.  
+**Fix:** `discriminatedUnion` Zod schema com 3 modos (`all` / `before` + datetime / `ids` + array de UUIDs max 500).
+
+---
+
+### ~~[SEC-029] `PUT /api/admin/permissions/[userId]` — body destructurado sem validação~~ ✅ RESOLVIDO 2026-07-16
+**Encontrado:** 2026-07-16 (auditoria de segurança). Body com campos a mais, a menos, ou de tipo errado era passado diretamente ao Prisma sem validação — risco de escrita de permissões parcial ou com tipos incorretos.  
+**Fix:** `permissionsSchema` com 21 campos `z.boolean()` — falha com 400 se qualquer campo faltar ou tiver tipo errado.
+
+---
+
+### ~~[DEBT-023] `vitest.config.ts` não carregava `.env.local` — `npm test` falha sem DATABASE_URL explícito~~ ✅ RESOLVIDO 2026-07-16
+**Encontrado:** 2026-07-16 (execução de `npm test`). Vitest não carregava `.env.local` por defeito em Windows, resultando em `SASL: client password must be a string` (DATABASE_URL undefined na pool pg). Com `DATABASE_URL=...` explícito na linha de comando funcionava.  
+**Fix:** `vitest.config.ts` usa `loadEnv(mode, process.cwd(), '')` do Vite (que carrega `.env` + `.env.local` + `.env.{mode}`) e passa o resultado ao `test.env`. Todos os 67 testes passam com `npm test` sem variáveis explícitas.
+
+---
+
 ### ~~[BUG-022] Contador de têxteis mostra "itemns" em vez de "itens"~~ ✅ RESOLVIDO 2026-07-15
 **Encontrado:** 2026-07-15 (QA Playwright). Texto do contador de registos na página `/textiles` apresenta o plural com typo: "2 itemns" em vez de "2 itens".
 **Fix:** `item{items.length !== 1 ? 'ns' : ''}` → `{items.length !== 1 ? 'itens' : 'item'}` em `src/app/(dashboard)/textiles/page.tsx` linha 331.

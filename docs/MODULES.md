@@ -79,7 +79,9 @@
 | PATCH | `/api/platform/clubs/[id]/status` | Alterar estado (ACTIVE/SUSPENDED) |
 | DELETE | `/api/platform/clubs/[id]` | Eliminar clube (com validação elegibilidade) |
 
-Todas as rotas exigem `user.isSuperAdmin` — qualquer outro utilizador recebe 403.
+Todas as rotas exigem `user.isSuperAdmin` — qualquer outro utilizador recebe 403.  
+`POST /api/platform/clubs` tem rate limiting: 20 req/hora por super admin (`checkRateLimit`).  
+Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB_STATUS` (captura `previousStatus`/`newStatus`), `DELETE_CLUB` (snapshot de atletha/user count antes do cascade delete).
 
 ### Ficheiros chave
 - `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
@@ -548,7 +550,7 @@ AuditAction: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT' 
 - `GET/PUT/DELETE /api/attendance/[id]` → sessão individual
 - `PATCH /api/attendance/[id]/cancel` → cancelar/reativar (`{ cancelled, cancellationReason? }`)
 - `GET /api/attendance/[id]/records` → registos de presença (usa `db` — tenant-scoped)
-- `PUT /api/attendance/[id]/records` → upsert bulk (usa `db.attendanceRecord.upsert`, clubId auto-injectado; `{ records: [{athleteId, present, notes?}] }`)
+- `PUT /api/attendance/[id]/records` → upsert bulk (usa `db.attendanceRecord.upsert`, clubId auto-injectado; `{ records: [{athleteId, present, notes?}] }`). **Segurança:** antes do upsert, todos os `athleteId` são validados contra o clube atual via `db.athlete.findMany` — athleteIds de outros clubes → 400 (fix SEC-027)
 - `GET /api/attendance/schedules?season=` → horários por época
 - `POST /api/attendance/schedules` → criar horário recorrente
 - `PUT/DELETE /api/attendance/schedules/[id]` → editar/eliminar horário
