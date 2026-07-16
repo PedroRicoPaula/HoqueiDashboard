@@ -387,7 +387,7 @@ RateLimit {
 | `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
 | *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
 | `20260626000001_add_clubid_to_payment_models` | Jun 2026 | `clubId FK → Club (NOT NULL, CASCADE)` em `AthletePayment`, `Quota`, `DirectionSalaryPayment`, `AttendanceRecord`. Backfill via UPDATE das tabelas pai. Indexes `clubId_idx` em cada tabela. Resolve DEBT-017. | ✅ aplicada |
-| *(db push — Season feature)* | Jul 2026 | Modelo `Season`; `seasonId String?` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `[clubId, number]` para `[clubId, number, seasonId]`; indexes `seasonId` nas 4 tabelas. Aplicado via `db push --accept-data-loss` (dev local). | aplicada via `db push` |
+| `20260716000001_season_feature` | Jul 2026 | Modelo `Season` (CREATE TABLE + FK + indexes); `seasonId TEXT?` + FK `SetNull` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `(clubId,number)` para `(clubId,number,seasonId)` (DROP + CREATE UNIQUE INDEX); indexes `seasonId_idx` nas 4 tabelas. | ✅ aplicada |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:
@@ -400,12 +400,9 @@ Não existia `trainerAgeGroup` no schema original. A migration foi marcada como 
 
 ### Build Script (package.json)
 ```bash
-prisma migrate resolve --applied 20260511000001_direction_athlete_trainergroups 2>/dev/null || true
-prisma migrate deploy
-prisma generate
-next build
+prisma migrate resolve --applied 20260511000001_direction_athlete_trainergroups 2>/dev/null; prisma migrate deploy && prisma generate && next build
 ```
-O `resolve --applied` marca a 001 como "já aplicada" sem correr. O `|| true` garante que não falha se já estava marcada.
+O `resolve --applied` marca a 001 como "já aplicada" sem correr. O `;` (em vez de `&&`) garante que `migrate deploy` corre mesmo que o resolve falhe (ex: já estava marcada). Corre em Linux (Vercel) — em Windows dev usar `npm run dev`, não `npm run build`.
 
 ---
 
