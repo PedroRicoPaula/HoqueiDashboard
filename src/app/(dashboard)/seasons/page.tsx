@@ -190,6 +190,7 @@ export default function SeasonsPage() {
           {seasons.map((s) => (
             <div
               key={s.id}
+              data-testid={`season-card-${s.name.replace(/\//g, '-').replace(/\s+/g, '-')}`}
               className={cn(
                 'flex items-center gap-4 p-4 rounded-xl border transition-colors',
                 s.isActive

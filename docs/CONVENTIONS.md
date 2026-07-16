@@ -441,3 +441,98 @@ Usar `type="text"` com `placeholder="HH:MM"` e `maxLength={5}` em vez de `type="
 | Schemas Zod | camelCase + Schema | `createAthleteSchema` |
 | DB models | PascalCase (Prisma) | `DirectionMember` |
 | Enums Prisma | UPPER_CASE | `AgeGroup.SENIORS` |
+
+---
+
+## Checklist Pré-Deploy com Schema Changes
+
+> Lições aprendidas 2026-07-16 — dois deploys falhados consecutivos em produção.
+
+### Regras obrigatórias antes de cada push com alterações de schema
+
+**1. NUNCA usar `prisma db push` no build script de produção**  
+`db push` não usa `_prisma_migrations`. Em produção, usar sempre `prisma migrate deploy`.  
+`db push` **só** para dev local, **nunca** no `package.json build script**.
+
+**2. Qualquer mudança de `@@unique` EXIGE migration SQL manual**  
+`db push` rejeita mudanças de unique constraints sem `--accept-data-loss`. `migrate deploy` usa o SQL exacto da migration — que tem de incluir `DROP INDEX IF EXISTS` + `CREATE UNIQUE INDEX`.  
+Verificar sempre: se a migration tem `ALTER TABLE ... ADD CONSTRAINT ... UNIQUE` ou `CREATE UNIQUE INDEX`, testar localmente primeiro.
+
+**3. Switching de `db push` → `migrate deploy` em prod EXIGE baseline**  
+Se o DB de produção foi criado com `db push` (sem `_prisma_migrations`), e se passa a usar `migrate deploy`, todas as migrations antigas têm de ser marcadas como aplicadas antes de `migrate deploy` correr:
+
+```bash
+npx prisma migrate resolve --applied <migration_name>  # uma por uma
+```
+
+O script `scripts/resolve-migration.js` automatiza isto para o HoqueiManager: marca todas as migrations anteriores ao cutoff `20260716000001_season_feature` como baseline, sem correr SQL.
+
+**4. Verificar `_prisma_migrations` no Neon antes de cada deploy com novas migrations**  
+Via Neon console ou `prisma studio`, confirmar quais migrations estão registadas. Se o count for 0 (DB novo) ou muito menor que o esperado (DB criado via `db push`), o script de baseline vai ser necessário.
+
+### Sequência correcta para deploy com schema changes
+
+```bash
+# 1. Criar migration SQL manual (nunca deixar o Prisma gerar via migrate dev se há unique changes)
+mkdir -p prisma/migrations/YYYYMMDDHHMMSS_description
+# editar migration.sql com SQL exacto
+
+# 2. Build local para confirmar
+npm run build   # → node scripts/resolve-migration.js && prisma migrate deploy && prisma generate && next build
+
+# 3. Verificar que build local passa sem erros (0 TypeScript errors)
+
+# 4. Push → Vercel deploy automático
+git push
+```
+
+### Diagnóstico rápido de erros de deploy Prisma
+
+| Erro | Causa | Fix |
+|------|-------|-----|
+| `--accept-data-loss` | `db push` tentou mudar unique constraint | Criar migration SQL com `DROP INDEX IF EXISTS` + `CREATE UNIQUE INDEX` |
+| `P3018 / type "X" already exists` | `migrate deploy` tentou re-aplicar migrations já no DB | Script baseline `resolve-migration.js` para marcar as existentes como aplicadas |
+| `P3009 / migration failed` | SQL da migration tem erro de sintaxe ou objeto já existe | Corrigir SQL; adicionar `IF NOT EXISTS` / `IF EXISTS` onde adequado |
+| `P1001 / can't reach database` | `DATABASE_URL` errada ou Neon em sleep | Verificar env var no Vercel; acordar Neon |
+
+---
+
+## Playwright E2E — Guia Rápido
+
+Tests em `e2e/`. Requer dev server em `localhost:3000` (ou `reuseExistingServer: true` no config).
+
+```bash
+# Setup uma vez (instala browsers)
+npx playwright install chromium
+
+# Seed dados de teste
+npx tsx scripts/seed-test-clubs.js
+
+# Correr todos os E2E
+npm run test:e2e
+
+# Correr com UI interativa
+npm run test:e2e:ui
+
+# Correr um ficheiro específico
+npx playwright test e2e/seasons.spec.ts
+```
+
+### Estrutura dos testes de épocas
+
+| Ficheiro | O que testa |
+|----------|-------------|
+| `e2e/auth.setup.ts` | Login + save session state |
+| `e2e/seasons.spec.ts` | CRUD de épocas: criar, ativar, editar, eliminar |
+| `e2e/seasons-members.spec.ts` | Isolamento sócios: mesmo nº em 2 épocas |
+| `e2e/seasons-sponsors.spec.ts` | Isolamento patrocinadores por época |
+| `e2e/seasons-fees.spec.ts` | Meses dinâmicos da grelha de mensalidades |
+| `e2e/seasons-dashboard.spec.ts` | Stats filtradas por época |
+
+### Padrões obrigatórios nos testes E2E
+
+- **Usar `page.evaluate(() => fetch(...))`** para chamadas API dentro de testes — garante `Origin` header correcto (CSRF pass). **Nunca** `page.request.post()` para rotas que passam pelo middleware CSRF.
+- **Zustand reset**: `clearSeasonFilter()` limpa `localStorage['hm-season'].state.selectedSeasonId` + `page.reload()`. Chamar sempre em `beforeEach` ou no início de cada test que precisa de estado limpo.
+- **data-testid**: usar `data-testid="season-selector"` no trigger do SeasonSelector e `data-testid="season-card-{slug}"` nos cards de época para selectors robustos.
+- **Cleanup em `afterAll`**: apagar seasons via API (cascade deleta members/sponsors linked). Order: deletar a mais recente primeiro (B antes de A) para evitar FK issues.
+- **`beforeAll` com browser context separado**: criar dados de teste num context isolado que fecha antes dos tests correrem — evita interferência de state entre setup e testes.

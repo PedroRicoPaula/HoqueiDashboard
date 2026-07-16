@@ -48,6 +48,7 @@ export function SeasonSelector() {
   return (
     <div ref={ref} className="relative px-3">
       <button
+        data-testid="season-selector"
         onClick={() => setOpen((o) => !o)}
         className={cn(
           'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors',
