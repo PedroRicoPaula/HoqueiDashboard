@@ -44,6 +44,21 @@ npx prisma migrate dev --name add_novo_modelo
 ```
 Usar `IF NOT EXISTS` nas migrações corretivas para ser idempotente.
 
+**Alterar uma `@@unique` em produção — padrão obrigatório:**  
+Nunca fazer `db push` para mudar unique constraints em produção (Prisma rejeita sem `--accept-data-loss`). Criar sempre uma migration SQL manual:
+```sql
+-- DROP da constraint antiga (IF EXISTS é segurança se o nome variar)
+DROP INDEX IF EXISTS "Member_clubId_number_key";
+-- CREATE da nova (Prisma gera nomes no padrão TableName_col1_col2_key)
+CREATE UNIQUE INDEX "Member_clubId_number_seasonId_key" ON "Member"("clubId", "number", "seasonId");
+```
+**PostgreSQL e NULLs em unique indexes:** dois NULLs numa coluna de um unique index são considerados DISTINTOS (não violam a constraint). Portanto, adicionar uma coluna nullable a uma `@@unique` existente é seguro para rows existentes — todas ficam com NULL e não conflituam entre si.
+
+**Nome das constraints geradas pelo Prisma:**
+- `@@unique([a, b])` → `TableName_a_b_key` (unique index)
+- `@@index([a, b])` → `TableName_a_b_idx` (regular index)
+- `@unique` em campo único → `TableName_field_key`
+
 ### 3. Validação Zod
 ```typescript
 // src/lib/validations.ts — adicionar schemas
@@ -83,8 +98,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 ```
 
 **Regra multi-tenant:**
-- Usar `db` (de `getDbForRequest`) para **todos os modelos TENANTED (15)**:
-  Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, **AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord**
+- Usar `db` (de `getDbForRequest`) para **todos os modelos TENANTED (16)**:
+  **Season**, Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, **AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord**
 - Usar `prisma` (import global) para modelos NÃO TENANTED: User, Permission, Playbook, RateLimit
 - **Nunca adicionar `where: { clubId }` manualmente em modelos TENANTED** — a extension injeta automaticamente em `findMany`, `findFirst`, `findUnique`, `update`, `updateMany`, `delete`, `deleteMany`, `count`, `aggregate`, `groupBy`
 - **`upsert` em modelos TENANTED** — a extension injeta `clubId` no bloco `create` **e** valida ownership via `findFirst` antes de correr (lança erro se o registo encontrado pertencer a outro clube). O `where` de compound key (`athleteId_month_year`, etc.) não é alterado — o `WhereUniqueInput` gerado pelo Prisma para estes modelos não aceita `clubId` como filtro extra. Ver SEC-026 em `docs/AUTH-SECURITY.md`.

@@ -415,18 +415,21 @@ npx prisma db seed
 ```
 
 ## Setup local (fresh install)
-A tabela `Club` e colunas `clubId` foram adicionadas ao schema sem migration explícita. `prisma migrate dev` falha em BD nova porque `20260619000001` tenta `ALTER TABLE "Club"` antes da tabela existir.
+A tabela `Club` e colunas `clubId` foram adicionadas ao schema sem migration explícita (via `db push`). `prisma migrate dev` falha em BD nova porque `20260619000001` tenta `ALTER TABLE "Club"` antes da tabela existir.
 
-**Workaround dev:**
+**Workaround dev (fresh install):**
 ```bash
 $env:DATABASE_URL="postgresql://postgres:postgresql123@localhost:5432/hoqueimanager"
-npx prisma db push   # sincroniza schema sem migrations (ok para dev)
+npx prisma db push   # cria schema completo a partir do schema.prisma (sem migrations)
 npx prisma db seed   # cria superadmin
 ```
+`db push` em dev é a abordagem correta para fresh install — cria o schema sem histórico de migrações.
 
-**Produção:** `prisma migrate deploy` funciona normalmente — Club existia antes do deploy das migrations recentes. Não afetado.
+> ⚠️ **`npm run build` não funciona em dev após `db push`** — o build script usa `prisma migrate deploy`, que espera a tabela `_prisma_migrations` populada. Em dev, usar apenas `npm run dev`. Se precisares de testar o build local, aplica as migrações manualmente ou usa um ambiente com a Neon DB.
 
-Fix técnico correto (futuro): squash das migrations para incluir Club na migration init, ou criar migration `20260616000001_multi_tenant_base` com o CREATE TABLE Club e ALTER TABLE ... ADD COLUMN clubId.
+**Produção (Vercel + Neon):** `prisma migrate deploy` funciona normalmente — o DB Neon tem a tabela `_prisma_migrations` com todas as migrations aplicadas corretamente. Cada novo deploy aplica apenas as migrations pendentes.
+
+Fix técnico correto (futuro): squash das migrations para incluir Club na migration init, ou criar migration `20260616000001_multi_tenant_base` com o CREATE TABLE Club e ALTER TABLE ... ADD COLUMN clubId. Enquanto este fix não existir, fresh installs dev usam `db push`.
 
 **Se já tens uma BD dev criada por `db push` e o schema ganhou colunas novas depois disso** (ex. a migration `20260626000001_add_clubid_to_payment_models`): correr `npx prisma db push` outra vez recusa-se se houver dados existentes que ficariam com a coluna nova sem valor. Nesse caso aplica a migration à mão: `psql -d hoqueimanager -f prisma/migrations/<pasta>/migration.sql` (já tem backfill, não perde dados). **Também correr `npx prisma generate`** — o client gerado localmente não actualiza sozinho, e campos em falta nos tipos gerados escondem erros de TypeScript reais (ver BUG-016 em `docs/ISSUES-BACKLOG.md`).
 
