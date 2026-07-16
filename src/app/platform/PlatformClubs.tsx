@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -57,6 +58,7 @@ function canDelete(club: Club): boolean {
 }
 
 export default function PlatformClubs({ initialClubs }: Props) {
+  const router = useRouter()
   const [clubs, setClubs] = useState<Club[]>(initialClubs)
   const [createOpen, setCreateOpen] = useState(false)
   const [suspendTarget, setSuspendTarget] = useState<Club | null>(null)
@@ -91,8 +93,7 @@ export default function PlatformClubs({ initialClubs }: Props) {
       if (!res.ok) { setError(json.error ?? 'Erro ao criar clube'); return }
       setCreateOpen(false)
       setForm({ clubName: '', clubEmail: '', country: 'pt', language: 'pt', adminName: '', adminEmail: '', adminPassword: '' })
-      // Refresh page data
-      window.location.reload()
+      router.refresh()
     } catch {
       setError('Erro de ligação')
     } finally {
