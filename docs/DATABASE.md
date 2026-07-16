@@ -400,9 +400,18 @@ Não existia `trainerAgeGroup` no schema original. A migration foi marcada como 
 
 ### Build Script (package.json)
 ```bash
-prisma migrate resolve --applied 20260511000001_direction_athlete_trainergroups 2>/dev/null; prisma migrate deploy && prisma generate && next build
+node scripts/resolve-migration.js && prisma migrate deploy && prisma generate && next build
 ```
-O `resolve --applied` marca a 001 como "já aplicada" sem correr. O `;` (em vez de `&&`) garante que `migrate deploy` corre mesmo que o resolve falhe (ex: já estava marcada). Corre em Linux (Vercel) — em Windows dev usar `npm run dev`, não `npm run build`.
+
+**`scripts/resolve-migration.js`** — baseline cross-platform (CommonJS, sem dependências):
+- Lê todos os diretórios de `prisma/migrations/`
+- Para cada migration cujo nome é lexicograficamente **anterior** a `20260716000001_season_feature`, corre `prisma migrate resolve --applied <name>`
+- Migrações já tracked no `_prisma_migrations` são capturadas pelo `catch` e ignoradas — script é idempotente
+- Migrações `>= 20260716000001` não são tocadas → `prisma migrate deploy` trata-as normalmente
+
+**Porquê o baseline:** o DB de produção (Neon) foi criado com `prisma db push` antes de haver histórico de migrations. A tabela `_prisma_migrations` não existia ou estava incompleta. `migrate deploy` tentava aplicar o `init` desde o zero mas os tipos/tabelas já existiam → erro `42710`.
+
+**Para novas migrations:** basta criar o ficheiro em `prisma/migrations/YYYYMMDDXXXXXX_nome/migration.sql`. O nome será `>= 20260716` → baseline não o toca → `migrate deploy` aplica-o.
 
 ---
 
