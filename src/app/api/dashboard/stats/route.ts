@@ -9,28 +9,61 @@ function getCurrentSeasonStart(): number {
   return month >= 9 ? year : year - 1
 }
 
+function computeSeasonMonths(startDate: Date, endDate: Date): Array<{ year: number; month: number }> {
+  const months: Array<{ year: number; month: number }> = []
+  const d = new Date(startDate)
+  d.setDate(1)
+  const end = new Date(endDate)
+  while (d <= end) {
+    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+    d.setMonth(d.getMonth() + 1)
+  }
+  return months
+}
+
 export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
     if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     const { db } = ctx
 
+    const { searchParams } = new URL(req.url)
+    const seasonId = searchParams.get('seasonId') || null
+
     const now = new Date()
     const currentMonth = now.getMonth() + 1
     const currentYear = now.getFullYear()
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-    const seasonStart = getCurrentSeasonStart()
-    const seasonEnd = seasonStart + 1
 
-    // All past season months (Sep-Dec of seasonStart + Jan-Jun of seasonEnd that already passed)
-    const pastSeasonMonths: { year: number; month: number }[] = [
-      ...[9, 10, 11, 12]
-        .filter(m => seasonStart < currentYear || (seasonStart === currentYear && m < currentMonth))
-        .map(m => ({ year: seasonStart, month: m })),
-      ...[1, 2, 3, 4, 5, 6]
-        .filter(m => seasonEnd < currentYear || (seasonEnd === currentYear && m < currentMonth))
-        .map(m => ({ year: seasonEnd, month: m })),
-    ]
+    let seasonStart: number
+    let seasonEnd: number
+    let seasonLabelStr: string
+    let allSeasonMonths: Array<{ year: number; month: number }>
+    let seasonFilter: { seasonId: string } | Record<string, never> = {}
+
+    if (seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId } })
+      if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
+      const s = season as { name: string; startDate: Date; endDate: Date }
+      seasonLabelStr = s.name
+      seasonStart = new Date(s.startDate).getFullYear()
+      seasonEnd = new Date(s.endDate).getFullYear()
+      allSeasonMonths = computeSeasonMonths(new Date(s.startDate), new Date(s.endDate))
+      seasonFilter = { seasonId }
+    } else {
+      seasonStart = getCurrentSeasonStart()
+      seasonEnd = seasonStart + 1
+      seasonLabelStr = `${seasonStart}/${(seasonStart + 1).toString().slice(-2)}`
+      allSeasonMonths = [
+        ...[9, 10, 11, 12].map(m => ({ year: seasonStart, month: m })),
+        ...[1, 2, 3, 4, 5, 6].map(m => ({ year: seasonEnd, month: m })),
+      ]
+    }
+
+    // Past months from the season range
+    const pastSeasonMonths = allSeasonMonths.filter(({ year, month }) =>
+      year < currentYear || (year === currentYear && month < currentMonth)
+    )
     const totalPastSeasonMonths = pastSeasonMonths.length
 
     const [
@@ -61,8 +94,8 @@ export async function GET(req: Request) {
       directionSalariesAgg,
     ] = await Promise.all([
       db.athlete.count(),
-      db.member.count(),
-      db.sponsor.count(),
+      db.member.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
+      db.sponsor.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
       db.material.count(),
       db.athlete.groupBy({ by: ['ageGroup'], _count: { id: true } }),
       db.material.groupBy({ by: ['state'], _count: { id: true } }),
@@ -101,16 +134,15 @@ export async function GET(req: Request) {
           })
         : Promise.resolve([] as { id: string; payments: { id: string }[] }[]),
       // Athlete fee revenue for current season
-      db.athletePayment.aggregate({
-        _sum: { amount: true },
-        where: {
-          paid: true,
-          OR: [
-            { year: seasonStart, month: { in: [9, 10, 11, 12] } },
-            { year: seasonEnd, month: { in: [1, 2, 3, 4, 5, 6] } },
-          ],
-        },
-      }),
+      allSeasonMonths.length > 0
+        ? db.athletePayment.aggregate({
+            _sum: { amount: true },
+            where: {
+              paid: true,
+              OR: allSeasonMonths.map(({ year, month }) => ({ year, month })),
+            },
+          })
+        : Promise.resolve({ _sum: { amount: null } }),
       // Member quotas paid this year — use stored amount, fallback to current monthlyQuota
       db.quota.findMany({
         where: { paid: true, year: currentYear },
@@ -119,7 +151,7 @@ export async function GET(req: Request) {
       // Active sponsor annual contributions
       db.sponsor.aggregate({
         _sum: { annualContribution: true },
-        where: { contractEnd: { gte: now } },
+        where: { contractEnd: { gte: now }, ...seasonFilter },
       }),
       // Total material cost (all materials with a value set)
       db.material.aggregate({
@@ -198,7 +230,7 @@ export async function GET(req: Request) {
       lateQuotas,
       athletesWithLatePayments,
       revenue: {
-        seasonLabel: `${seasonStart}/${(seasonStart + 1).toString().slice(-2)}`,
+        seasonLabel: seasonLabelStr,
         athleteFees: (athleteFeeRevenue as { _sum: { amount: number | null } })._sum.amount ?? 0,
         memberQuotas: totalMemberQuotaRevenue,
         sponsors: (sponsorRevenueAgg as { _sum: { annualContribution: number | null } })._sum.annualContribution ?? 0,

@@ -17,46 +17,50 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const search = searchParams.get('search') || ''
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() + 1
+    const search    = searchParams.get('search') || ''
+    const page      = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
+    const seasonId  = searchParams.get('seasonId') || null
 
     const searchNum = search ? parseInt(search) : NaN
-    const where = search
+    const searchFilter = search
       ? { OR: [
-          { name: { contains: search, mode: 'insensitive' as const } },
+          { name:  { contains: search, mode: 'insensitive' as const } },
           { email: { contains: search, mode: 'insensitive' as const } },
           ...(!isNaN(searchNum) ? [{ number: searchNum }] : []),
         ]}
       : {}
 
+    const seasonFilter = seasonId ? { seasonId } : {}
+    const where = { ...searchFilter, ...seasonFilter }
+
+    // Determine which year's quotas to show (based on selected season's end year, or current year)
+    let quotaYear = new Date().getFullYear()
+    if (seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId }, select: { endDate: true } })
+      if (season) quotaYear = new Date(season.endDate).getFullYear()
+    }
+
     type MemberRow = {
       id: string; number: number; name: string; phone: string | null; email: string | null;
-      address: string | null; monthlyQuota: number; createdAt: Date; updatedAt: Date;
+      address: string | null; monthlyQuota: number; seasonId: string | null; createdAt: Date; updatedAt: Date;
+      season: { id: string; name: string } | null;
       quotas: { month: number; paid: boolean }[]
     }
 
     const toResult = (members: MemberRow[]) =>
       members.map(({ quotas, ...rest }) => {
         const paidCount = quotas.filter((q) => q.paid).length
-        const pastMonthCount = currentMonth - 1
-        const lateMonths = rest.monthlyQuota > 0
-          ? Array.from({ length: pastMonthCount }, (_, i) => i + 1).filter((month) => {
-              const quota = quotas.find((q) => q.month === month)
-              return !quota?.paid
-            }).length
-          : 0
-        return { ...rest, paidCount, lateMonths }
+        return { ...rest, paidCount }
       })
 
     const [membersData, total] = await Promise.all([
       db.member.findMany({
         where,
         orderBy: { number: 'asc' },
-        include: { quotas: { where: { year: currentYear }, select: { month: true, paid: true } } },
+        include: {
+          season: { select: { id: true, name: true } },
+          quotas: { where: { year: quotaYear }, select: { month: true, paid: true } },
+        },
         skip: (page - 1) * PAGE_SIZE,
         take: PAGE_SIZE,
       }),
@@ -90,14 +94,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    // Compute next sequential number for this club
-    const maxResult = await db.member.aggregate({ _max: { number: true } })
+    const { seasonId, ...rest } = parsed.data
+
+    // Next number is scoped to this season (or global if no season)
+    const maxResult = await db.member.aggregate({
+      _max: { number: true },
+      ...(seasonId ? { where: { seasonId } } : {}),
+    })
     const nextNumber = ((maxResult as { _max: { number: number | null } })._max.number ?? 0) + 1
 
-    const member = await db.member.create({ data: { ...parsed.data, number: nextNumber, clubId: ctx.clubId } })
-    await logAudit(req, user.id, user.email, 'CREATE', 'Member', (member as { id: string }).id, { name: (member as { name: string }).name })
+    const member = await db.member.create({
+      data: { ...rest, seasonId: seasonId ?? null, number: nextNumber, clubId: ctx.clubId },
+    })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Member', (member as { id: string }).id, {
+      name: (member as { name: string }).name,
+      seasonId: seasonId ?? null,
+    })
     return NextResponse.json(member, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
+    if ((error as { code?: string }).code === 'P2002') {
+      return NextResponse.json({ error: 'Já existe um sócio com esse número nesta época' }, { status: 409 })
+    }
     logger.error('Members POST error:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

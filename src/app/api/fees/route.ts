@@ -14,6 +14,18 @@ function getCurrentSeasonStart(): number {
   return month >= 9 ? year : year - 1
 }
 
+function computeSeasonMonths(startDate: Date, endDate: Date): Array<{ year: number; month: number }> {
+  const months: Array<{ year: number; month: number }> = []
+  const d = new Date(startDate)
+  d.setDate(1)
+  const end = new Date(endDate)
+  while (d <= end) {
+    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
+    d.setMonth(d.getMonth() + 1)
+  }
+  return months
+}
+
 type AthleteWithPayments = {
   id: string; number: number; name: string; ageGroup: string;
   monthlyFee: number; feeExempt: boolean;
@@ -30,12 +42,30 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const seasonStart = searchParams.get('season')
-      ? parseInt(searchParams.get('season')!)
-      : getCurrentSeasonStart()
+    const seasonId = searchParams.get('seasonId') || null
     const ageGroup = searchParams.get('ageGroup') || ''
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-    const seasonEnd = seasonStart + 1
+
+    // Compute months — from Season record or hardcoded fallback
+    let months: Array<{ year: number; month: number }>
+    let seasonStart: number
+    let seasonLabel: string | undefined
+
+    if (seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId } })
+      if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
+      months = computeSeasonMonths(new Date((season as { startDate: Date }).startDate), new Date((season as { endDate: Date }).endDate))
+      seasonStart = new Date((season as { startDate: Date }).startDate).getFullYear()
+      seasonLabel = (season as { name: string }).name
+    } else {
+      const yearParam = searchParams.get('season')
+      seasonStart = yearParam ? parseInt(yearParam) : getCurrentSeasonStart()
+      const seasonEnd = seasonStart + 1
+      months = [
+        ...SEASON_MONTHS_FIRST_HALF.map((month) => ({ year: seasonStart, month })),
+        ...SEASON_MONTHS_SECOND_HALF.map((month) => ({ year: seasonEnd, month })),
+      ]
+    }
 
     const where = {
       ageGroup: { not: 'SENIORS' as never },
@@ -49,19 +79,15 @@ export async function GET(req: Request) {
     const isMonthPast = (month: number, year: number) =>
       year < currentYear || (year === currentYear && month < currentMonth)
 
+    // Payment filter: OR of all season month/year pairs
+    const paymentWhere = {
+      OR: months.map(({ year, month }) => ({ year, month })),
+    }
+
     // Get summary from ALL athletes (not paginated)
     const allAthletes = await db.athlete.findMany({
       where,
-      include: {
-        payments: {
-          where: {
-            OR: [
-              { year: seasonStart, month: { in: SEASON_MONTHS_FIRST_HALF } },
-              { year: seasonEnd, month: { in: SEASON_MONTHS_SECOND_HALF } },
-            ],
-          },
-        },
-      },
+      include: { payments: { where: paymentWhere } },
     }) as unknown as AthleteWithPayments[]
 
     let totalCollected = 0
@@ -74,17 +100,10 @@ export async function GET(req: Request) {
       let hasArrears = false
       let allPastPaid = true
 
-      for (const month of SEASON_MONTHS_FIRST_HALF) {
-        const payment = paymentsMap.get(`${seasonStart}-${month}`)
+      for (const { year, month } of months) {
+        const payment = paymentsMap.get(`${year}-${month}`)
         if (payment?.paid && payment.amount != null) totalCollected += payment.amount
-        if (!athlete.feeExempt && athlete.monthlyFee > 0 && isMonthPast(month, seasonStart) && !payment?.paid) {
-          hasArrears = true; allPastPaid = false; totalPending += athlete.monthlyFee
-        }
-      }
-      for (const month of SEASON_MONTHS_SECOND_HALF) {
-        const payment = paymentsMap.get(`${seasonEnd}-${month}`)
-        if (payment?.paid && payment.amount != null) totalCollected += payment.amount
-        if (!athlete.feeExempt && athlete.monthlyFee > 0 && isMonthPast(month, seasonEnd) && !payment?.paid) {
+        if (!athlete.feeExempt && athlete.monthlyFee > 0 && isMonthPast(month, year) && !payment?.paid) {
           hasArrears = true; allPastPaid = false; totalPending += athlete.monthlyFee
         }
       }
@@ -103,12 +122,7 @@ export async function GET(req: Request) {
       where,
       include: {
         payments: {
-          where: {
-            OR: [
-              { year: seasonStart, month: { in: SEASON_MONTHS_FIRST_HALF } },
-              { year: seasonEnd, month: { in: SEASON_MONTHS_SECOND_HALF } },
-            ],
-          },
+          where: paymentWhere,
           orderBy: [{ year: 'asc' }, { month: 'asc' }],
         },
       },
@@ -138,6 +152,8 @@ export async function GET(req: Request) {
         exemptAthletes: allAthletes.filter((a) => a.feeExempt).length,
       },
       seasonStart,
+      seasonLabel,
+      months,
       page,
       pages,
       total,

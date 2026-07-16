@@ -14,7 +14,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
-    const sponsors = await db.sponsor.findMany({ orderBy: { name: 'asc' } })
+    const { searchParams } = new URL(req.url)
+    const seasonId = searchParams.get('seasonId') || null
+    const where = seasonId ? { seasonId } : {}
+    const sponsors = await db.sponsor.findMany({ where, orderBy: { name: 'asc' } })
     return NextResponse.json(sponsors)
   } catch (error) {
     logger.error('Sponsors GET error:', error)
@@ -37,12 +40,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { contractStart, contractEnd, ...rest } = parsed.data
+    const { contractStart, contractEnd, seasonId, ...rest } = parsed.data
     const sponsor = await db.sponsor.create({
-      data: { ...rest, contractStart: new Date(contractStart), contractEnd: new Date(contractEnd), clubId: ctx.clubId },
+      data: { ...rest, contractStart: new Date(contractStart), contractEnd: new Date(contractEnd), seasonId: seasonId ?? null, clubId: ctx.clubId },
     })
 
-    await logAudit(req, user.id, user.email, 'CREATE', 'Sponsor', (sponsor as { id: string }).id, { name: (sponsor as { name: string }).name })
+    await logAudit(req, user.id, user.email, 'CREATE', 'Sponsor', (sponsor as { id: string }).id, { name: (sponsor as { name: string }).name, seasonId: seasonId ?? null })
     return NextResponse.json(sponsor, { status: 201 })
   } catch (error) {
     logger.error('Sponsors POST error:', error)

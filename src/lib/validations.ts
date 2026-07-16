@@ -1,6 +1,16 @@
 import { z } from 'zod'
 import { DIRECTION_ROLES } from '@/lib/constants'
 
+// ─── Seasons ──────────────────────────────────────────────────────────────────
+
+export const createSeasonSchema = z.object({
+  name:      z.string().min(3, 'Nome obrigatório (ex: 2025/2026)').max(20),
+  startDate: z.string().min(1, 'Data de início obrigatória'),
+  endDate:   z.string().min(1, 'Data de fim obrigatória'),
+})
+
+export const updateSeasonSchema = createSeasonSchema.partial()
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const loginSchema = z.object({
@@ -38,10 +48,11 @@ export const updateAthleteSchema = createAthleteSchema.partial()
 // ─── Members ──────────────────────────────────────────────────────────────────
 
 export const createMemberSchema = z.object({
-  name: z.string().min(2, 'Nome obrigatório'),
-  phone: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
-  address: z.string().optional(),
+  name:         z.string().min(2, 'Nome obrigatório'),
+  seasonId:     z.string().uuid('Época inválida').optional().nullable(),
+  phone:        z.string().optional(),
+  email:        z.string().email('Email inválido').optional().or(z.literal('')),
+  address:      z.string().optional(),
   monthlyQuota: z.coerce.number().min(0).default(0),
 })
 
@@ -65,19 +76,20 @@ export const updateMaterialSchema = createMaterialSchema.partial()
 // ─── Sponsors ─────────────────────────────────────────────────────────────────
 
 export const createSponsorSchema = z.object({
-  name: z.string().min(1, 'Nome obrigatório'),
-  website: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  name:               z.string().min(1, 'Nome obrigatório'),
+  seasonId:           z.string().uuid('Época inválida').optional().nullable(),
+  website:            z.string().optional(),
+  phone:              z.string().optional(),
+  email:              z.string().email('Email inválido').optional().or(z.literal('')),
   annualContribution: z.coerce.number().min(0).default(0),
-  contractStart: z.string().min(1, 'Data de início obrigatória'),
-  contractEnd: z.string().min(1, 'Data de fim obrigatória'),
-  notes: z.string().optional(),
-  logoUrl: z.string().optional().nullable(),
-  sponsorTypes: z.array(z.string()).default([]),
-  equipmentZones: z.array(z.coerce.number().int().min(1).max(6)).default([]),
-  bannerCount: z.coerce.number().int().min(0).optional().nullable(),
-  includesSticks: z.boolean().default(false),
+  contractStart:      z.string().min(1, 'Data de início obrigatória'),
+  contractEnd:        z.string().min(1, 'Data de fim obrigatória'),
+  notes:              z.string().optional(),
+  logoUrl:            z.string().optional().nullable(),
+  sponsorTypes:       z.array(z.string()).default([]),
+  equipmentZones:     z.array(z.coerce.number().int().min(1).max(6)).default([]),
+  bannerCount:        z.coerce.number().int().min(0).optional().nullable(),
+  includesSticks:     z.boolean().default(false),
   includesShinguards: z.boolean().default(false),
 })
 

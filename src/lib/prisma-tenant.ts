@@ -5,6 +5,7 @@ import { prisma } from './prisma'
 // (migration 20260626000001) and are listed below. Playbook has no clubId column — it is
 // protected via parent Training ownership checks in its route, not by this extension.
 const TENANTED = new Set([
+  'season',
   'athlete', 'member', 'sponsor', 'material', 'travel',
   'directionmember', 'training', 'trainingschedule',
   'trainingsession', 'textileitem', 'auditlog',

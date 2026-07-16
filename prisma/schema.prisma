@@ -28,6 +28,7 @@ model Club {
   statusChangedAt        DateTime?
   users                  User[]
   athletes               Athlete[]
+  seasons                Season[]
   members                Member[]
   sponsors               Sponsor[]
   materials              Material[]
@@ -156,6 +157,30 @@ model AuditLog {
 }
 
 // ─────────────────────────────────────────
+// Seasons (épocas desportivas, ex: 2025/2026)
+// ─────────────────────────────────────────
+
+model Season {
+  id              String           @id @default(uuid())
+  clubId          String
+  club            Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name            String           // ex: "2025/2026"
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean          @default(false)
+  members         Member[]
+  sponsors        Sponsor[]
+  athletePayments AthletePayment[]
+  quotas          Quota[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([clubId, name])
+  @@index([clubId])
+  @@index([clubId, isActive])
+}
+
+// ─────────────────────────────────────────
 // Athletes
 // ─────────────────────────────────────────
 
@@ -201,6 +226,8 @@ model AthletePayment {
   club      Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   athleteId String
   athlete   Athlete   @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  seasonId  String?
+  season    Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   month     Int
   year      Int
   paid      Boolean   @default(false)
@@ -212,6 +239,7 @@ model AthletePayment {
   @@index([clubId])
   @@index([athleteId, year])
   @@index([year, month])
+  @@index([seasonId])
 }
 
 enum AgeGroup {
@@ -231,6 +259,8 @@ model Member {
   id           String   @id @default(uuid())
   clubId       String
   club         Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  seasonId     String?
+  season       Season?  @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   number       Int
   name         String
   phone        String?
@@ -241,9 +271,10 @@ model Member {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([clubId, number])
+  @@unique([clubId, number, seasonId])
   @@index([clubId])
   @@index([clubId, name])
+  @@index([seasonId])
 }
 
 model Quota {
@@ -252,6 +283,8 @@ model Quota {
   club     Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
   memberId String
   member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  seasonId String?
+  season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   month    Int
   year     Int
   paid     Boolean   @default(false)
@@ -262,6 +295,7 @@ model Quota {
   @@unique([memberId, month, year])
   @@index([clubId])
   @@index([memberId, year])
+  @@index([seasonId])
 }
 
 // ─────────────────────────────────────────
@@ -310,6 +344,8 @@ model Sponsor {
   id                 String   @id @default(uuid())
   clubId             String
   club               Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  seasonId           String?
+  season             Season?  @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   name               String
   website            String?
   phone              String?
@@ -330,6 +366,7 @@ model Sponsor {
 
   @@index([clubId])
   @@index([clubId, contractEnd])
+  @@index([seasonId])
 }
 
 // ─────────────────────────────────────────
