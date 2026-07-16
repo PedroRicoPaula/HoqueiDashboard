@@ -5,7 +5,7 @@
 **Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
 **URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-07-15
+**Data última auditoria:** 2026-07-16
 
 > ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
@@ -205,9 +205,18 @@ messages/                      # Traduções next-intl
 - ✅ **Rate limit**: adicionado a `/api/register` (5/hora) e `/api/auth/reset-password` (5/15min)
 - ✅ **Setup route**: CSRF inline + `isSuperAdmin: true` para o super admin criado
 - ✅ **Audit completo**: `logAudit` adicionado a forgot-password, webhook Stripe (4 eventos), register
-- ✅ **AuditAction type**: alargado com REGISTER, SUBSCRIPTION_ACTIVATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, SUBSCRIPTION_CANCELLED, PASSWORD_RESET_REQUEST
+- ✅ **AuditAction type**: alargado com REGISTER, SUBSCRIPTION_ACTIVATED, PAYMENT_SUCCEEDED, PAYMENT_FAILED, SUBSCRIPTION_CANCELLED, PASSWORD_RESET_REQUEST, CREATE_FREE_CLUB, CHANGE_CLUB_STATUS, DELETE_CLUB
 - ✅ **CSP img-src dinâmico**: lê `R2_PUBLIC_URL` em build time para permitir custom domains R2
 - ✅ **Build limpo**: 0 erros TypeScript, 58 páginas geradas
+
+### Auditoria de Segurança Avançada (2026-07-16) — commit b231b18
+- ✅ **IDOR fix**: `/api/attendance/[id]/records` valida todos os `athleteId` submetidos contra o club atual antes de upsert
+- ✅ **Zod hardening**: `admin/audit` DELETE usa `discriminatedUnion` schema; `admin/permissions/[userId]` PUT usa schema com todos os 21 campos boolean
+- ✅ **Platform rate limiting**: `POST /api/platform/clubs` limitado a 20 criações/hora por super admin
+- ✅ **Audit log platform**: CREATE_FREE_CLUB, CHANGE_CLUB_STATUS (captura previousStatus), DELETE_CLUB (snapshot antes de cascade delete)
+- ✅ **Vitest config fix**: `loadEnv` do Vite no config resolve DATABASE_URL de `.env.local` em ambiente de testes
+- ✅ **20 ataques testados**: CSRF, JWT manipulation, privilege escalation, XSS, SQL injection, path traversal, IDOR, tenant isolation, rate limit bypass, payload flood, open redirect — todos bloqueados
+- ✅ **Build limpo**: 0 erros TypeScript, 59 páginas geradas, 67/67 testes Vitest passam
 
 ### QA + UX (2026-07-15)
 - ✅ **BUG-020**: Loop infinito em Patrocinadores (Radix `react-presence`) — `<Checkbox>` substituído por `<CheckMark>` custom
