@@ -2,16 +2,18 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromRequest, hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { logAudit } from '@/lib/audit'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 import { z } from 'zod'
 
 const createFreeClubSchema = z.object({
-  clubName:      z.string().min(2),
-  clubEmail:     z.string().email(),
+  clubName:      z.string().min(2).max(100),
+  clubEmail:     z.string().email().max(255),
   country:       z.string().min(2).max(2).default('pt'),
   language:      z.string().min(2).max(2).default('pt'),
-  adminName:     z.string().min(2),
-  adminEmail:    z.string().email(),
-  adminPassword: z.string().min(8),
+  adminName:     z.string().min(2).max(100),
+  adminEmail:    z.string().email().max(255),
+  adminPassword: z.string().min(8).max(128),
 })
 
 export async function POST(req: Request) {
@@ -19,6 +21,12 @@ export async function POST(req: Request) {
     const user = await getUserFromRequest(req)
     if (!user?.isSuperAdmin) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+    }
+
+    // Rate limit: max 20 free club creations per hour per super admin session
+    const rl = await checkRateLimit(`platform:create-club:${user.id}`, { windowMs: 60 * 60 * 1000, max: 20 })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiados pedidos. Tente mais tarde.' }, { status: 429 })
     }
 
     const body = await req.json()
@@ -82,6 +90,15 @@ export async function POST(req: Request) {
       })
 
       return newClub
+    })
+
+    await logAudit(req, user.id, user.email, 'CREATE_FREE_CLUB', 'Club', club.id, {
+      clubName: club.name,
+      clubEmail: club.email,
+      adminEmail,
+      country,
+      language,
+      ip: getClientIp(req),
     })
 
     return NextResponse.json({ id: club.id, name: club.name, slug: club.slug }, { status: 201 })

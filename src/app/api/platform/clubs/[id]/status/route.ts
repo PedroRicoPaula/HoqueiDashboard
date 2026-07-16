@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { logAudit } from '@/lib/audit'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -28,22 +29,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const { status: newStatus } = parsed.data
+    const previousStatus = club.status
 
     // Business rules
     if (club.isFreeClub) {
-      // Free clubs: can toggle ACTIVE ↔ SUSPENDED freely
       if (newStatus !== 'ACTIVE' && newStatus !== 'SUSPENDED') {
         return NextResponse.json({ error: 'Clube grátis só pode ser ACTIVE ou SUSPENDED' }, { status: 422 })
       }
     } else {
-      // Paid clubs: can only SUSPEND if currently PAST_DUE or CANCELLED
       if (newStatus === 'SUSPENDED' && club.status !== 'PAST_DUE' && club.status !== 'CANCELLED') {
         return NextResponse.json(
           { error: 'Clubes pagos só podem ser suspensos se tiverem pagamento em atraso (PAST_DUE)' },
           { status: 422 }
         )
       }
-      // Can re-activate a suspended paid club (manual override for support)
       if (newStatus === 'ACTIVE' && club.status !== 'SUSPENDED') {
         return NextResponse.json(
           { error: 'Só é possível ativar um clube pago que esteja suspenso' },
@@ -55,6 +54,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const updated = await prisma.club.update({
       where: { id },
       data: { status: newStatus, statusChangedAt: new Date() },
+    })
+
+    await logAudit(req, user.id, user.email, 'CHANGE_CLUB_STATUS', 'Club', id, {
+      previousStatus,
+      newStatus,
+      isFreeClub: club.isFreeClub,
+      clubName: club.name,
     })
 
     return NextResponse.json({ id: updated.id, status: updated.status })

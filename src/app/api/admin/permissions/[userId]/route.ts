@@ -4,6 +4,21 @@ import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
+import { z } from 'zod'
+
+const permissionsSchema = z.object({
+  viewAthletes: z.boolean(), editAthletes: z.boolean(),
+  viewFees: z.boolean(), editFees: z.boolean(),
+  viewMembers: z.boolean(), editMembers: z.boolean(),
+  viewMaterials: z.boolean(), editMaterials: z.boolean(),
+  viewSponsors: z.boolean(), manageSponsors: z.boolean(),
+  viewTraining: z.boolean(), editTraining: z.boolean(),
+  viewTravel: z.boolean(), editTravel: z.boolean(),
+  viewDirection: z.boolean(), editDirection: z.boolean(),
+  viewAttendance: z.boolean(), editAttendance: z.boolean(),
+  viewTextiles: z.boolean(), editTextiles: z.boolean(),
+  isAdmin: z.boolean(),
+})
 
 export async function PUT(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
@@ -19,43 +34,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ userId: 
     if (!targetUser) return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 })
 
     const body = await req.json()
-    const {
-      viewAthletes, editAthletes,
-      viewFees, editFees,
-      viewMembers, editMembers,
-      viewMaterials, editMaterials,
-      viewSponsors, manageSponsors,
-      viewTraining, editTraining,
-      viewTravel, editTravel,
-      viewDirection, editDirection,
-      viewAttendance, editAttendance,
-      viewTextiles, editTextiles,
-      isAdmin,
-    } = body
-
-    const data = {
-      viewAthletes: Boolean(viewAthletes),
-      editAthletes: Boolean(editAthletes),
-      viewFees: Boolean(viewFees),
-      editFees: Boolean(editFees),
-      viewMembers: Boolean(viewMembers),
-      editMembers: Boolean(editMembers),
-      viewMaterials: Boolean(viewMaterials),
-      editMaterials: Boolean(editMaterials),
-      viewSponsors: Boolean(viewSponsors),
-      manageSponsors: Boolean(manageSponsors),
-      viewTraining: Boolean(viewTraining),
-      editTraining: Boolean(editTraining),
-      viewTravel: Boolean(viewTravel),
-      editTravel: Boolean(editTravel),
-      viewDirection: Boolean(viewDirection),
-      editDirection: Boolean(editDirection),
-      viewAttendance: Boolean(viewAttendance),
-      editAttendance: Boolean(editAttendance),
-      viewTextiles: Boolean(viewTextiles),
-      editTextiles: Boolean(editTextiles),
-      isAdmin: Boolean(isAdmin),
+    const parsed = permissionsSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
+
+    const data = parsed.data
 
     const permissions = await prisma.permission.upsert({
       where: { userId },

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { logAudit } from '@/lib/audit'
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
@@ -13,13 +14,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const { id } = await params
-    const club = await prisma.club.findUnique({ where: { id } })
+    const club = await prisma.club.findUnique({
+      where: { id },
+      include: { _count: { select: { athletes: true, users: true } } },
+    })
     if (!club) {
       return NextResponse.json({ error: 'Clube não encontrado' }, { status: 404 })
     }
 
     if (club.isFreeClub) {
-      // Free club: can only delete if SUSPENDED
       if (club.status !== 'SUSPENDED') {
         return NextResponse.json(
           { error: 'O clube grátis tem de estar suspenso para ser eliminado' },
@@ -27,7 +30,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         )
       }
     } else {
-      // Paid club: can delete if SUSPENDED (was PAST_DUE) and status changed 1+ year ago
       if (club.status !== 'SUSPENDED') {
         return NextResponse.json(
           { error: 'O clube pago tem de estar suspenso para ser eliminado' },
@@ -45,8 +47,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       }
     }
 
-    // Cascade delete — Prisma cascades handle all related records via onDelete: Cascade
+    // Snapshot details before cascade delete (for audit trail after the fact)
+    const auditDetails = {
+      clubName: club.name,
+      clubEmail: club.email,
+      isFreeClub: club.isFreeClub,
+      status: club.status,
+      athleteCount: club._count.athletes,
+      userCount: club._count.users,
+    }
+
     await prisma.club.delete({ where: { id } })
+
+    // Log after delete so it uses the global prisma (not scoped to the now-deleted club)
+    await logAudit(req, user.id, user.email, 'DELETE_CLUB', 'Club', id, auditDetails)
 
     return NextResponse.json({ deleted: true })
   } catch (error) {

@@ -51,6 +51,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const session = await db.trainingSession.findUnique({ where: { id: sessionId } })
     if (!session) return NextResponse.json({ error: 'Sessão não encontrada' }, { status: 404 })
 
+    // Verify all submitted athleteIds belong to this club (prevents IDOR cross-tenant injection)
+    if (parsed.data.records.length > 0) {
+      const submittedIds = parsed.data.records.map((r: { athleteId: string }) => r.athleteId)
+      const validAthletes = await db.athlete.findMany({
+        where: { id: { in: submittedIds } },
+        select: { id: true },
+      })
+      const validSet = new Set(validAthletes.map((a: { id: string }) => a.id))
+      const hasInvalid = submittedIds.some((id: string) => !validSet.has(id))
+      if (hasInvalid) {
+        return NextResponse.json({ error: 'Um ou mais atletas são inválidos' }, { status: 400 })
+      }
+    }
+
     // Upsert each record
     await Promise.all(
       parsed.data.records.map((r: { athleteId: string; present: boolean; notes?: string | null; paidByAthlete?: boolean | null; paidAmount?: number | null }) =>

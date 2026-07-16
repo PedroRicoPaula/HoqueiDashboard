@@ -4,6 +4,13 @@ import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
+import { z } from 'zod'
+
+const deleteAuditSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('all') }),
+  z.object({ mode: z.literal('before'), before: z.string().datetime() }),
+  z.object({ mode: z.literal('ids'), ids: z.array(z.string().uuid()).min(1).max(500) }),
+])
 
 export async function GET(req: Request) {
   try {
@@ -66,27 +73,28 @@ export async function DELETE(req: Request) {
     }
 
     const body = await req.json()
-    const { mode, before, ids } = body as { mode: 'all' | 'before' | 'ids'; before?: string; ids?: string[] }
-
-    let count = 0
-    if (mode === 'all') {
-      const result = await db.auditLog.deleteMany({})
-      count = result.count
-    } else if (mode === 'before' && before) {
-      const result = await db.auditLog.deleteMany({
-        where: { createdAt: { lt: new Date(before) } },
-      })
-      count = result.count
-    } else if (mode === 'ids' && ids?.length) {
-      const result = await db.auditLog.deleteMany({
-        where: { id: { in: ids } },
-      })
-      count = result.count
-    } else {
-      return NextResponse.json({ error: 'Parâmetros inválidos' }, { status: 400 })
+    const parsed = deleteAuditSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Parâmetros inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    await logAudit(req, user.id, user.email, 'DELETE', 'AuditLog', undefined, { mode, count })
+    let count = 0
+    if (parsed.data.mode === 'all') {
+      const result = await db.auditLog.deleteMany({})
+      count = result.count
+    } else if (parsed.data.mode === 'before') {
+      const result = await db.auditLog.deleteMany({
+        where: { createdAt: { lt: new Date(parsed.data.before) } },
+      })
+      count = result.count
+    } else if (parsed.data.mode === 'ids') {
+      const result = await db.auditLog.deleteMany({
+        where: { id: { in: parsed.data.ids } },
+      })
+      count = result.count
+    }
+
+    await logAudit(req, user.id, user.email, 'DELETE', 'AuditLog', undefined, { mode: parsed.data.mode, count })
     return NextResponse.json({ deleted: count })
   } catch (error) {
     logger.error('Audit log DELETE error:', error)
