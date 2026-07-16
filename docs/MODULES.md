@@ -111,11 +111,71 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 
 ---
 
+## 0d. Épocas Desportivas (Seasons)
+**Status:** ✅ funcional  
+**Página:** `/seasons`  
+**Permissão:** `isAdmin` (leitura e escrita)  
+**APIs:**
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/seasons` | Lista épocas do clube (com `_count.members` + `_count.sponsors`) |
+| POST | `/api/seasons` | Criar época (`name`, `startDate`, `endDate`) |
+| PATCH | `/api/seasons/[id]` | Atualizar campos ou ativar época (`{ isActive: true }` → desativa todas as outras) |
+| DELETE | `/api/seasons/[id]` | Eliminar época (rejeita se tiver members/sponsors/athletePayments/quotas associados) |
+
+### Funcionalidades
+- **CRUD completo**: criar, editar, ativar e eliminar épocas desportivas
+- **Épocas por clube**: cada clube tem as suas próprias épocas (TENANTED — `clubId` auto-injectado)
+- **Ativar época**: muda `isActive=true` nessa época e `isActive=false` em todas as outras; no máximo 1 ativa por clube
+- **Guarda de eliminação**: API rejeita DELETE se a época tiver sócios, patrocinadores, pagamentos ou quotas associados
+- **SeasonSelector no Sidebar**: dropdown compacto que mostra as épocas e permite alternar; persiste em `seasonStore` (Zustand, key `hm-season`)
+- **Badge chip na toolbar**: quando uma época está selecionada, os módulos Members/Sponsors/Fees/Dashboard mostram um chip com o nome da época
+
+### State Global (`src/store/seasonStore.ts`)
+```typescript
+{
+  seasons: Season[]
+  selectedSeasonId: string | null
+  setSeasons(seasons: Season[]): void
+  setSelectedSeason(id: string | null): void
+  getSelectedSeason(): Season | null
+  getActiveSeason(): Season | null
+}
+```
+- Persistido via `zustand/middleware/persist` com key `hm-season` em `localStorage`
+- Carregado por `SeasonSelector.tsx` (GET `/api/seasons`) ao montar o Sidebar
+
+### Componentes
+- `src/components/season/SeasonSelector.tsx` — dropdown no Sidebar com opção "Todas as épocas"
+- `src/app/(dashboard)/seasons/page.tsx` — página CRUD (Sheet criar/editar, confirm dialog eliminar)
+
+### Módulos que respondem ao seasonStore
+| Módulo | Comportamento |
+|--------|--------------|
+| Dashboard | `?seasonId` filtra contadores de sócios, patrocinadores e receitas de mensalidades |
+| Mensalidades | `?seasonId` usa meses dinâmicos da Season; nav-buttons escondidos |
+| Sócios | `?seasonId` filtra lista; form pré-seleciona a época; QuotaCalendar usa `season.endDate.year` |
+| Patrocinadores | `?seasonId` filtra lista; form pré-seleciona a época |
+
+### Validações Zod (`src/lib/validations.ts`)
+```typescript
+createSeasonSchema: { name: string, startDate: string, endDate: string }
+updateSeasonSchema: { name?, startDate?, endDate?, isActive? }
+```
+
+### Notas
+- `endDate <= startDate` → 400 na API
+- Nome duplicado no mesmo clube → 409 (Prisma P2002 unique `[clubId, name]`)
+- Épocas sem `isActive` existem (nunca foram ativadas); o Sidebar mostra a ativa com destaque verde
+- TENANTED: `db.season.create()` requer `clubId: ctx.clubId` explicitamente no `data` (TS type o exige; ver nota em DATABASE.md)
+
+---
+
 ## 1. Dashboard
 **Status:** ✅ funcional  
 **Página:** `/`  
 **Permissão:** qualquer utilizador autenticado  
-**API:** `GET /api/dashboard/stats`
+**API:** `GET /api/dashboard/stats[?seasonId=<uuid>]`
 
 ### Funcionalidades
 - **Cards KPI clicáveis**: atletas → `/athletes`, sócios → `/members`, patrocinadores → `/sponsors`, materiais → `/materials`, treinos (30d) → `/attendance`, têxteis atribuídos → `/textiles`. Hover shadow via `hover:shadow-md hover:border-primary/40`.
@@ -125,9 +185,11 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 - Estado dos materiais (FREE/ASSIGNED/DAMAGED)
 - **Alertas clicáveis**: mensalidades em atraso → `/fees`, quotas em atraso → `/members`, contratos a expirar → `/sponsors`
 - Próximas viagens (até 5)
+- **Filtro por época**: quando `seasonStore.selectedSeasonId` está definido, o dashboard passa `?seasonId` à API e os contadores de sócios, patrocinadores e receitas de mensalidades são filtrados por essa época
 
 ### Notas técnicas
-- `getCurrentSeasonStart()` → se mês >= 9 usa ano atual, senão ano-1
+- `getCurrentSeasonStart()` → se mês >= 9 usa ano atual, senão ano-1 (fallback sem seasonId)
+- `?seasonId`: API busca o modelo Season, chama `computeSeasonMonths(startDate, endDate)`, filtra AthletePayment via `OR: [{year,month}…]` e Member/Sponsor via `{ seasonId }`
 - Revenue de mensalidades: soma `AthletePayment.amount` where `paid=true` na época
 - Revenue de quotas: soma `Quota.amount` (com fallback para `member.monthlyQuota` em registos antigos)
 - `athletesWithLatePayments`: atletas com `feeExempt=false`, `monthlyFee>0`, não SENIORS, com menos pagamentos pagos que meses passados no ano
@@ -189,24 +251,27 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 **Permissão leitura:** `viewFees`  
 **Permissão escrita:** `editFees`  
 **APIs:**
-- `GET /api/fees?season=&ageGroup=` → grelha época com summary financeiro
+- `GET /api/fees?season=&ageGroup=[&seasonId=<uuid>]` → grelha época com summary financeiro
 - `GET /api/athletes/[id]/payments?year=` → pagamentos de atleta por ano (usa `db` — tenant-scoped)
 - `POST /api/athletes/[id]/payments` → upsert pagamento (usa `db.athletePayment.upsert`, clubId auto-injectado)
 
 ### Funcionalidades
-- Grelha: linhas = atletas (não-SENIORS), colunas = 10 meses época (Set-Jun)
+- Grelha: linhas = atletas (não-SENIORS), colunas = meses da época (dinâmicos)
 - **Paginação**: 25 atletas por página; controls ‹ › com indicador "Pág X / Y"
 - **Coluna "Total"** sticky à direita: verde = total pago na época, vermelho = total pendente; "—" se isento
 - **Célula não paga**: clique abre dialog de confirmação (valor editável, campo de notas) → regista pagamento
 - **Célula paga**: ponto azul se tiver nota; clique abre dialog para editar valor / remover pagamento
 - **Cabeçalho de mês clicável**: marca todos os atletas não pagos desse mês de uma vez (com confirmação + notas opcional)
 - **Seleção múltipla**: botão "Seleção múltipla" + barra inferior para registar vários pagamentos em batch
-- Filtro por escalão + navegação por época (sem limite superior)
+- Filtro por escalão + navegação por época (sem limite superior quando sem seasonId)
 - Summary: total cobrado, total em falta, atletas a dia, atletas com atrasos, isentos
 - Não inclui SENIORS (design intencional)
+- **Filtro por época**: quando `seasonStore.selectedSeasonId` está definido, o botão de navegação de época desaparece e os meses são calculados dinamicamente a partir do Season do DB
 
-### Lógica de época
-- Época `2025/26`: meses 9-12 de 2025 + meses 1-6 de 2026
+### Lógica de época (dinâmica)
+- **Com `?seasonId`**: API busca Season, chama `computeSeasonMonths(startDate, endDate)` — gera array `[{year, month}]` para qualquer intervalo de datas. Filtro de pagamentos usa `OR: months.map(({year,month}) => ({year,month}))`. Resposta inclui campo `months` que o cliente armazena em `apiMonths` state.
+- **Sem `?seasonId`** (legado): usa `?season=<yearStart>`, meses 9-12 do primeiro ano + 1-6 do segundo ano (hardcoded).
+- `activeMonths` no cliente: `useMemo` que combina ambos os caminhos no mesmo shape `{year, month, label, labelFull}` — toda a renderização usa `sm.year` em vez de calcular o ano localmente.
 - `isMonthPast`: `year < currentYear || (year === currentYear && month < currentMonth)`
 
 ### Notas
@@ -221,25 +286,27 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 **Permissão leitura:** `viewMembers`  
 **Permissão escrita:** `editMembers`  
 **APIs:**
-- `GET /api/members?search=&page=` → lista paginada (50/pág) com `paidCount` + `lateMonths` do ano corrente; search por nome, email ou número; retorna `{ members, total, page, pages }`
-- `POST /api/members` → criar
+- `GET /api/members?search=&page=[&seasonId=<uuid>]` → lista paginada (50/pág) com `paidCount` + `lateMonths` do ano corrente; search por nome, email ou número; retorna `{ members, total, page, pages }`
+- `POST /api/members` → criar (aceita `seasonId?`)
 - `GET/PUT/DELETE /api/members/[id]`
 - `GET /api/members/[id]/quotas?year=` → quotas do ano (usa `db` — tenant-scoped)
 - `POST /api/members/[id]/quotas` → upsert quota (usa `db.quota.upsert`, clubId auto-injectado; guarda `amount = member.monthlyQuota`, aceita `notes?`)
 
 ### Funcionalidades
-- Tabela com número (auto-increment), nome, quota mensal, telefone, email
+- Tabela com número (auto-increment por época), nome, quota mensal, telefone, email
 - **Paginação**: 50 sócios por página
 - **Coluna Estado**: badge verde "Em dia" / vermelho "X em atraso" com base nos meses passados do ano corrente
 - Pesquisa por nome, email ou número de sócio (debounced)
 - Email e telefone clicáveis: `mailto:` e `tel:` links diretos
 - Empty state com CTA "Adicionar primeiro sócio" quando sem pesquisa ativa
-- Sheet lateral criar/editar
+- Sheet lateral criar/editar com dropdown de época (quando existem épocas) — pré-selecionado com a época ativa do `seasonStore`
+- **Filtro por época**: chip de badge mostra a época selecionada; lista filtra por `seasonId` quando definido; novo sócio herda a época selecionada
 - **QuotaCalendar**:
   - Calendário 12 meses do ano, toggle pago/não-pago, mostra valor pago em cada tile
+  - Ano padrão ao abrir o QuotaCalendar: `selectedSeason.endDate.getFullYear()` (quando há época ativa); fallback para ano atual
   - Clique abre dialog de confirmação com campo de notas antes de registar
   - Botão **"Pagar todas em atraso"** (conta e lista meses pendentes, batch com uma confirmação)
-- Número de sócio auto-increment (não editável)
+- Número de sócio auto-increment (não editável); mesmo número pode existir em épocas diferentes (unique é `[clubId, number, seasonId]`)
 
 ### Diferença atleta vs sócio
 - Sócio = pessoa associada ao clube (pagamento de quota mensal, sem relação com jogos)
@@ -311,8 +378,8 @@ MaterialState: FREE | ASSIGNED | DAMAGED
 **Permissão leitura:** `viewSponsors`  
 **Permissão escrita:** `manageSponsors` (único permissão para leitura E escrita)  
 **APIs:**
-- `GET /api/sponsors` → lista
-- `POST /api/sponsors` → criar
+- `GET /api/sponsors[?seasonId=<uuid>]` → lista (filtrada por época quando `seasonId` fornecido)
+- `POST /api/sponsors` → criar (aceita `seasonId?`)
 - `GET/PUT/DELETE /api/sponsors/[id]`
 
 ### Funcionalidades
@@ -320,9 +387,11 @@ MaterialState: FREE | ASSIGNED | DAMAGED
 - Cards com logo do patrocinador, nome, contribuição, badges de tipo, zonas de equipamento, lonas, sticks/caneleiras
 - **Filtro de estado**: Todos / Ativos / A expirar / Expirados (botões pills)
 - **Filtro por tipo**: Todos os tipos + cada `sponsorType` disponível
+- **Filtro por época**: chip de badge mostra a época selecionada; lista filtra por `seasonId` quando definido; novo patrocinador herda a época ativa do `seasonStore`
 - Badge por estado: verde "Ativo", laranja "Expira em Xd" (≤30d), vermelho "Expirado"
 - Empty state com CTA quando sem patrocinadores
-- **Formulário expandido**: upload de logo (R2 via `/api/upload`), multi-select de tipos de patrocínio, grid de 6 zonas de equipamento (condicional), nº de lonas (condicional), checkboxes sticks/caneleiras
+- **Formulário expandido**: dropdown de época (quando existem épocas), upload de logo (R2 via `/api/upload`), multi-select de tipos de patrocínio, grid de 6 zonas de equipamento (condicional), nº de lonas (condicional), checkboxes sticks/caneleiras
+- `formSeasonId` gerido como estado externo ao react-hook-form (padrão idêntico ao `logoUrl` e `selectedTypes`)
 
 ### Tipos de Patrocínio (sponsorTypes)
 `EQUIPMENT_SENIOR` · `EQUIPMENT_FORMATION` · `NAMING_RIGHTS` · `BANNER` · `STICKS` · `SHINGUARDS` · `OTHER`

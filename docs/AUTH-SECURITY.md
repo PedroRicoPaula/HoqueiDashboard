@@ -136,7 +136,9 @@ O `getTenantClient(clubId)` é um Prisma `$extends` que injeta `{ clubId }` auto
 - `update`, `updateMany`, `delete`, `deleteMany` → adiciona a `where`
 - `count`, `aggregate`, `groupBy` → adiciona a `where`
 
-Modelos tenanted (auto-filtrados): Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord.
+Modelos tenanted (auto-filtrados, 16): **Season**, Athlete, Member, Sponsor, Material, Travel, DirectionMember, Training, TrainingSchedule, TrainingSession, TextileItem, AuditLog, AthletePayment, Quota, DirectionSalaryPayment, AttendanceRecord.
+
+> `Season` foi adicionado ao TENANTED set em 2026-07-16 — o Prisma Extension injeta `clubId` automaticamente em todas as operações de Season. Em `db.season.create()`, ainda é necessário passar `clubId: ctx.clubId` explicitamente porque o TS type gerado pelo Prisma exige `clubId` ou `club` no `data` (o Extension injeta em runtime mas o TS não o sabe).
 
 Modelos NÃO tenanted (sem `clubId` no schema — usar `prisma` global): User, Permission, Playbook, RateLimit.
 

@@ -88,6 +88,30 @@ AuditLog {
 }
 ```
 
+### Season (Época Desportiva)
+```prisma
+Season {
+  id        String    @id @default(uuid())
+  clubId    String    FK → Club (onDelete: Cascade)  ← TENANTED
+  name      String    ← ex: "2025/2026"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean   @default(false)  ← no máximo 1 ativa por clube (validação na API)
+  members   Member[]
+  sponsors  Sponsor[]
+  athletePayments AthletePayment[]
+  quotas    Quota[]
+  createdAt DateTime  @default(now())
+  unique: (clubId, name)
+  indexes: clubId, (clubId, isActive)
+}
+```
+> Um clube pode ter múltiplas épocas mas só uma `isActive=true` ao mesmo tempo.
+> A API `PATCH /api/seasons/[id]` (activate) faz `updateMany({ isActive: false })` antes de ativar a nova.
+> Ao apagar uma época com `DELETE /api/seasons/[id]`, a API rejeita se existirem members/sponsors/athletePayments/quotas associados.
+> A epoch é per-club (TENANTED): o Prisma Extension injeta `clubId` automaticamente em todas as queries.
+> Em `db.season.create()` é necessário passar `clubId: ctx.clubId` explicitamente no campo `data` porque o TS type gerado pelo Prisma o exige (o Extension injeta em runtime mas o compilador não o sabe).
+
 ### Athlete
 ```prisma
 Athlete {
@@ -108,29 +132,37 @@ enum AgeGroup { SUB11 SUB13 SUB15 SUB17 SUB19 SENIORS }
 AthletePayment {
   clubId    (FK Club, onDelete: Cascade)    ← TENANTED (adicionado migration 20260626000001)
   athleteId (FK Athlete, onDelete: Cascade)
+  seasonId  String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = pagamento sem época
   month (1-12), year, paid Boolean, amount Float?, paidAt?, notes?
   unique: (athleteId, month, year)
-  indexes: clubId, (athleteId, year), (year, month)
+  indexes: clubId, (athleteId, year), (year, month), seasonId
 }
 ```
 
 ### Member + Quota
 ```prisma
 Member {
-  number (unique, autoincrement), name, phone?, email?, address?
-  monthlyQuota Float @default(0)
-  quotas Quota[]
-  index: name
+  number       Int                          ← autoincrement por clube
+  seasonId     String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = sócio sem época
+  name, phone?, email?, address?
+  monthlyQuota Float    @default(0)
+  quotas       Quota[]
+  unique: (clubId, number, seasonId)        ← permite mesmo nº em épocas diferentes (NULL é distinto no PostgreSQL)
+  indexes: name, seasonId
 }
 Quota {
   clubId   (FK Club, onDelete: Cascade)   ← TENANTED (adicionado migration 20260626000001)
   memberId (FK Member, Cascade), month, year, paid, amount Float?, paidAt?, notes String?
+  seasonId String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = quota sem época
   unique: (memberId, month, year)
-  indexes: clubId, (memberId, year)
+  indexes: clubId, (memberId, year), seasonId
   // amount: guardado no momento do pagamento (evita imprecisão se monthlyQuota mudar)
   // notes: texto livre opcional (ex: "pago por transferência")
 }
 ```
+> `Member.unique` foi alterado de `[clubId, number]` para `[clubId, number, seasonId]` na migração Season.
+> Em PostgreSQL, dois NULLs numa unique constraint são considerados distintos, portanto sócios sem época (NULL) continuam compatíveis com dados existentes — não há perda de dados.
+> Sócios com `seasonId` pertencem a uma época específica; sócios com `seasonId=null` são season-agnostic.
 
 ### Material
 ```prisma
@@ -154,6 +186,7 @@ enum MaterialState { FREE ASSIGNED DAMAGED }
 Sponsor {
   name, website?, phone?, email?, annualContribution Float @default(0)
   contractStart (DateTime), contractEnd (DateTime)
+  seasonId    String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = patrocinador sem época
   notes?
   logoUrl?                                    ← URL do logo (R2 ou /uploads/sponsors/)
   sponsorTypes    String[] @default([])       ← ex: ['EQUIPMENT_SENIOR', 'NAMING_RIGHTS']
@@ -161,7 +194,7 @@ Sponsor {
   bannerCount     Int?                        ← nº de lonas publicitárias no pavilhão
   includesSticks  Boolean  @default(false)    ← autocolante nos sticks
   includesShinguards Boolean @default(false)  ← logo nas caneleiras do GR
-  indexes: name, contractEnd
+  indexes: name, contractEnd, seasonId
 }
 ```
 **sponsorTypes válidos:** `EQUIPMENT_SENIOR`, `EQUIPMENT_FORMATION`, `NAMING_RIGHTS`, `BANNER`, `STICKS`, `SHINGUARDS`, `OTHER`  
@@ -354,6 +387,7 @@ RateLimit {
 | `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
 | *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
 | `20260626000001_add_clubid_to_payment_models` | Jun 2026 | `clubId FK → Club (NOT NULL, CASCADE)` em `AthletePayment`, `Quota`, `DirectionSalaryPayment`, `AttendanceRecord`. Backfill via UPDATE das tabelas pai. Indexes `clubId_idx` em cada tabela. Resolve DEBT-017. | ✅ aplicada |
+| *(db push — Season feature)* | Jul 2026 | Modelo `Season`; `seasonId String?` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `[clubId, number]` para `[clubId, number, seasonId]`; indexes `seasonId` nas 4 tabelas. Aplicado via `db push --accept-data-loss` (dev local). | aplicada via `db push` |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:
