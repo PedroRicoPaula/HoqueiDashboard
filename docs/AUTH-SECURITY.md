@@ -93,6 +93,30 @@ PROTECTED_ROUTES = [
 ```
 Rotas excluídas: `login`, `setup`, `api/setup`, `_next/*`, `favicon.ico`, `manifest.json`, `logo.png`, `uploads`
 
+### Super Admin — Regras de Permissão para Gestão de Clubes
+O super admin (`isSuperAdmin: true`) pode gerir clubes via `/api/platform/clubs/*`. Regras de negócio:
+
+**Criar clube grátis** (`POST /api/platform/clubs`):
+- Cria `Club` com `isFreeClub: true`, `status: ACTIVE`, `statusChangedAt: now()`
+- Cria `User` admin com `isAdmin: true` + todas as permissões granulares `true`
+- Password do admin definida imediatamente (PBKDF2) — sem fluxo de email
+
+**Alterar estado** (`PATCH /api/platform/clubs/[id]/status`):
+- Clube grátis: ACTIVE ↔ SUSPENDED livremente; `statusChangedAt` atualizado
+- Clube pago → SUSPENDED: só se `status === 'PAST_DUE'` (proteção contra suspender clubes pagos em dia)
+- Clube pago → ACTIVE: só se `status === 'SUSPENDED'` (reativação manual de suporte)
+
+**Eliminar clube** (`DELETE /api/platform/clubs/[id]`):
+- Clube grátis: requer `status === 'SUSPENDED'`
+- Clube pago: requer `status === 'SUSPENDED'` + `statusChangedAt < NOW() - 365 dias` (protege de eliminação prematura por atraso recente)
+- `statusChangedAt` pode ser nulo em registos antigos → fallback para `updatedAt`
+- Elimina por cascade Prisma (todos os modelos tenanted com `onDelete: Cascade`)
+
+**`statusChangedAt`** é atualizado em:
+- `invoice.payment_failed` → PAST_DUE (webhook)
+- `customer.subscription.deleted` → CANCELLED (webhook)
+- `PATCH /api/platform/clubs/[id]/status` → qualquer mudança manual pelo super admin
+
 ### Multi-Tenant Tenant Isolation
 Todas as API routes do dashboard usam `getDbForRequest(req)`:
 ```typescript

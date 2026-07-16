@@ -32,12 +32,16 @@ Club {
   stripeSubscriptionId   String?    @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
+  isFreeClub             Boolean    @default(false)  ← criado pelo super admin sem pagamento
+  statusChangedAt        DateTime?                   ← timestamp da última mudança de estado manual ou por webhook
   // relações inversas para todos os modelos tenanted
   indexes: slug, status
 }
 enum ClubStatus { PENDING_PAYMENT ACTIVE PAST_DUE CANCELLED SUSPENDED }
 ```
-**Ciclo de vida:** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed) → `CANCELLED` (subscription.deleted).
+**Ciclo de vida (pago):** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed, seta `statusChangedAt`) → `CANCELLED` (subscription.deleted, seta `statusChangedAt`) → `SUSPENDED` (super admin, seta `statusChangedAt`).  
+**Ciclo de vida (grátis):** `ACTIVE` ↔ `SUSPENDED` livremente pelo super admin.  
+`statusChangedAt` é usado para aplicar a regra de eliminação de 1 ano em clubes pagos suspensos.
 
 Bloco de login se `club.status !== 'ACTIVE'` (exceto super admin).
 

@@ -56,18 +56,41 @@
 **APIs:** usa `prisma` diretamente (super admin tem acesso global)
 
 ### Funcionalidades
-- **Stats 4-colunas**: clubes ativos, total utilizadores, MRR, ARR
-- **MRR/ARR real**: distingue planos mensais vs anuais via `stripePriceId`; valores dos preços vêm da API Stripe (`stripe.prices.retrieve`), não hardcoded
-- Tabela de todos os clubes: nome, email, país, estado, utilizadores, atletas, data de registo
-- Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
-- **Sidebar de estatísticas**: breakdown por estado (ativo/atraso/cancelado) e breakdown por país (top 5 + Outros)
+- **Stats 4-colunas**: clubes ativos (pagos), total utilizadores, MRR, ARR
+- **MRR/ARR real**: distingue planos mensais vs anuais via `stripePriceId`; exclui clubes grátis (`isFreeClub: true`); valores dos preços vêm da API Stripe (`stripe.prices.retrieve`), não hardcoded
+- **Tabela interativa de clubes** (`PlatformClubs.tsx` — Client Component): nome, email, país, estado, atletas, data de registo
+  - Badge "Grátis" em clubes `isFreeClub`
+  - Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
+  - Coluna de ações por linha: Suspender / Ativar / Eliminar (visíveis conforme elegibilidade — ver regras abaixo)
+- **Criar Clube Grátis**: botão abre dialog com campos: nome clube, email clube, país, idioma, nome admin, email admin, password admin. Cria clube com `isFreeClub: true`, `status: ACTIVE`. Admin criado com `isAdmin: true` + todas as permissões.
+- **Alterar estado**: botão por linha; regras de negócio:
+  - Clube grátis: ACTIVE ↔ SUSPENDED livremente
+  - Clube pago: só SUSPENDED a partir de PAST_DUE; ACTIVE só a partir de SUSPENDED
+- **Eliminar clube**: botão por linha; regras de elegibilidade:
+  - Clube grátis: requer `status === 'SUSPENDED'`
+  - Clube pago: requer `status === 'SUSPENDED'` + `statusChangedAt < NOW() - 1 ano`
+  - Elimina em cascade (Prisma `onDelete: Cascade` em todos os modelos tenanted)
+- **Sidebar de estatísticas**: breakdown por estado, por país (pagos ativos), faturação mensal/anual/grátis
+
+### APIs
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| POST | `/api/platform/clubs` | Criar clube grátis + admin |
+| PATCH | `/api/platform/clubs/[id]/status` | Alterar estado (ACTIVE/SUSPENDED) |
+| DELETE | `/api/platform/clubs/[id]` | Eliminar clube (com validação elegibilidade) |
+
+Todas as rotas exigem `user.isSuperAdmin` — qualquer outro utilizador recebe 403.
 
 ### Ficheiros chave
 - `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
-- `src/app/platform/page.tsx` — Server Component, lê `prisma.club.findMany` com `_count { users, athletes }`
+- `src/app/platform/page.tsx` — Server Component; lê dados, serializa datas, passa para `PlatformClubs`
+- `src/app/platform/PlatformClubs.tsx` — Client Component; dialogs + mutações via fetch
+- `src/app/api/platform/clubs/route.ts` — POST criar clube grátis
+- `src/app/api/platform/clubs/[id]/status/route.ts` — PATCH estado
+- `src/app/api/platform/clubs/[id]/route.ts` — DELETE clube
 
 ### Preços MRR/ARR (em `platform/page.tsx`)
-`getPrices()` busca os preços reais via `stripe.prices.retrieve(STRIPE_PRICE_MONTHLY/YEARLY)`, com cache em memória (5min TTL, nível de módulo — evita bater na API Stripe em cada load de `/platform`). Se a chamada falhar (ex. chaves não configuradas), usa fallback `59€`/`590€÷12` e regista o erro via `logger.error`. Clube é classificado mensal/anual comparando `club.stripePriceId` com os price IDs em env (ver [INFRA-002](ISSUES-BACKLOG.md) resolvido).
+`getPrices()` busca os preços reais via `stripe.prices.retrieve(STRIPE_PRICE_MONTHLY/YEARLY)`, com cache em memória (5min TTL, nível de módulo — evita bater na API Stripe em cada load de `/platform`). Se a chamada falhar (ex. chaves não configuradas), usa fallback `59€`/`590€÷12` e regista o erro via `logger.error`. Clube é classificado mensal/anual comparando `club.stripePriceId` com os price IDs em env.
 
 ---
 
