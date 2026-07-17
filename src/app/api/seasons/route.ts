@@ -50,7 +50,11 @@ export async function POST(req: Request) {
     }
 
     const season = await db.season.create({
-      data: { name, startDate: new Date(startDate), endDate: new Date(endDate), clubId: ctx.clubId },
+      data: {
+        name, startDate: new Date(startDate), endDate: new Date(endDate), clubId: ctx.clubId,
+        // Default 5€ para não ficar em branco em Definições (clube ajusta depois se quiser)
+        defaultAthleteMonthlyFee: 5, defaultMemberMonthlyQuota: 5,
+      },
     })
 
     await logAudit(req, user.id, user.email, 'CREATE', 'Season', season.id, { name })

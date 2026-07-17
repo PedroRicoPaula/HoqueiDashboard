@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 import { ChevronDown, CalendarDays, Check, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
 export function SeasonSelector() {
-  const { seasons, selectedSeasonId, setSeasons, setSelectedSeason, getSelectedSeason } = useSeasonStore()
+  const mounted = useMounted()
+  const { seasons: storeSeasons, selectedSeasonId, setSeasons, setSelectedSeason, getSelectedSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 

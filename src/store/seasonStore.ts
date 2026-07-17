@@ -48,6 +48,6 @@ export const useSeasonStore = create<SeasonState>()(
         return seasons.find((s) => s.isActive) ?? null
       },
     }),
-    { name: 'hm-season' }
+    { name: 'hm-season', skipHydration: true }
   )
 )

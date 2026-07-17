@@ -34,6 +34,7 @@ import { format, differenceInDays } from 'date-fns'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 
 const SPONSOR_TYPE_BADGE: Record<string, string> = {
   EQUIPMENT_SENIOR:    'bg-blue-100 text-blue-800',
@@ -118,8 +119,10 @@ export default function SponsorsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [formSeasonId, setFormSeasonId] = useState<string>('')
 
-  const { seasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
-  const selectedSeason = getSelectedSeason()
+  const mounted = useMounted()
+  const { seasons: storeSeasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
+  const selectedSeason = mounted ? getSelectedSeason() : null
 
   const { can } = usePermissions()
   const { toast } = useToast()

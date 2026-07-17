@@ -420,6 +420,35 @@ const { register, handleSubmit, reset, setValue, watch, formState: { errors } } 
 
 ---
 
+## Stores Zustand persistidas (localStorage) — hidratação segura em SSR
+
+**Regra:** qualquer JSX cuja *estrutura* (não só texto) mude consoante dados de uma store `persist` (`authStore`, `seasonStore`) tem de esperar por `useMounted()` antes de os ler. Caso contrário: erro de hidratação React #418 em produção, em qualquer hard-reload/navegação direta.
+
+**Porque `skipHydration` + `rehydrate()` num componente ancestral NÃO chega:** o padrão documentado pelo Zustand (`persist(..., { skipHydration: true })` + `store.persist.rehydrate()` num `useEffect`) assume que a árvore inteira hidrata de uma vez. No Next.js App Router isso não é garantido — `layout.tsx` e `page.tsx` podem hidratar/commitar em passes separados (boundaries internas do router: `LoadingBoundary`, etc.). Se o `layout` (ex: `(dashboard)/layout.tsx`) rehydrata a store e corre o seu efeito **antes** da `page` fazer o seu próprio primeiro render, a `page` já lê dados "novos" nesse primeiro render — que não batem certo com o HTML gerado no servidor (que nunca teve acesso a `localStorage`). Confirmado empiricamente 2026-07-17: com `skipHydration` sozinho, reproduzia-se o mesmo erro #418 byte-a-byte em `/textiles` com uma época selecionada.
+
+**Fix real — gate local por componente:**
+```typescript
+// src/hooks/useMounted.ts
+export function useMounted() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  return mounted
+}
+```
+```typescript
+const mounted = useMounted()
+const { seasons: storeSeasons, getSelectedSeason } = useSeasonStore()
+const seasons = mounted ? storeSeasons : []               // nunca [] real vs [] fingido trocam de forma inconsistente
+const selectedSeason = mounted ? getSelectedSeason() : null
+```
+`useState(false)` garante que o primeiro render **deste componente** — seja qual for o boundary/pass em que ele hidrata — é sempre igual ao HTML do servidor. Só depois de montar (efeito próprio, sempre depois do commit) é que os dados reais da store entram em jogo. Ao contrário do `skipHydration` isolado, isto não depende da ordem de efeitos entre componentes.
+
+**Continuar a usar `skipHydration: true` no `persist()` da store** (evita que o *módulo* já traga dados no primeiro render de qualquer consumidor) **e** o `rehydrate()` num efeito ancestral (`HtmlLang.tsx` para `authStore`, `(dashboard)/layout.tsx` para `seasonStore`) — isto mantém a store correta o mais cedo possível para consumidores que só leem *texto* (menor risco). O `useMounted()` é a camada extra só para JSX que muda de **estrutura** (tipo de tag, presença/ausência de blocos inteiros).
+
+**Onde já aplicado:** `textiles/page.tsx`, `members/page.tsx`, `sponsors/page.tsx`, `SeasonSelector.tsx`. Ao adicionar novo JSX condicionado por `seasons.length`/`selectedSeason`/`user`/`permissions` fora destes ficheiros, aplicar o mesmo padrão.
+
+---
+
 ## Loading e Feedback de Navegação
 
 ### `loading.tsx` — Suspense boundary automático

@@ -53,7 +53,8 @@ Plataforma SaaS multi-tenant para gestão de clubes de hóquei em patins.
 | **Treinos** | Lista + quadro tático digital interativo (drag, frames, playback) |
 | **Relatórios** | Export XLSX: atletas, sócios, mensalidades, materiais, têxteis, assiduidade |
 | **Admin** | Permissões por utilizador (20 flags RBAC), audit log completo |
-| **Definições** | Nome, idioma, país, paleta de cores e logo do clube |
+| **Épocas** | Épocas desportivas (época ativa, datas), mensalidade/quota default por época |
+| **Definições** | Nome, idioma, país, paleta de cores, logo do clube, mensalidade/quota default da época |
 
 ### Platform (super admin)
 | Módulo | Descrição |
@@ -73,9 +74,9 @@ Plataforma SaaS multi-tenant para gestão de clubes de hóquei em patins.
 ```bash
 npm install
 
-# Criar DB e aplicar schema
+# Criar DB e aplicar migrations
 createdb hoqueimanager
-npx prisma db push
+npx prisma migrate dev
 
 # Criar super admin
 npx prisma db seed
@@ -89,7 +90,7 @@ npm run dev
 
 Para testar com clubes de demonstração:
 ```bash
-npx tsx scripts/seed-test-clubs.ts
+node scripts/seed-test-clubs.js
 ```
 
 Para testar o webhook Stripe localmente:
@@ -129,7 +130,9 @@ R2_PUBLIC_URL=...
 ```bash
 npm run dev              # servidor dev → localhost:3000
 npm run build            # build produção (migrate deploy + prisma generate + next build)
-npm test                 # vitest run (58 testes)
+npm run lint             # ESLint
+npm test                 # vitest run (67 testes)
+npm run test:e2e         # playwright (specs em e2e/, arranca dev server automaticamente)
 npx prisma studio        # GUI da base de dados
 npx prisma migrate dev   # nova migration (dev)
 npx prisma db seed       # recriar super admin
@@ -156,7 +159,7 @@ src/
 ├── app/
 │   ├── [locale]/        # Landing page pública (PT/ES/EN/FR/IT)
 │   │   └── register/    # Wizard de registo + Stripe Checkout
-│   ├── (dashboard)/     # Páginas autenticadas (layout com sidebar)
+│   ├── (dashboard)/     # Páginas autenticadas (layout com sidebar), inclui seasons/
 │   ├── platform/        # Backoffice super admin
 │   ├── api/             # Route handlers
 │   ├── login/
@@ -164,15 +167,19 @@ src/
 │   ├── reset-password/
 │   └── setup/           # Criação do primeiro super admin
 ├── components/
-│   ├── ui/              # shadcn/ui
-│   ├── layout/          # Sidebar, TopNav
-│   ├── landing/         # LanguageSwitcher, CookieBanner, ProductScreenshots
-│   └── training/        # Quadro tático interativo
-├── lib/                 # auth, prisma, prisma-tenant, db, audit, rateLimit, email…
-├── hooks/               # usePermissions, useDashT, useDashLabels
-├── store/               # Zustand (auth, tactical, sidebar)
-├── tests/               # tenant-isolation.test.ts
-└── middleware.ts        # Edge: i18n + CSRF + JWT + RBAC + super admin guard
+│   ├── ui/                 # shadcn/ui
+│   ├── layout/             # Sidebar, TopNav
+│   ├── landing/            # LanguageSwitcher, CookieBanner, ProductScreenshots
+│   ├── season/             # SeasonSelector (dropdown na Sidebar)
+│   └── training/tactical/  # Quadro tático interativo (drag, frames, playback)
+├── i18n/               # routing.ts + request.ts (next-intl, landing pública)
+├── lib/                # auth, prisma, prisma-tenant, db, audit, rateLimit, email…
+├── hooks/              # usePermissions, useDashT, useDashLabels
+├── store/              # Zustand (auth, season, tactical, sidebar)
+├── types/              # training.types.ts
+├── tests/              # tenant-isolation.test.ts
+├── __tests__/          # auth, permissions, csrf, rateLimit, validations
+└── middleware.ts       # Edge: i18n + CSRF + JWT + RBAC + super admin guard
 ```
 
 ---

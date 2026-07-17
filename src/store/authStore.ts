@@ -37,6 +37,6 @@ export const useAuthStore = create<AuthState>()(
       }),
       logout: () => set({ user: null, permissions: null, clubLanguage: null, clubPrimaryColor: null }),
     }),
-    { name: 'hm-auth' }
+    { name: 'hm-auth', skipHydration: true }
   )
 )

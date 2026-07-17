@@ -7,6 +7,7 @@ import { TopNav } from '@/components/layout/TopNav'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { useAuthStore } from '@/store/authStore'
+import { useSeasonStore } from '@/store/seasonStore'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { open, close } = useSidebarStore()
@@ -14,6 +15,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const clubPrimaryColor = useAuthStore((s) => s.user?.clubPrimaryColor)
 
   useEffect(() => { close() }, [pathname, close])
+
+  // seasonStore usa persist(skipHydration: true) pelo mesmo motivo do authStore
+  // (ver HtmlLang.tsx) — só é relevante dentro do dashboard, por isso hidrata aqui.
+  useEffect(() => {
+    useSeasonStore.persist.rehydrate()
+  }, [])
 
   const primaryHsl = clubPrimaryColor ?? '142 71% 45%'
   const isDark = (() => {

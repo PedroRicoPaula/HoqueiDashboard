@@ -184,7 +184,9 @@ export const createTextileSchema = z.object({
   jerseyNumber:  z.union([z.number().int().positive(), z.null()]).optional(),
   personalized:  z.boolean().optional().default(false),
   personalizationDetails: z.string().nullable().optional(),
-  season:        z.string().regex(/^\d{4}\/\d{2}$/, 'Formato inválido — use AAAA/AA (ex: 2025/26)'),
+  // Legado (label de época em texto livre) — segue o mesmo limite do nome de Season,
+  // já não é restrito a "AAAA/AA" porque Season.name aceita qualquer formato (ex: "2025/2026").
+  season:        z.string().min(3, 'Época obrigatória').max(20),
   state:         z.enum(['STOCK', 'ASSIGNED', 'DAMAGED', 'LOST']).optional().default('STOCK'),
   athleteId: z.string().uuid().nullable().optional(),
   isPartOfKit: z.boolean().optional().default(false),

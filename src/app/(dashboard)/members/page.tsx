@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 
 const MONTHS_FALLBACK = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -245,9 +246,11 @@ export default function MembersPage() {
   const { toast } = useToast()
   const debouncedSearch = useDebounce(search)
 
-  const { seasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
-  const selectedSeason = getSelectedSeason()
-  const activeSeason = getActiveSeason()
+  const mounted = useMounted()
+  const { seasons: storeSeasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
+  const selectedSeason = mounted ? getSelectedSeason() : null
+  const activeSeason = mounted ? getActiveSeason() : null
   const currentSeason = selectedSeason ?? activeSeason
   const seasonDefaultQuota = currentSeason?.defaultMemberMonthlyQuota ?? null
 

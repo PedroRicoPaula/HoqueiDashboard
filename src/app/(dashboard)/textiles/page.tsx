@@ -27,6 +27,7 @@ import {
 } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 import { CalendarDays } from 'lucide-react'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -78,9 +79,10 @@ export default function TextilesPage() {
   const dashLabels = useDashLabels()
   const { can } = usePermissions()
   const { toast } = useToast()
+  const mounted = useMounted()
   const { seasons: storeSeason, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
-  const selectedSeason = getSelectedSeason()
-  const activeSeason = getActiveSeason()
+  const selectedSeason = mounted ? getSelectedSeason() : null
+  const activeSeason = mounted ? getActiveSeason() : null
 
   const [items, setItems] = useState<TextileItem[]>([])
   const [athletes, setAthletes] = useState<Athlete[]>([])
@@ -501,17 +503,17 @@ export default function TextilesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Época *</Label>
-                {storeSeason.length > 0 ? (
+                {mounted && storeSeason.length > 0 ? (
                   <Select
-                    value={form.seasonId ?? ''}
+                    value={form.seasonId ?? 'none'}
                     onValueChange={(v) => {
                       const s = storeSeason.find((x) => x.id === v)
-                      setForm((p) => ({ ...p, seasonId: v || null, season: s?.name ?? p.season }))
+                      setForm((p) => ({ ...p, seasonId: v === 'none' ? null : v, season: s?.name ?? p.season }))
                     }}
                   >
                     <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem época</SelectItem>
+                      <SelectItem value="none">Sem época</SelectItem>
                       {storeSeason.map((s) => (
                         <SelectItem key={s.id} value={s.id}>{s.name}{s.isActive ? ' (ativa)' : ''}</SelectItem>
                       ))}
