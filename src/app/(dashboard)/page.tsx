@@ -370,73 +370,28 @@ export default function DashboardPage() {
       )}
 
       {/* Revenue Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              {t('dashboard.revenue')}
-              {stats?.revenue && (
-                <span className="text-xs font-normal text-muted-foreground ml-1">
-                  {t('dashboard.monthlyFees')}: {t('dashboard.season')} {stats.revenue.seasonLabel} · {t('dashboard.memberQuotas')}: {new Date().getFullYear()}
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats?.revenue ? (
-              <RevenueChart revenue={stats.revenue} t={t} numLocale={numLocale} />
-            ) : (
-              <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
+      {/* Antes tinha 3 cards ao lado a repetir os mesmos 3 valores já visíveis na
+          legenda do gráfico (categoria + valor + %) — removidos, sem perda de dados. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            {t('dashboard.revenue')}
+            {stats?.revenue && (
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                {t('dashboard.monthlyFees')}: {t('dashboard.season')} {stats.revenue.seasonLabel} · {t('dashboard.memberQuotas')}: {new Date().getFullYear()}
+              </span>
             )}
-          </CardContent>
-        </Card>
-
-        <div className="space-y-3">
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-10 rounded-sm bg-blue-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">{t('dashboard.monthlyFees')} ({t('dashboard.season')} {stats?.revenue?.seasonLabel})</p>
-                  <p className="text-xl font-bold text-blue-600">
-                    {(stats?.revenue.athleteFees ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
-                  </p>
-                </div>
-                <Euro className="h-5 w-5 text-blue-400 opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-10 rounded-sm bg-emerald-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">{t('dashboard.memberQuotas')} ({new Date().getFullYear()})</p>
-                  <p className="text-xl font-bold text-emerald-600">
-                    {(stats?.revenue.memberQuotas ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
-                  </p>
-                </div>
-                <Euro className="h-5 w-5 text-emerald-400 opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-10 rounded-sm bg-purple-500 flex-shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground">{t('dashboard.sponsors')} ({t('common.active')})</p>
-                  <p className="text-xl font-bold text-purple-600">
-                    {(stats?.revenue.sponsors ?? 0).toLocaleString(numLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}€
-                  </p>
-                </div>
-                <Euro className="h-5 w-5 text-purple-400 opacity-60" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats?.revenue ? (
+            <RevenueChart revenue={stats.revenue} t={t} numLocale={numLocale} />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('common.noData')}</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Expenses Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
