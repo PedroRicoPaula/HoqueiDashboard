@@ -175,6 +175,23 @@ import { prisma } from '@/lib/prisma'
 import { usePermissions } from '@/hooks/usePermissions'
 ```
 
+### Navegação interna — sempre `<Link>` de `next/link`
+
+Nunca usar `<a href="...">` para rotas internas. O ESLint do Next.js (`@next/next/no-html-link-for-pages`) trata isso como **erro** que bloqueia o build e o CI.
+
+```tsx
+// ❌ bloqueia build
+<a href="/settings" className="underline">Definições</a>
+
+// ✅ correto
+import Link from 'next/link'
+<Link href="/settings" className="underline">Definições</Link>
+```
+
+Usar `<a href="...">` apenas para links externos (URLs fora da app).
+
+---
+
 ### SDKs externos — nunca instanciar a nível do módulo
 Next.js executa o corpo do módulo durante `Collecting page data` no build. SDKs que lançam ao construir sem credenciais (ex: `new Stripe(undefined)`) fazem o build falhar mesmo que o endpoint nunca seja chamado.
 
