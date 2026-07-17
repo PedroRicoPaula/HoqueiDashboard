@@ -5,27 +5,76 @@
 
 ## 🔴 Bugs Activos
 
-> Os 5 abaixo vêm da auditoria completa ao dashboard em 2026-07-17 (16 módulos, 3 agentes + revisão própria). São os únicos achados dessa auditoria já registados aqui — os restantes (~12 "importante" + 3 padrões transversais: schemas Zod triplicados, i18n hardcoded onde a tradução já existe em `messages/dashboard/*.json`, fetch sem tratamento de erro) ficam por priorizar com o dono do produto antes de entrarem no backlog oficial. Relatório completo publicado como artifact nessa sessão.
-
-### [BUG-029] Perfil do atleta mostra mensalidades pagas como não pagas (Jan–Jun)
-**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/api/athletes/[id]/payments/route.ts:30-38` filtra por `year` escalar único; a época atravessa dois anos civis e o cliente (`athletes/[id]/page.tsx:132-136,193`) só pede o ano de início. Os 6 meses Jan-Jun aparecem sempre "por pagar" no perfil mesmo já pagos e correctos na grelha de Mensalidades (`fees/route.ts`, que usa `OR` sobre pares ano/mês correctamente).
-**Impacto:** dados financeiros inconsistentes entre duas páginas do mesmo produto — gera reclamações de encarregados de educação.
-
-### [BUG-030] Importação CSV da Direção atribui cargos errados e duplica pessoas ao reimportar
-**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/direction/page.tsx:69-77`, `parseFederationRole` testa substrings fixas — `"treinador"` apanha também `"treinador adjunto"`, `ASSISTANT_TRAINER` nunca é produzido. Sem verificação contra membros existentes, reimportar o CSV depois da federação actualizar o plantel duplica pessoas em vez de actualizar cargos.
-**Impacto:** dados de cargos errados sem qualquer aviso; duplicação silenciosa no caso de uso mais óbvio do botão.
-
-### [SEC-030] Admin pode auto-remover `isAdmin` sem protecção — risco de lockout permanente
-**Encontrado:** 2026-07-17 (auditoria dashboard). Nem `src/components/admin/PermissionsModal.tsx:189-192` nem `PUT /api/admin/permissions/[userId]` comparam o utilizador-alvo com o utilizador autenticado. Se for o único admin do clube, fica bloqueado de `/admin/*` sem via de recuperação dentro da app (super admin só acede a `/platform`, regra 12 do CLAUDE.md).
-**Impacto:** lockout completo de um clube, resolúvel só por intervenção directa na BD.
-
-### [DEBT-025] Estatísticas de Assiduidade — N+1 sem limite temporal
-**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/attendance/page.tsx:549-577` busca todas as sessões alguma vez criadas (sem filtro de data) e depois um fetch por sessão via `Promise.all`. Cresce a cada época, recarrega sem cache a cada troca de tab. Já existe a versão correcta (uma query só) em `src/app/api/reports/attendance/route.ts`, não usada aqui.
-**Impacto:** degrada progressivamente com uso real; não é um problema hoje com dados de teste, será com uma época inteira de treinos.
+> A auditoria completa ao dashboard em 2026-07-17 (16 módulos, 3 agentes + revisão própria) encontrou 24 problemas: 5 bloqueantes + ~12 "importante" + 3 padrões transversais + 4 simplificações. Todos os 24 foram corrigidos e testados no mesmo dia (ver bloco "✅ RESOLVIDO 2026-07-17" abaixo) — dois deles (loop infinito em `usePermissions` e gaps de hidratação em Materiais/Mensalidades/Perfil) só apareceram durante os testes em browser real, não tinham sido detectados pela leitura estática da auditoria. Único item ainda em aberto: [UX-004], que exige decisão do dono do produto.
 
 ### [UX-004] Assiduidade só permite 1 horário por escalão — confirmar se é intencional
 **Encontrado:** 2026-07-17 (auditoria dashboard). `attendance/page.tsx:140-142,1047,1297-1300` — restrição só de frontend (sem constraint no schema nem validação no servidor) que esconde "Novo Horário" assim que cada escalão tem um horário. `docs/MODULES.md:683` documenta como intencional, mas a generalidade dos clubes treina cada escalão 2-3×/semana em dias diferentes.
 **Decisão pendente:** confirmar com o dono do produto antes de mais clubes fazerem o setup inicial — se não for intencional, bloqueia onboarding real logo no primeiro dia.
+
+---
+
+### ~~[BUG-029] Perfil do atleta mostra mensalidades pagas como não pagas (Jan–Jun)~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/api/athletes/[id]/payments/route.ts:30-38` filtra por `year` escalar único; a época atravessa dois anos civis e o cliente (`athletes/[id]/page.tsx:132-136,193`) só pede o ano de início. Os 6 meses Jan-Jun apareciam sempre "por pagar" no perfil mesmo já pagos e correctos na grelha de Mensalidades (`fees/route.ts`, que usa `OR` sobre pares ano/mês correctamente).
+**Impacto:** dados financeiros inconsistentes entre duas páginas do mesmo produto — gerava reclamações de encarregados de educação.
+**Fix:** `fetchPayments` em `athletes/[id]/page.tsx` agora pede os dois anos civis da época (`season` e `season + 1`) em paralelo e junta os resultados. Testado com atleta cujos pagamentos Jan-Jun estavam marcados como pagos na grelha de Mensalidades — perfil passou a reflectir o mesmo estado.
+
+---
+
+### ~~[BUG-030] Importação CSV da Direção atribui cargos errados e duplica pessoas ao reimportar~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/direction/page.tsx:69-77`, `parseFederationRole` testava substrings fixas — `"treinador"` apanhava também `"treinador adjunto"`, `ASSISTANT_TRAINER` nunca era produzido. Sem verificação contra membros existentes, reimportar o CSV depois da federação actualizar o plantel duplicava pessoas em vez de actualizar cargos.
+**Impacto:** dados de cargos errados sem qualquer aviso; duplicação silenciosa no caso de uso mais óbvio do botão.
+**Fix:** `parseFederationRole` testa agora `"treinador adjunto"`/`"treinador-adjunto"`/`"assistente"` antes do `.includes('treinador')` genérico. `POST /api/direction` com array faz `findFirst` por nome (case-insensitive) antes de decidir `create` vs `update`; em caso de update, funde os cargos existentes com os novos via `Set` em vez de substituir. Testado via Playwright: CSV com "Treinador Adjunto" + "Treinador" para a mesma pessoa (Num FPP) produz um único membro com os dois cargos distintos; reimportar o mesmo CSV com um cargo adicional funde no membro existente sem duplicar (2 membros → continuam 2, cargos acumulados).
+
+---
+
+### ~~[SEC-030] Admin pode auto-remover `isAdmin` sem protecção — risco de lockout permanente~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). Nem `src/components/admin/PermissionsModal.tsx:189-192` nem `PUT /api/admin/permissions/[userId]` comparavam o utilizador-alvo com o utilizador autenticado. Se fosse o único admin do clube, ficava bloqueado de `/admin/*` sem via de recuperação dentro da app (super admin só acede a `/platform`, regra 12 do CLAUDE.md).
+**Impacto:** lockout completo de um clube, resolúvel só por intervenção directa na BD.
+**Fix:** client (`PermissionsModal.tsx`) bloqueia o toggle e desactiva o switch quando `userId === utilizador autenticado`; servidor (`admin/permissions/[userId]/route.ts`) força `data.isAdmin = true` no mesmo caso, independentemente do que o client enviar — protecção não depende só da UI.
+
+---
+
+### ~~[DEBT-025] Estatísticas de Assiduidade — N+1 sem limite temporal~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/attendance/page.tsx:549-577` buscava todas as sessões alguma vez criadas (sem filtro de data) e depois um fetch por sessão via `Promise.all`. Crescia a cada época, recarregava sem cache a cada troca de tab. Já existia a versão correcta (uma query só) em `src/app/api/reports/attendance/route.ts`, não usada aqui.
+**Impacto:** degradava progressivamente com uso real; não era um problema com dados de teste, seria com uma época inteira de treinos.
+**Fix:** lógica extraída para `src/lib/attendanceStats.ts` (`computeAttendanceStats`, 1 query com `include` em vez de N+1) e reutilizada em ambos os sítios: novo endpoint `GET /api/attendance/stats` (usado pela tab de Estatísticas) e `api/reports/attendance/route.ts` (que tinha a sua própria cópia duplicada da mesma lógica — eliminada).
+
+---
+
+### ~~[BUG-031] `usePermissions()` sem memoização — loop infinito de fetches (`ERR_INSUFFICIENT_RESOURCES`)~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17, durante os testes em browser real pós-auditoria (não detectado pela leitura estática dos 3 agentes). `src/hooks/usePermissions.ts` devolvia uma função `can` nova a cada render (sem `useCallback`). Qualquer componente que metesse `can` — ou uma função construída a partir dela, ex. `fetchX` — na dependency array de um `useEffect`/`useCallback` entrava em ciclo: novo render → novo `can` → efeito dispara outra vez → novo state update → novo render. Confirmado no perfil do atleta: 22 erros de consola, `net::ERR_INSUFFICIENT_RESOURCES` por esgotar o limite de conexões HTTP do browser.
+**Impacto:** hook usado em praticamente todo o dashboard — qualquer página com este padrão (não só o perfil do atleta) estava em risco. Explica possíveis relatos vagos de "lentidão"/"crashes" que um clube real já pudesse ter tido.
+**Fix:** `can` envolvido em `useCallback([permissions])`; hook devolve objecto memoizado via `useMemo([can, permissions])`. Verificado via Playwright: 0 erros de consola no perfil do atleta após o fix (antes: 22).
+
+---
+
+### ~~[BUG-032] Materiais — criação em lote não gravava `seasonId`; estado/atleta inconsistentes~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). `handleBatchSubmit` em `materials/page.tsx` não incluía `seasonId` no payload de cada item do lote — materiais criados via "Adicionar múltiplos" ficavam sem época e desapareciam da lista assim que o filtro de época global estava activo. `POST /api/materials` também não reconciliava `state`/`athleteId`/campos de pagamento entre si (ex. atribuir `athleteId` sem o estado passar a `ASSIGNED`).
+**Fix:** `handleBatchSubmit` calcula `seasonId` a partir da época seleccionada/activa e inclui-o em todos os itens do lote; erros de rede por item passaram a lançar (antes eram engolidos por `Promise.allSettled` sem verificar `res.ok`). `POST /api/materials` reconcilia: `athleteId` presente força `state = 'ASSIGNED'`; ausente com `state === 'ASSIGNED'` força `'FREE'`; `state !== 'ASSIGNED'` limpa `paidByAthlete`/`paidAmount`. Testado via Playwright: lote de 2 itens (1 com atleta+valor+pago, 1 só com atleta) — ambos ficaram com a época activa, estado "Atribuído" automático, e o item sem toggle de pagamento manteve "—" em vez de herdar valores do item anterior.
+
+---
+
+### ~~[BUG-033] Viagens — "próximas"/"passadas" ignora a hora de partida, só a data~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). Filtro `upcoming`/`past` em `travel/page.tsx` comparava só `departureDate` (meia-noite) contra `new Date()` — uma viagem marcada para hoje às 08:00 continuava em "Próximas" às 20:00 do mesmo dia.
+**Fix:** novo helper `getTravelDateTime(t)` combina `departureDate` com a hora (lendo componentes UTC da data e construindo um `Date` local com a hora aplicada, evitando o desvio de fuso horário do `setHours()` directo sobre uma data UTC); filtros passaram a usá-lo. `pavilionUrl` também alinhado com a regex do servidor (antes usava `.url()` do Zod, mais permissivo/diferente do backend).
+
+---
+
+### ~~[SEC-031] Export de Audit Log incluía logins de admin que a tabela esconde~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard). `admin/audit/export/route.ts` tinha a sua própria lógica de filtragem, divergente do `baseFilter` usado pela tabela em `admin/audit/route.ts` — o export incluía eventos `LOGIN` de administradores que a UI da tabela deliberadamente esconde (só mostra `LOGIN_FAIL` + acções de não-admins).
+**Fix:** `where` do export reescrito para replicar exactamente o `baseFilter` da tabela (`OR: [{action: 'LOGIN_FAIL'}, {userId: {notIn: adminIds}}]`).
+
+---
+
+### ~~[DEBT-026] Hidratação SSR — 3 páginas não cobertas pelo fix original de BUG-025~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17, ao gerar um grep de todos os usos de `useSeasonStore` depois de reproduzir um erro de hidratação #418 em `/materials` durante os testes — o fix de [BUG-025] (padrão `useMounted()`) só tinha cobertura em Têxteis/Sócios/Patrocinadores/`SeasonSelector`. `materials/page.tsx`, `fees/page.tsx` e `athletes/[id]/page.tsx` liam `seasons`/`selectedSeason`/`activeSeason` do Zustand persist directamente no primeiro render, com JSX cuja estrutura depende desses dados.
+**Fix:** mesmo padrão `useMounted()` aplicado aos 3 ficheiros — gate local antes de expor `seasons`/`selectedSeason`/`activeSeason` a JSX condicional. `seasons/page.tsx` confirmado já seguro (variável local `seasons` do `useState` sombreia o nome do store).
+
+---
+
+### ~~[DEBT-027] Fetches sem tratamento de erro + parsing CSV ingénuo em 4 páginas~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (auditoria dashboard, padrão transversal repetido em Atletas/Mensalidades/Viagens/Quadro táctico). `fetch()` sem `try/catch` nem verificação de `res.ok` — falha de rede ou 500 do servidor ficava silenciosa (sem toast, sem estado de erro visível). Parsing de CSV em `athletes/page.tsx` usava `.split(',')` ingénuo, quebrando em campos com vírgulas dentro de aspas. Export de relatório de atletas (`reports/athletes/route.ts`) ignorava filtros de pesquisa/época aplicados na página e mostrava colunas de mensalidade a utilizadores sem `viewFees`.
+**Fix:** `fetchAthletes`/`fetchData` (fees)/`fetchTravels` envoltos em `try/catch/finally` com toast de erro (mensagem específica para 401). Tokenizador `splitCsvLine` (state machine com suporte a aspas RFC4180-ish) substitui `.split(',')` em `parseCsv`. `BoardToolbar.tsx` (quadro táctico) ganhou toasts para todas as falhas silenciosas antes engolidas (JSON inválido ao carregar, `MediaRecorder`/`captureStream` não suportado, erro a meio da exportação de vídeo). Export de atletas alinhado com os filtros da página (pesquisa + época) e esconde colunas de mensalidade sem `viewFees`.
 
 ---
 

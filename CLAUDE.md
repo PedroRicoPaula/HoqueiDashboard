@@ -5,7 +5,7 @@
 **Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
 **URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-07-16
+**Data última auditoria:** 2026-07-17
 
 > ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
@@ -259,6 +259,21 @@ messages/                      # Traduções next-intl
 - ✅ **`welcomeEmailHtml` removido** de `src/lib/email.ts` (dead code); `resetPasswordEmailHtml` inalterado, continua a servir `/forgot-password`
 - ✅ **`middleware.ts`**: `register` adicionado à lista de exclusões do `matcher` (cobre `/register/complete`; não afecta `/api/register`, que já passava pelo ramo `/api/*`)
 - ✅ i18n: chaves `password`, `passwordPlaceholder`, `confirmPassword`, `confirmPasswordPlaceholder`, `passwordTooShort`, `passwordMismatch` em `messages/{pt,es,en,fr,it}.json` → `register.*`
+
+### Auditoria completa ao dashboard + correção de 24 problemas (2026-07-17)
+> Auditoria de 16 módulos (3 agentes + revisão própria), seguida de correção e teste de tudo o que foi encontrado. Detalhe de cada item em `docs/ISSUES-BACKLOG.md`. Único ponto ainda em aberto: [UX-004] (Assiduidade só permite 1 horário/escalão — decisão de produto pendente).
+- ✅ **[BUG-029]** Perfil do atleta mostrava mensalidades Jan-Jun como não pagas — `payments/route.ts` só pedia o ano de início da época; cliente agora pede os dois anos civis e junta
+- ✅ **[BUG-030]** CSV FPP da Direção: `"treinador adjunto"` era apanhado por `.includes('treinador')` antes de chegar à condição certa — reordenado. Reimportar o mesmo CSV duplicava pessoas — `POST /api/direction` agora faz `findFirst` por nome e funde cargos via `Set` em vez de duplicar
+- ✅ **[SEC-030]** Admin conseguia auto-remover `isAdmin` (risco de lockout do clube) — bloqueado no client (switch disabled) e reforçado no servidor (`data.isAdmin = true` se `userId === user.id`, independente do payload)
+- ✅ **[DEBT-025]** Estatísticas de Assiduidade eram N+1 sem filtro de data — extraído `src/lib/attendanceStats.ts` (`computeAttendanceStats`, 1 query), usado por `GET /api/attendance/stats` (novo) e pelo export CSV
+- ✅ **[BUG-031] — achado só em teste live, não na auditoria estática**: `usePermissions()` devolvia `can` sem `useCallback` → loop infinito em qualquer componente que metesse `can`/derivados na dependency array de `useEffect`. Confirmado em produção-like: `net::ERR_INSUFFICIENT_RESOURCES` no perfil do atleta (22 erros de consola → 0 após fix). Hook usado em quase todo o dashboard — foi o achado mais sério desta ronda
+- ✅ **[DEBT-026] — achado só em teste live**: fix de hidratação de [BUG-025] (`useMounted()`) não cobria `materials/page.tsx`, `fees/page.tsx`, `athletes/[id]/page.tsx` — reproduzido o mesmo erro #418 em `/materials`; aplicado o mesmo padrão aos 3 ficheiros
+- ✅ **[BUG-032]** Materiais em lote ("Adicionar múltiplos") não gravava `seasonId` — desapareciam ao filtrar por época; `POST /api/materials` agora reconcilia `state`/`athleteId`/campos de pagamento entre si
+- ✅ **[BUG-033]** Viagens "próximas/passadas" comparava só a data, ignorava a hora — novo helper `getTravelDateTime()` combina data+hora sem desvio de fuso
+- ✅ **[SEC-031]** Export de Audit Log usava regra de visibilidade diferente da tabela — incluía logins de admin que a UI esconde; alinhado
+- ✅ **[DEBT-027]** Fetches sem `try/catch`/`res.ok` em Atletas/Mensalidades/Viagens (falhas silenciosas); parsing CSV de Atletas com `.split(',')` ingénuo (quebrava com vírgulas dentro de aspas) → tokenizador `splitCsvLine`; Quadro Táctico (`BoardToolbar.tsx`) sem feedback em falhas de importar/exportar → toasts adicionados
+- ✅ **Simplificação**: `PlaybackOverlay.tsx` (código morto, zero imports) removido; Dashboard home — coluna de 3 cards de receita redundante com o gráfico ao lado removida (Despesas mantém os cards — têm dado extra que o gráfico não mostra)
+- ✅ **Verificação**: `npm test` 67/67, `npm run build` limpo, fluxos alterados testados em browser real via Playwright (não só typecheck) — incluindo o lote de Materiais e o reimport de CSV da Direção
 
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed

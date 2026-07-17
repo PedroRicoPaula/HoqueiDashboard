@@ -538,7 +538,7 @@ DIRECTION_ROLES: 'TRAINER' | 'ASSISTANT_TRAINER' | 'DIRECTOR' | 'SECCIONISTA' | 
 - Elementos: jogador (azul), adversário (vermelho), bola (amarela), cone (laranja)
 - Drag-and-drop por CSS transform (sem biblioteca externa)
 - Multi-frame: adicionar frames, navegar, remover
-- Playback animado (1200ms/frame) com PlaybackOverlay
+- Playback animado (1200ms/frame), lógica inline em `TacticalBoard.tsx` (o antigo `PlaybackOverlay.tsx` era código morto — removido 2026-07-17)
 - Guardar/carregar playbook (JSON no DB)
 - Reset do quadro
 
@@ -665,7 +665,8 @@ AuditAction: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGIN_FAIL' | 'LOGOUT' 
 - `POST /api/attendance/schedules` → criar horário recorrente
 - `PUT/DELETE /api/attendance/schedules/[id]` → editar/eliminar horário
 - `GET /api/athletes/[id]/attendance` → stats de assiduidade do atleta (usa `db` — tenant-scoped)
-- `GET /api/reports/attendance?ageGroup=` → CSV de assiduidade
+- `GET /api/attendance/stats?ageGroup=` → estatísticas agregadas por atleta (própria época/escalão vs outros), usadas pela tab Estatísticas. Lógica partilhada com o export via `src/lib/attendanceStats.ts` (`computeAttendanceStats`) — 1 query com `include` em vez de N+1 fetch-per-session (fix DEBT-025, 2026-07-17)
+- `GET /api/reports/attendance?ageGroup=` → CSV de assiduidade (mesma lógica de `computeAttendanceStats`)
 
 ### Funcionalidades
 **Tab Calendário:**
