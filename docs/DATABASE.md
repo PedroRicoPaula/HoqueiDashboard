@@ -97,10 +97,14 @@ Season {
   startDate DateTime
   endDate   DateTime
   isActive  Boolean   @default(false)  ← no máximo 1 ativa por clube (validação na API)
+  defaultAthleteMonthlyFee  Float?    ← tarifa padrão de mensalidade (adicionado migration 20260716000002)
+  defaultMemberMonthlyQuota Float?    ← quota padrão de sócios (adicionado migration 20260716000002)
   members   Member[]
   sponsors  Sponsor[]
   athletePayments AthletePayment[]
   quotas    Quota[]
+  materials Material[]      ← (adicionado migration 20260716000002)
+  textiles  TextileItem[]   ← (adicionado migration 20260716000002, named relation "TextileItemSeason")
   createdAt DateTime  @default(now())
   unique: (clubId, name)
   indexes: clubId, (clubId, isActive)
@@ -119,7 +123,9 @@ Athlete {
   number, name, ageGroup (AgeGroup enum)
   birthDate (DateTime), phone?, email?, nif?, address?
   school?, idCard?, parentName?, parentPhone?
-  monthlyFee Float @default(0), feeExempt Boolean @default(false)
+  monthlyFee    Float   @default(0)   ← campo legado; não exposto em formulários (mantido por backward compat)
+  feeExempt     Boolean @default(false)
+  discountPercent Float?              ← desconto individual 0-100% sobre Season.defaultAthleteMonthlyFee (adicionado migration 20260716000002)
   materials Material[], payments AthletePayment[]
   directionRole DirectionMember? (1-to-1 opcional)
   indexes: name, ageGroup
@@ -169,10 +175,11 @@ Quota {
 Material {
   name, category (MaterialCategory), type (String), state (MaterialState) @default(FREE)
   athleteId? (FK Athlete, onDelete: SetNull)
+  seasonId  String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = material sem época (adicionado migration 20260716000002)
   notes?
   paidByAthlete Boolean @default(false)  ← atleta pagou? (clube poupou esse valor)
   paidAmount    Float?                   ← custo do equipamento (independente de quem pagou)
-  indexes: state, category, athleteId
+  indexes: state, category, athleteId, seasonId
 }
 enum MaterialCategory { ATHLETE GOALKEEPER SMALL }
 enum MaterialState { FREE ASSIGNED DAMAGED }
@@ -315,7 +322,8 @@ TextileItem {
   jerseyNumber Int?              ← só para camisolas
   personalized Boolean @default(false)
   personalizationDetails String?  ← ex: "João Silva · Nº 10"
-  season String                 ← ex: "2025/26"
+  season String                 ← ex: "2025/26" (campo texto legado)
+  seasonId String?  FK → Season (onDelete: SetNull) @relation("TextileItemSeason")  ← FK para época (adicionado migration 20260716000002; named relation porque "season" já existe como campo texto)
   state TextileState @default(STOCK)
   athleteId? (FK Athlete, onDelete: SetNull)
   isPartOfKit Boolean @default(false)
@@ -324,7 +332,7 @@ TextileItem {
   paidAmount Float?              ← valor pago pelo atleta
   totalCost Float?               ← custo total ao clube
   notes?
-  indexes: athleteId, state, category, season
+  indexes: athleteId, state, category, season, seasonId
 }
 enum TextileCategory { GAME TRAINING OTHER }
 enum TextileType { GAME_SHIRT GAME_SHORTS GAME_SOCKS GK_SHIRT TRAINING_TOP TRAINING_PANTS TRAINING_KIT JACKET TSHIRT OTHER }
@@ -388,6 +396,7 @@ RateLimit {
 | *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
 | `20260626000001_add_clubid_to_payment_models` | Jun 2026 | `clubId FK → Club (NOT NULL, CASCADE)` em `AthletePayment`, `Quota`, `DirectionSalaryPayment`, `AttendanceRecord`. Backfill via UPDATE das tabelas pai. Indexes `clubId_idx` em cada tabela. Resolve DEBT-017. | ✅ aplicada |
 | `20260716000001_season_feature` | Jul 2026 | Modelo `Season` (CREATE TABLE + FK + indexes); `seasonId TEXT?` + FK `SetNull` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `(clubId,number)` para `(clubId,number,seasonId)` (DROP + CREATE UNIQUE INDEX); indexes `seasonId_idx` nas 4 tabelas. | ✅ aplicada |
+| `20260716000002_season_fees` | Jul 2026 | `Season.defaultAthleteMonthlyFee DOUBLE PRECISION?` + `Season.defaultMemberMonthlyQuota DOUBLE PRECISION?`; `Athlete.discountPercent DOUBLE PRECISION?`; `Material.seasonId TEXT?` + FK `SetNull` + index; `TextileItem.seasonId TEXT?` + FK `SetNull` + index (named relation "TextileItemSeason" — necessário porque `TextileItem` já tem campo texto `season`). | ✅ aplicada |
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:

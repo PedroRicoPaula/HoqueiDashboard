@@ -100,13 +100,16 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 **Status:** ✅ funcional  
 **Página:** `/settings`  
 **Permissão:** `isAdmin`  
-**APIs:** `GET /api/settings`, `PATCH /api/settings`
+**APIs:** `GET /api/settings`, `PATCH /api/settings`, `PATCH /api/seasons/[id]` (para guardar tarifas da época)
 
 ### Funcionalidades
+- Página reorganizada em 4 cards: **Logo do clube**, **Mensalidades e Quotas por Época**, **Cor do clube**, **Informações gerais**
 - Atualizar nome do clube, país, idioma do dashboard
 - Idioma guardado em `Club.language` — a mudança requer novo login para ter efeito no JWT
 - **Paleta de cores do clube** — 8 presets (Verde, Azul, Vermelho, Roxo, Laranja, Teal, Azul Escuro, Rosa) guardados como HSL triplet em `Club.primaryColor`. Aplicado imediatamente no auth store; propaga via CSS variable `--club-primary` no layout do dashboard sem necessitar de novo login.
 - `PATCH /api/settings` aceita campo `primaryColor` (regex: `/^\d{1,3} \d{1,3}% \d{1,3}%$/`)
+- **Mensalidades e Quotas por Época**: card com selector de época + dois campos numéricos (`defaultAthleteMonthlyFee`, `defaultMemberMonthlyQuota`). Guarda via `PATCH /api/seasons/[id]`. Se não existirem épocas, mostra link para `/seasons`.
+- Overscroll whitespace corrigido — `overscroll-contain` no `<main>` do dashboard layout
 - Audit log em cada PATCH
 
 ---
@@ -133,17 +136,27 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 
 ### State Global (`src/store/seasonStore.ts`)
 ```typescript
+interface SeasonOption {
+  id: string
+  name: string
+  startDate: string
+  endDate: string
+  isActive: boolean
+  defaultAthleteMonthlyFee?: number | null   // tarifa padrão de atletas
+  defaultMemberMonthlyQuota?: number | null  // quota padrão de sócios
+}
 {
-  seasons: Season[]
+  seasons: SeasonOption[]
   selectedSeasonId: string | null
-  setSeasons(seasons: Season[]): void
+  setSeasons(seasons: SeasonOption[]): void
   setSelectedSeason(id: string | null): void
-  getSelectedSeason(): Season | null
-  getActiveSeason(): Season | null
+  getSelectedSeason(): SeasonOption | null
+  getActiveSeason(): SeasonOption | null
 }
 ```
 - Persistido via `zustand/middleware/persist` com key `hm-season` em `localStorage`
 - Carregado por `SeasonSelector.tsx` (GET `/api/seasons`) ao montar o Sidebar
+- `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` disponíveis em todos os componentes via store
 
 ### Componentes
 - `src/components/season/SeasonSelector.tsx` — dropdown no Sidebar com opção "Todas as épocas"
@@ -153,9 +166,12 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 | Módulo | Comportamento |
 |--------|--------------|
 | Dashboard | `?seasonId` filtra contadores de sócios, patrocinadores e receitas de mensalidades |
-| Mensalidades | `?seasonId` usa meses dinâmicos da Season; nav-buttons escondidos |
-| Sócios | `?seasonId` filtra lista; form pré-seleciona a época; QuotaCalendar usa `season.endDate.year` |
+| Mensalidades | `?seasonId` usa meses dinâmicos da Season; `effectiveFee` calculado com `defaultAthleteMonthlyFee` e `discountPercent` |
+| Sócios | `?seasonId` filtra lista; form pré-seleciona a época; QuotaCalendar usa `season.endDate.year`; quota auto-preenchida com `defaultMemberMonthlyQuota` |
 | Patrocinadores | `?seasonId` filtra lista; form pré-seleciona a época |
+| Equip. Hóquei | `?seasonId` filtra materiais por `Material.seasonId`; form usa picker de época |
+| Materiais Têxteis | `?seasonId` filtra têxteis por `TextileItem.seasonId`; form usa picker de época |
+| Definições | card "Mensalidades e Quotas" edita `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` da época selecionada |
 
 ### Validações Zod (`src/lib/validations.ts`)
 ```typescript
@@ -221,17 +237,30 @@ updateSeasonSchema: { name?, startDate?, endDate?, isActive? }
 - Sheet lateral para criar/editar atleta
 - Dialog de confirmação de eliminação
 - Campos: número, nome, escalão, data nasc., telefone, email, NIF, CC/BI, morada
-- Campos só para não-SENIORS: escola, mensalidade, isenção, encarregado de educação
+- **Mensalidade** (todos os escalões incluindo SENIORS): info box com tarifa da época (`defaultAthleteMonthlyFee`), campo de desconto individual (0-100%), toggle isenção; preview do valor efetivo quando desconto > 0
+- Campos só para não-SENIORS: escola, encarregado de educação
 
 ### Funcionalidades — Perfil (/athletes/[id])
 - Header com número, nome, escalão, badge isento
 - **Dropdown de navegação**: filtrar por escalão → selecionar atleta → navega para perfil
 - Escalão pré-selecionado = escalão do atleta atual
-- Cards: info pessoal, contacto, mensalidade (só não-SENIORS), materiais atribuídos
+- Cards: info pessoal, contacto, **mensalidade** (breakdown: tarifa época → desconto% → valor efetivo), materiais atribuídos
 - Funções na Direção (se athlete.directionRole existe)
 - Histórico de pagamentos (só se `can('viewFees')` e não-SENIORS) com navegação por época (‹ ›)
-- Sheet de edição inline
+- Sheet de edição inline (inclui campo `discountPercent`)
 - Error handling: 401→"Sessão expirada", 404/500→"Atleta não encontrado"
+
+### Lógica de mensalidade (effectiveFee)
+```typescript
+// em /api/fees e /api/athletes/[id]/payments
+const seasonDefault = season.defaultAthleteMonthlyFee   // tarifa base da época
+const effectiveFee = seasonDefault != null
+  ? Math.round(seasonDefault * (1 - (athlete.discountPercent ?? 0) / 100) * 100) / 100
+  : athlete.monthlyFee  // fallback legado
+```
+- `athlete.monthlyFee` mantido no schema para backward compat mas **não exposto nos formulários**
+- `discountPercent` é individual por atleta (0-100, nullable = sem desconto)
+- Valor efetivo exibido no perfil e na grelha de mensalidades
 
 ### Enums
 ```typescript
@@ -239,7 +268,7 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 ```
 
 ### Notas
-- SENIORS excluídos de mensalidades e histórico de pagamentos (design intencional)
+- SENIORS excluídos do histórico de pagamentos na tab do perfil (design intencional), mas têm mensalidade configurável
 - `birthDate` guardado como `DateTime` no DB, sempre string ISO na API
 - Número de atleta único (`@unique`)
 
@@ -274,8 +303,13 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 - `activeMonths` no cliente: `useMemo` que combina ambos os caminhos no mesmo shape `{year, month, label, labelFull}` — toda a renderização usa `sm.year` em vez de calcular o ano localmente.
 - `isMonthPast`: `year < currentYear || (year === currentYear && month < currentMonth)`
 
+### Cálculo effectiveFee na API (/api/fees)
+- API busca a `Season` selecionada para obter `defaultAthleteMonthlyFee`
+- Para cada atleta: `effectiveFee = seasonDefault * (1 - discountPercent/100)` (ou `monthlyFee` como fallback legado)
+- `AthleteWithPayments` no cliente inclui `effectiveFee: number` — toda a lógica de pagamento usa este valor
+
 ### Notas
-- `amount` guardado no upsert: se pago → `amount ?? athlete.monthlyFee`, se não pago → null
+- `amount` guardado no upsert: se pago → `amount ?? athlete.effectiveFee`, se não pago → null
 - `paidAt` definido em upsert quando `paid=true`, null quando `paid=false`
 
 ---
@@ -301,6 +335,7 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 - Empty state com CTA "Adicionar primeiro sócio" quando sem pesquisa ativa
 - Sheet lateral criar/editar com dropdown de época (quando existem épocas) — pré-selecionado com a época ativa do `seasonStore`
 - **Filtro por época**: chip de badge mostra a época selecionada; lista filtra por `seasonId` quando definido; novo sócio herda a época selecionada
+- **Quota automática ao criar**: ao criar novo sócio, `monthlyQuota` é automaticamente preenchida com `Season.defaultMemberMonthlyQuota`; info box exibe o valor (sem input editável). Na edição mantém-se o input normal para ajustes individuais.
 - **QuotaCalendar**:
   - Calendário 12 meses do ano, toggle pago/não-pago, mostra valor pago em cada tile
   - Ano padrão ao abrir o QuotaCalendar: `selectedSeason.endDate.getFullYear()` (quando há época ativa); fallback para ano atual
@@ -321,13 +356,14 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 **Permissão leitura:** `viewMaterials`  
 **Permissão escrita:** `editMaterials`  
 **APIs:**
-- `GET /api/materials?search=&category=&state=` → lista filtrada
-- `POST /api/materials` → criar
+- `GET /api/materials?search=&category=&state=[&seasonId=<uuid>]` → lista filtrada (por época quando `seasonId` fornecido)
+- `POST /api/materials` → criar (aceita `seasonId?`)
 - `GET/PUT/DELETE /api/materials/[id]`
 
 ### Funcionalidades
 - Tabela: tipo, marca/modelo, categoria, estado, atleta atribuído, **valor/quem pagou**
 - Filtros: pesquisa por tipo/nome, categoria, estado
+- **Filtro por época**: chip de badge quando `selectedSeason` ativo; lista filtra por `Material.seasonId`; form inclui picker de época (selector com épocas do store ou fallback input texto)
 - **Tipos predefinidos por categoria** (constante `MATERIAL_TYPES` em `src/lib/constants.ts`):
   - `ATHLETE`: Patins Completos, Botas, Chassis, Rodas, Travões, Rolamentos, Stick, Bola, Luvas, Joelheiras, Caneleiras, Coquilha, Capacete com Viseira
   - `GOALKEEPER`: Patins de Guarda-Redes, Stick de Guarda-Redes, Caneleiras GR, Peitilho, Luva de Raquete, Luva do Stick, Máscara com Grelha/Viseira, Calções Almofadados, Proteção de Pescoço
@@ -715,14 +751,15 @@ SENIORS: bg-gray-800   / text-white
 **Permissão leitura:** `viewTextiles`  
 **Permissão escrita:** `editTextiles`  
 **APIs:**
-- `GET /api/textiles?search=&category=&state=&season=&athleteId=` → lista filtrada
-- `POST /api/textiles` → criar item
+- `GET /api/textiles?search=&category=&state=&season=[&seasonId=<uuid>]` → lista filtrada (por época FK quando `seasonId` fornecido, por texto quando `season` fornecido)
+- `POST /api/textiles` → criar item (aceita `seasonId?`)
 - `GET/PUT/DELETE /api/textiles/[id]`
 - `GET /api/reports/textiles?season=` → CSV de têxteis
 
 ### Funcionalidades
 - Tabela: tipo, tamanho, categoria, época, estado, atleta, custo
-- Filtros: pesquisa (notas/personalização), categoria, estado, época
+- Filtros: pesquisa (notas/personalização), categoria, estado, época (texto)
+- **Filtro por época global (FK)**: chip de badge quando `selectedSeason` ativo; lista filtra por `TextileItem.seasonId`; form inclui picker de época que usa `storeSeason` (épocas do store) — separado do campo `season` (texto livre legado)
 - **Modo peça única**: categoria → tipo → tamanho → nº camisola + personalização → estado → atleta + custo
 - **Modo kit de jogo**: cria camisola + calções + meias de uma vez com `kitRef` partilhado + atleta comum
   - Itens de kit têm `isPartOfKit=true` e o mesmo `kitRef` (timestamp-based)

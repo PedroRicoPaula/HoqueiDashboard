@@ -5,6 +5,18 @@
 
 ## 🔴 Bugs Activos
 
+### ~~[BUG-024] Secção "Mensalidade" não aparecia para atletas Seniores no formulário de criação~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (teste UI pós-deploy). O bloco `Mensalidade` (com info da tarifa da época, desconto individual e toggle de isenção) estava envolto em `{ageGroupValue !== 'SENIORS' && (...)}` — condição que devia guardar apenas "Escola" e "Encarregado de Educação". Como o escalão por defeito ao criar é "Seniores", a secção de mensalidade nunca aparecia.  
+**Fix:** `src/app/(dashboard)/athletes/page.tsx` — removido o `!== 'SENIORS'` que envolvia o bloco de mensalidade. Secção agora aparece para todos os escalões. "Escola" e "Encarregado de Educação" mantêm a condicional.
+
+---
+
+### ~~[DEBT-024] `vitest.config.ts` sem `include` — specs Playwright em `e2e/` apanhados pelo Vitest~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (após criação dos specs E2E Playwright). O Vitest usava o padrão default `**/*.spec.ts` — apanhando os ficheiros Playwright e causando 6 falhas de suite com `Playwright Test did not expect test.describe() to be called here`.  
+**Fix:** `vitest.config.ts` — `include: ['src/**/*.test.ts']` + `exclude: ['e2e/**', 'node_modules/**']`. 67/67 testes voltam a passar.
+
+---
+
 ### ~~[SEC-027] IDOR em `PUT /api/attendance/[id]/records` — athleteIds não validados contra clube~~ ✅ RESOLVIDO 2026-07-16
 **Encontrado:** 2026-07-16 (auditoria de segurança). Body `{ records: [{ athleteId, present }] }` aceitava qualquer `athleteId` sem verificar se pertencia ao clube autenticado. Embora o Prisma Extension injete `clubId` no `create` branch do `upsert`, o `where` usa `sessionId_athleteId` (sem `clubId`), pelo que um `athleteId` de outro clube seria aceite.  
 **Fix:** antes do loop de upsert, `db.athlete.findMany({ where: { id: { in: submittedIds } } })` (tenant-scoped) valida todos os IDs — qualquer ID não pertencente ao clube retorna 400.
