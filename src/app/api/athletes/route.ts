@@ -23,6 +23,8 @@ export async function GET(req: Request) {
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
     const all = searchParams.get('all') === 'true'
 
+    const searchAsNumber = /^\d+$/.test(search) ? parseInt(search) : null
+
     const where = {
       AND: [
         search
@@ -30,6 +32,7 @@ export async function GET(req: Request) {
               OR: [
                 { name: { contains: search, mode: 'insensitive' as const } },
                 { phone: { contains: search, mode: 'insensitive' as const } },
+                ...(searchAsNumber != null ? [{ number: searchAsNumber }] : []),
               ],
             }
           : {},

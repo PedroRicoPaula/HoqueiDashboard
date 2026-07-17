@@ -4,6 +4,19 @@ import { hasPermission } from '@/lib/permissions'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
 
+// Mesma fórmula de src/app/api/fees/route.ts — mantém o export alinhado com o
+// valor real mostrado em Mensalidades (época × desconto), não o campo legado.
+function computeEffectiveFee(
+  athleteMonthlyFee: number,
+  discountPercent: number | null | undefined,
+  seasonDefaultFee: number | null | undefined,
+): number {
+  const base = seasonDefaultFee != null ? seasonDefaultFee : athleteMonthlyFee
+  if (!base || base <= 0) return 0
+  const discount = discountPercent ?? 0
+  return parseFloat((base * (1 - discount / 100)).toFixed(2))
+}
+
 export async function GET(req: Request) {
   try {
     const ctx = await getDbForRequest(req)
@@ -12,18 +25,37 @@ export async function GET(req: Request) {
     if (!hasPermission(user.permissions, 'viewAthletes')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
+    const canViewFees = hasPermission(user.permissions, 'viewFees')
 
     const { searchParams } = new URL(req.url)
     const ageGroup = searchParams.get('ageGroup') ?? ''
+    const search = searchParams.get('search') ?? ''
+    const seasonId = searchParams.get('seasonId') ?? ''
+
+    let seasonDefaultFee: number | null = null
+    if (canViewFees && seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId }, select: { defaultAthleteMonthlyFee: true } })
+      seasonDefaultFee = (season as { defaultAthleteMonthlyFee: number | null } | null)?.defaultAthleteMonthlyFee ?? null
+    }
 
     const athletes = await db.athlete.findMany({
-      where: ageGroup ? { ageGroup: ageGroup as never } : {},
+      where: {
+        AND: [
+          ageGroup ? { ageGroup: ageGroup as never } : {},
+          search
+            ? { OR: [
+                { name: { contains: search, mode: 'insensitive' as const } },
+                { phone: { contains: search, mode: 'insensitive' as const } },
+              ] }
+            : {},
+        ],
+      },
       orderBy: [{ ageGroup: 'asc' }, { number: 'asc' }],
     }) as unknown as Array<{
       number: number; name: string; ageGroup: string; birthDate: Date;
       phone: string | null; email: string | null; nif: string | null; idCard: string | null;
       address: string | null; school: string | null; parentName: string | null; parentPhone: string | null;
-      monthlyFee: number; feeExempt: boolean;
+      monthlyFee: number; discountPercent: number | null; feeExempt: boolean;
     }>
 
     const AGE_LABELS: Record<string, string> = {
@@ -34,7 +66,8 @@ export async function GET(req: Request) {
     const headers = [
       'N.º', 'Nome', 'Escalão', 'Data Nascimento', 'Idade',
       'Telefone', 'Email', 'NIF', 'N.º CC/BI', 'Morada', 'Escola',
-      'Encarregado', 'Tel. Encarregado', 'Mensalidade (€)', 'Isento',
+      'Encarregado', 'Tel. Encarregado',
+      ...(canViewFees ? ['Mensalidade (€)', 'Isento'] : []),
     ]
 
     const now = new Date()
@@ -48,7 +81,9 @@ export async function GET(req: Request) {
         age, a.phone ?? '', a.email ?? '', a.nif ?? '', a.idCard ?? '',
         a.address ?? '', a.school ?? '',
         a.parentName ?? '', a.parentPhone ?? '',
-        a.monthlyFee, a.feeExempt ? 'Sim' : 'Não',
+        ...(canViewFees
+          ? [computeEffectiveFee(a.monthlyFee, a.discountPercent, seasonDefaultFee), a.feeExempt ? 'Sim' : 'Não']
+          : []),
       ]
     })
 

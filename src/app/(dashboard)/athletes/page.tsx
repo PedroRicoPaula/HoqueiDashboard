@@ -30,6 +30,7 @@ import { format } from 'date-fns'
 import { AGE_GROUPS, AGE_GROUP_LABELS } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 
 function calcAge(birthDate: string): number {
   const b = new Date(birthDate)
@@ -111,15 +112,41 @@ function parseBirthDate(v: string): string {
   return v.trim()
 }
 
+// Split respeitando campos entre aspas (RFC4180) — um "," ou ";" dentro de
+// aspas (ex: morada "Rua do Comércio, 45") não pode partir a coluna.
+function splitCsvLine(line: string, sep: string): string[] {
+  const cols: string[] = []
+  let cur = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++ } else { inQuotes = false }
+      } else {
+        cur += ch
+      }
+    } else if (ch === '"') {
+      inQuotes = true
+    } else if (ch === sep) {
+      cols.push(cur); cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  cols.push(cur)
+  return cols
+}
+
 function parseCsv(text: string): Record<string, string>[] {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim())
   if (lines.length < 2) return []
   const sep = lines[0].includes(';') ? ';' : ','
-  const headers = lines[0].split(sep).map((h) => h.trim().replace(/^["']|["']$/g, '').toLowerCase().replace(/[^a-z0-9_]/g, '_'))
+  const headers = splitCsvLine(lines[0], sep).map((h) => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_'))
   return lines.slice(1).map((line) => {
-    const cols = line.split(sep)
+    const cols = splitCsvLine(line, sep)
     const obj: Record<string, string> = {}
-    headers.forEach((h, i) => { obj[h] = (cols[i] ?? '').trim().replace(/^["']|["']$/g, '') })
+    headers.forEach((h, i) => { obj[h] = (cols[i] ?? '').trim() })
     return obj
   })
 }
@@ -153,9 +180,10 @@ function rowToAthlete(row: Record<string, string>) {
 
 export default function AthletesPage() {
   const dashLabels = useDashLabels()
+  const mounted = useMounted()
   const { getSelectedSeason, getActiveSeason } = useSeasonStore()
-  const activeSeason = getActiveSeason()
-  const selectedSeason = getSelectedSeason()
+  const activeSeason = mounted ? getActiveSeason() : null
+  const selectedSeason = mounted ? getSelectedSeason() : null
   const seasonDefaultFee = (selectedSeason ?? activeSeason)?.defaultAthleteMonthlyFee ?? null
 
   const [athletes, setAthletes] = useState<Athlete[]>([])
@@ -195,16 +223,23 @@ export default function AthletesPage() {
     const params = new URLSearchParams({ page: String(p) })
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
-    const res = await fetch(`/api/athletes?${params}`)
-    if (res.ok) {
-      const data = await res.json()
-      setAthletes(data.athletes)
-      setTotal(data.total)
-      setPages(data.pages)
-      setPage(p)
+    try {
+      const res = await fetch(`/api/athletes?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAthletes(data.athletes)
+        setTotal(data.total)
+        setPages(data.pages)
+        setPage(p)
+      } else {
+        toast({ title: 'Erro ao carregar atletas', description: res.status === 401 ? 'Sessão expirada — inicie sessão novamente.' : undefined, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar atletas', variant: 'destructive' })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [debouncedSearch, ageGroupFilter, page])
+  }, [debouncedSearch, ageGroupFilter, page, toast])
 
   useEffect(() => { fetchAthletes(1) }, [debouncedSearch, ageGroupFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -268,6 +303,9 @@ export default function AthletesPage() {
     try {
       const params = new URLSearchParams()
       if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      const exportSeasonId = (selectedSeason ?? activeSeason)?.id
+      if (exportSeasonId) params.set('seasonId', exportSeasonId)
       const res = await fetch(`/api/reports/athletes?${params}`)
       if (!res.ok) { toast({ title: 'Erro ao exportar', variant: 'destructive' }); return }
       const blob = await res.blob()
@@ -310,12 +348,23 @@ export default function AthletesPage() {
         body: JSON.stringify(importRows),
       })
       const json = await res.json()
-      toast({ title: `${json.created} atleta(s) importado(s)${json.errors?.length ? `, ${json.errors.length} erro(s)` : ''}` })
+      if (!res.ok) {
+        // Falha do pedido inteiro (sessão expirada, sem permissão, etc.) — nada foi
+        // importado; manter a dialog aberta com as linhas para o utilizador tentar de novo.
+        toast({ title: 'Erro ao importar', description: json.error ?? 'Nenhum atleta foi importado.', variant: 'destructive' })
+        return
+      }
+      toast({
+        title: `${json.created} atleta(s) importado(s)${json.errors?.length ? `, ${json.errors.length} erro(s)` : ''}`,
+        variant: json.errors?.length ? 'destructive' : undefined,
+      })
       setImportOpen(false)
       setImportRows([])
       setImportErrors([])
       if (fileRef.current) fileRef.current.value = ''
       fetchAthletes(1)
+    } catch {
+      toast({ title: 'Erro de ligação — nenhum atleta foi importado', variant: 'destructive' })
     } finally { setImporting(false) }
   }
 
@@ -576,7 +625,7 @@ export default function AthletesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Eliminar Atleta</DialogTitle>
-            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.athlete?.name}? Esta ação não pode ser desfeita.</DialogDescription>
+            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.athlete?.name}? Esta ação elimina também todo o histórico de pagamentos e assiduidade deste atleta, e não pode ser desfeita.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, athlete: null })}>Cancelar</Button>

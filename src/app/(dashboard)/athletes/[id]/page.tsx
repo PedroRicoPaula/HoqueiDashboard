@@ -36,14 +36,16 @@ import {
 } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 
 const athleteSchema = z.object({
-  number: z.coerce.number().int().positive(),
-  name: z.string().min(2),
+  number: z.coerce.number().int().positive('Número deve ser positivo'),
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   ageGroup: z.enum(['SUB11', 'SUB13', 'SUB15', 'SUB17', 'SUB19', 'SENIORS']),
-  birthDate: z.string().min(1),
+  birthDate: z.string().min(1, 'Data de nascimento obrigatória')
+    .refine((v) => new Date(v) <= new Date(), 'Data de nascimento não pode ser futura'),
   phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   nif: z.string().optional(),
   address: z.string().optional(),
   school: z.string().optional(),
@@ -54,6 +56,7 @@ const athleteSchema = z.object({
   feeExempt: z.boolean().optional().default(false),
 })
 type AthleteForm = z.infer<typeof athleteSchema>
+const today = new Date().toISOString().split('T')[0]
 
 interface Athlete {
   id: string
@@ -137,9 +140,10 @@ function getCurrentSeason() {
 
 export default function AthleteProfilePage() {
   const dashLabels = useDashLabels()
+  const mounted = useMounted()
   const { getSelectedSeason, getActiveSeason } = useSeasonStore()
-  const activeSeason = getActiveSeason()
-  const selectedSeason = getSelectedSeason()
+  const activeSeason = mounted ? getActiveSeason() : null
+  const selectedSeason = mounted ? getSelectedSeason() : null
   const seasonDefaultFee = (selectedSeason ?? activeSeason)?.defaultAthleteMonthlyFee ?? null
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -190,8 +194,17 @@ export default function AthleteProfilePage() {
 
   const fetchPayments = useCallback(async () => {
     if (!can('viewFees')) return
-    const res = await fetch(`/api/athletes/${id}/payments?year=${season}`)
-    if (res.ok) setPayments(await res.json())
+    // Uma época (Set-Jun) atravessa 2 anos civis — a grelha usa `season` (ano de início)
+    // para Set-Dez e `season + 1` para Jan-Jun (ver getPayment abaixo), por isso tem de
+    // pedir os dois anos, senão os meses Jan-Jun aparecem sempre como não pagos.
+    const [resA, resB] = await Promise.all([
+      fetch(`/api/athletes/${id}/payments?year=${season}`),
+      fetch(`/api/athletes/${id}/payments?year=${season + 1}`),
+    ])
+    if (resA.ok && resB.ok) {
+      const [paymentsA, paymentsB] = await Promise.all([resA.json(), resB.json()])
+      setPayments([...paymentsA, ...paymentsB])
+    }
   }, [id, season, can])
 
   const fetchAllAthletes = useCallback(async () => {
@@ -433,7 +446,7 @@ export default function AthleteProfilePage() {
         </Card>
 
         {/* Mensalidade */}
-        {!isSenior && (
+        {can('viewFees') && !isSenior && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -853,7 +866,8 @@ export default function AthleteProfilePage() {
             </div>
             <div className="space-y-1">
               <Label>Data de Nascimento *</Label>
-              <Input type="date" {...register('birthDate')} />
+              <Input type="date" max={today} {...register('birthDate')} />
+              {errors.birthDate && <p className="text-xs text-destructive">{errors.birthDate.message}</p>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1"><Label>Telefone</Label><Input {...register('phone')} /></div>
