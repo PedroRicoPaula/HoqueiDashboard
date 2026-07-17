@@ -27,6 +27,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { MATERIAL_STATE_LABELS, MATERIAL_STATE_COLORS, MATERIAL_TYPES } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 import { CalendarDays } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -92,9 +93,11 @@ function newBatchItem(): BatchItem {
 
 export default function MaterialsPage() {
   const dashLabels = useDashLabels()
-  const { seasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
-  const selectedSeason = getSelectedSeason()
-  const activeSeason = getActiveSeason()
+  const mounted = useMounted()
+  const { seasons: storeSeasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
+  const selectedSeason = mounted ? getSelectedSeason() : null
+  const activeSeason = mounted ? getActiveSeason() : null
 
   // Data state
   const [materials, setMaterials] = useState<Material[]>([])
@@ -250,8 +253,9 @@ export default function MaterialsPage() {
 
     setBatchSaving(true)
     const state = batchAthleteId ? 'ASSIGNED' : 'FREE'
+    const batchSeasonId = selectedSeasonId ?? activeSeason?.id ?? null
     const results = await Promise.allSettled(
-      batchItems.map((item) => {
+      batchItems.map(async (item) => {
         const resolvedType = item.type === 'OUTRO' ? item.typeCustom.trim() : item.type
         const payload = {
           name: item.name.trim(),
@@ -259,16 +263,21 @@ export default function MaterialsPage() {
           type: resolvedType,
           state,
           athleteId: batchAthleteId ?? null,
+          seasonId: batchSeasonId,
           paidByAthlete: batchAthleteId ? item.paidByAthlete : false,
           paidAmount: (batchAthleteId && item.paidAmount)
             ? parseFloat(item.paidAmount) || null
             : null,
         }
-        return fetch('/api/materials', {
+        const res = await fetch('/api/materials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
+        // fetch() só rejeita em falha de rede — uma resposta 400/403/500 continua
+        // "fulfilled", por isso o sucesso real tem de vir do res.ok, não do status da Promise.
+        if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? 'Erro ao criar')
+        return res
       })
     )
 
@@ -311,7 +320,7 @@ export default function MaterialsPage() {
     String(a.number).includes(batchAthleteSearch)
   )
 
-  const hasActiveFilters = debouncedSearch || stateFilter !== 'all' || categoryFilter !== 'all'
+  const hasActiveFilters = Boolean(debouncedSearch) || stateFilter !== 'all' || categoryFilter !== 'all' || Boolean(selectedSeasonId)
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

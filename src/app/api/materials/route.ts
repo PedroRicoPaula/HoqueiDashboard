@@ -59,8 +59,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
+    // Mesma reconciliação do PUT /api/materials/[id] — evita o estado inconsistente
+    // "Atribuído" sem atleta (ex: escolher Atribuído, abrir o diálogo de atleta e
+    // clicar "Sem atleta" sem trocar o Estado de volta).
+    const data = { ...parsed.data }
+    if (data.athleteId && data.state !== 'ASSIGNED') data.state = 'ASSIGNED'
+    if (!data.athleteId && data.state === 'ASSIGNED') data.state = 'FREE'
+    if (data.state !== 'ASSIGNED') {
+      data.paidByAthlete = false
+      data.paidAmount = null
+    }
+
     const material = await db.material.create({
-      data: { ...parsed.data, clubId: ctx.clubId },
+      data: { ...data, clubId: ctx.clubId },
       include: { athlete: { select: { id: true, name: true, number: true } } },
     })
 
