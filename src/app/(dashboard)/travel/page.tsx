@@ -24,7 +24,12 @@ import { getDateLocale } from '@/lib/date-locale'
 
 const travelSchema = z.object({
   opponent: z.string().min(1, 'Adversário obrigatório'),
-  pavilionUrl: z.string().url('URL inválido').optional().or(z.literal('')),
+  // Mesma regra do servidor (src/lib/validations.ts createTravelSchema) — z.url() sozinho
+  // aceita protocolos que o servidor rejeita (ex: ftp://), causando 400 depois do form validar.
+  pavilionUrl: z.string().optional().refine(
+    (v) => !v || /^https?:\/\//.test(v),
+    { message: 'URL inválida (deve começar com http:// ou https://)' }
+  ),
   departureDate: z.string().min(1, 'Data de partida obrigatória'),
   returnDate: z.string().optional(),
   departureTime: z.string().optional(),
@@ -36,6 +41,22 @@ const travelSchema = z.object({
   budgetAccommodation: z.coerce.number().optional().nullable(),
 })
 type TravelForm = z.infer<typeof travelSchema>
+
+// isPast(new Date(departureDate)) sozinho ignora a hora — uma viagem às 14h de hoje
+// aparecia em "Passadas" a partir da meia-noite. Constrói a data/hora local combinando
+// o dia (lido via UTC, porque departureDate vem como meia-noite UTC do servidor) com
+// departureTime; sem hora definida, só conta como passada no fim do próprio dia.
+function getTravelDateTime(t: { departureDate: string; departureTime?: string }): Date {
+  const dateOnly = new Date(t.departureDate)
+  const year = dateOnly.getUTCFullYear()
+  const month = dateOnly.getUTCMonth()
+  const day = dateOnly.getUTCDate()
+  if (t.departureTime) {
+    const [h, m] = t.departureTime.split(':').map((n) => parseInt(n, 10))
+    return new Date(year, month, day, Number.isNaN(h) ? 0 : h, Number.isNaN(m) ? 0 : m)
+  }
+  return new Date(year, month, day, 23, 59, 59)
+}
 
 interface Travel {
   id: string
@@ -173,10 +194,16 @@ export default function TravelPage() {
 
   const fetchTravels = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/travel')
-    if (res.ok) setTravels(await res.json())
-    setLoading(false)
-  }, [])
+    try {
+      const res = await fetch('/api/travel')
+      if (res.ok) setTravels(await res.json())
+      else toast({ title: 'Erro ao carregar viagens', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar viagens', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
 
   useEffect(() => { fetchTravels() }, [fetchTravels])
 
@@ -290,8 +317,8 @@ export default function TravelPage() {
     })
   }
 
-  const upcoming = travels.filter((t) => !isPast(new Date(t.departureDate)))
-  const past = travels.filter((t) => isPast(new Date(t.departureDate)))
+  const upcoming = travels.filter((t) => !isPast(getTravelDateTime(t)))
+  const past = travels.filter((t) => isPast(getTravelDateTime(t)))
 
   return (
     <div className="space-y-6">
