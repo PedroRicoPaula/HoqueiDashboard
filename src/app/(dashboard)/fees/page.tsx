@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -105,8 +106,9 @@ interface PaidCellDialog {
 
 export default function FeesPage() {
   const dashLabels = useDashLabels()
+  const mounted = useMounted()
   const { selectedSeasonId, getSelectedSeason } = useSeasonStore()
-  const selectedSeason = getSelectedSeason()
+  const selectedSeason = mounted ? getSelectedSeason() : null
 
   const [seasonStart, setSeasonStart] = useState(getCurrentSeasonStart())
   const [apiMonths, setApiMonths] = useState<Array<{ year: number; month: number }> | null>(null)
@@ -192,19 +194,26 @@ export default function FeesPage() {
       params.set('season', String(seasonStart))
     }
     if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
-    const res = await fetch(`/api/fees?${params}`)
-    if (res.ok) {
-      const data = await res.json()
-      setAthletes(data.athletes)
-      setSummary(data.summary)
-      setPages(data.pages ?? 1)
-      setTotal(data.total ?? 0)
-      setPage(p)
-      if (data.months) setApiMonths(data.months)
-      else setApiMonths(null)
+    try {
+      const res = await fetch(`/api/fees?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        setAthletes(data.athletes)
+        setSummary(data.summary)
+        setPages(data.pages ?? 1)
+        setTotal(data.total ?? 0)
+        setPage(p)
+        if (data.months) setApiMonths(data.months)
+        else setApiMonths(null)
+      } else {
+        toast({ title: 'Erro ao carregar mensalidades', description: res.status === 401 ? 'Sessão expirada — inicie sessão novamente.' : undefined, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar mensalidades', variant: 'destructive' })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [selectedSeasonId, seasonStart, ageGroupFilter, page])
+  }, [selectedSeasonId, seasonStart, ageGroupFilter, page, toast])
 
   useEffect(() => { fetchData(1) }, [seasonStart, ageGroupFilter, selectedSeasonId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setSelectedCells([]) }, [seasonStart, ageGroupFilter, selectedSeasonId])
@@ -311,7 +320,7 @@ export default function FeesPage() {
     year: number,
     labelFull: string,
   ) => {
-    if (!canEdit || athlete.feeExempt) return
+    if (!canEdit || athlete.feeExempt || (athlete.effectiveFee ?? 0) <= 0) return
     setConfirmNotes('')
     setConfirmDialog({ athlete, month, year, labelFull })
   }
