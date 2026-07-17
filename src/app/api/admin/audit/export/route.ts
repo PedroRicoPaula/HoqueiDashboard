@@ -18,23 +18,22 @@ export async function GET(req: Request) {
     const action = searchParams.get('action') ?? ''
     const before = searchParams.get('before') ?? ''
 
-    // Always show login attempts; exclude admin actions from everything else
+    // Mesma regra de visibilidade da tabela paginada (GET /api/admin/audit) — mostra
+    // LOGIN_FAIL de qualquer um + todas as ações de não-admins; esconde ações de admin,
+    // incluindo LOGIN bem-sucedido. Tinha ficado divergente por lógica duplicada: esta
+    // rota incluía LOGIN de admin, que a tabela esconde.
     const adminPerms = await prisma.permission.findMany({
       where: { isAdmin: true, user: { clubId: ctx.clubId } },
       select: { userId: true },
     })
     const adminIds = adminPerms.map((p: { userId: string }) => p.userId)
 
+    const baseFilter = adminIds.length > 0
+      ? { OR: [{ action: 'LOGIN_FAIL' as const }, { userId: { notIn: adminIds } }] }
+      : {}
+
     const where = {
-      ...(adminIds.length > 0 ? {
-        OR: [
-          { action: { in: ['LOGIN', 'LOGIN_FAIL'] } },
-          {
-            action: { notIn: ['LOGIN', 'LOGIN_FAIL'] },
-            NOT: { userId: { in: adminIds } },
-          },
-        ],
-      } : {}),
+      ...baseFilter,
       ...(entity ? { entity } : {}),
       ...(action ? { action } : {}),
       ...(before ? { createdAt: { lt: new Date(before) } } : {}),
