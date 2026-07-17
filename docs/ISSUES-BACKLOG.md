@@ -9,6 +9,13 @@
 
 ---
 
+### ~~[BUG-028] Logo do clube — `/_next/image` devolve 400 em produção~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17, reportado pelo utilizador ao fazer upload do logo em produção. Consola: `GET /_next/image?url=https%3A%2F%2Fpub-....r2.dev%2Flogos%2F....png&w=96&q=75 400 (Bad Request)`.
+**Causa:** `next.config.mjs` não tinha `images.remotePatterns`/`images.domains`. O `<Image src="https://...">` do `next/image` (usado em `Sidebar.tsx` e `settings/page.tsx` para o logo) pede ao endpoint interno `/_next/image` para otimizar a imagem — esse endpoint rejeita qualquer host externo não explicitamente allowlisted, **independentemente** do `img-src` do CSP já permitir o domínio R2 (são dois mecanismos diferentes; o CSP não chega).
+**Fix:** `images.remotePatterns` adicionado a `next.config.mjs` — inclui o host de `R2_PUBLIC_URL` quando definido, mais `*.r2.dev` como fallback (mesmo padrão já usado para o `img-src` do CSP). Confirmado com `curl` local contra a URL exacta do erro: 400 → 200.
+
+---
+
 ### ~~[INFRA-003] `Club.isFreeClub`/`Club.statusChangedAt` sem migration — falha em BD criada de raiz~~ ✅ RESOLVIDO 2026-07-17
 **Encontrado:** 2026-07-17, ao correr `prisma migrate deploy` contra uma BD local nova (primeira vez que alguém faz um fresh setup completo desde o baseline de INFRA-001). `prisma.club.create()` falha com `column isFreeClub of relation Club does not exist`. Efeito colateral: `src/tests/tenant-isolation.test.ts` deixa de passar (cria clubes via Prisma directo no `beforeAll`).
 **Causa:** mesmo padrão do `primaryColor` (ver `docs/DATABASE.md`) — coluna adicionada ao schema e aplicada via `db push` antes do histórico de migrations existir, nunca migrada formalmente. O baseline (`scripts/resolve-migration.js`, de INFRA-001) assume que tudo antes de `20260716000001` já está aplicado, sem verificar coluna a coluna.

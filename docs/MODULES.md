@@ -113,6 +113,7 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 - **Mensalidades e Quotas por Época**: card com selector de época + dois campos numéricos (`defaultAthleteMonthlyFee`, `defaultMemberMonthlyQuota`). Guarda via `PATCH /api/seasons/[id]`. Se não existirem épocas, mostra link para `/seasons`.
 - Overscroll whitespace corrigido — `overscroll-contain` no `<main>` do dashboard layout
 - Audit log em cada PATCH
+- Logo do clube renderizado via `next/image` (`Sidebar.tsx`, `settings/page.tsx`) — hosts externos (R2) têm de estar em `images.remotePatterns` no `next.config.mjs`, **separado** do `img-src` do CSP (um permite o browser carregar a imagem, o outro permite ao `/_next/image` pedi-la para otimizar). Ver BUG-028 em `docs/ISSUES-BACKLOG.md`.
 
 ---
 

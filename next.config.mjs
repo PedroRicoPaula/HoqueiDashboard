@@ -7,9 +7,8 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 const isDev = process.env.NODE_ENV === 'development'
 
 // Allow images from R2 public URL (custom domain or default *.r2.dev)
-const r2ImgSrc = process.env.R2_PUBLIC_URL
-  ? new URL(process.env.R2_PUBLIC_URL).origin
-  : 'https://*.r2.dev'
+const r2PublicUrl = process.env.R2_PUBLIC_URL ? new URL(process.env.R2_PUBLIC_URL) : null
+const r2ImgSrc = r2PublicUrl ? r2PublicUrl.origin : 'https://*.r2.dev'
 
 const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -35,6 +34,18 @@ const securityHeaders = [
 ]
 
 const nextConfig = {
+  images: {
+    // next/image otimiza via /_next/image?url=... — qualquer host externo (ex: logos
+    // no R2) tem de estar aqui, senão o endpoint devolve 400. Isto é distinto e além
+    // do img-src do CSP acima (esse permite carregar a imagem; isto permite ao Next
+    // pedir-lha para otimizar).
+    remotePatterns: [
+      ...(r2PublicUrl
+        ? [{ protocol: r2PublicUrl.protocol.replace(':', ''), hostname: r2PublicUrl.hostname }]
+        : []),
+      { protocol: 'https', hostname: '*.r2.dev' },
+    ],
+  },
   async headers() {
     return [
       {
