@@ -4,6 +4,7 @@ import { useRef, useState, useCallback } from 'react'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { useTacticalStore } from '@/store/tacticalStore'
+import { useToast } from '@/hooks/use-toast'
 import { User, Circle, Triangle, Play, Square, Save, Loader2, Video, FileJson, RotateCcw, X } from 'lucide-react'
 import type { ElementType } from '@/types/training.types'
 import { canvasDrawField, canvasDrawElements, ELEMENT_COLORS } from './HockeyField'
@@ -43,6 +44,7 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
   } = useTacticalStore()
   const [exportingVideo, setExportingVideo] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
 
   const handleSaveJSON = () => {
     const data = { name: tacticName, elements, frames }
@@ -65,16 +67,25 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
         const result = playbookSchema.safeParse(raw)
         if (result.success) {
           useTacticalStore.getState().loadPlaybook(result.data)
+          toast({ title: 'Tática carregada' })
+        } else {
+          toast({ title: 'Ficheiro inválido', description: 'Não é uma tática exportada por este quadro.', variant: 'destructive' })
         }
-      } catch { /* ignore malformed file */ }
+      } catch {
+        toast({ title: 'Ficheiro inválido', description: 'Não foi possível ler o JSON.', variant: 'destructive' })
+      }
     }
+    reader.onerror = () => toast({ title: 'Erro ao ler o ficheiro', variant: 'destructive' })
     reader.readAsText(file)
     e.target.value = ''
   }
 
   const handleExportVideo = useCallback(async () => {
     if (frames.length < 2 || elements.length === 0) return
-    if (typeof MediaRecorder === 'undefined') return
+    if (typeof MediaRecorder === 'undefined') {
+      toast({ title: 'Exportação de vídeo não suportada', description: 'Este browser não suporta gravação de vídeo. Tenta Chrome, Edge ou Firefox recentes.', variant: 'destructive' })
+      return
+    }
     setExportingVideo(true)
 
     const EXP_W = 1280, EXP_H = 768
@@ -87,9 +98,13 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
     canvas.width = EXP_W
     canvas.height = EXP_H
     const ctx = canvas.getContext('2d')
-    if (!ctx) { setExportingVideo(false); return }
+    if (!ctx) {
+      toast({ title: 'Erro ao exportar vídeo', description: 'Não foi possível preparar o canvas.', variant: 'destructive' })
+      setExportingVideo(false); return
+    }
 
     if (typeof (canvas as { captureStream?: unknown }).captureStream !== 'function') {
+      toast({ title: 'Exportação de vídeo não suportada', description: 'Este browser não suporta gravação de vídeo. Tenta Chrome, Edge ou Firefox recentes.', variant: 'destructive' })
       setExportingVideo(false); return
     }
 
@@ -112,6 +127,11 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
       a.download = `tatica-${tacticName.replace(/\s+/g, '-').toLowerCase()}.${ext}`
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      setExportingVideo(false)
+      toast({ title: 'Vídeo exportado' })
+    }
+    recorder.onerror = () => {
+      toast({ title: 'Erro ao gravar vídeo', variant: 'destructive' })
       setExportingVideo(false)
     }
 

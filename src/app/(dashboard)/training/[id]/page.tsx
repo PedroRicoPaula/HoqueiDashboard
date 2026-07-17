@@ -83,7 +83,13 @@ export default function TrainingDetailPage() {
       if (res.ok) {
         toast({ title: tr('training.tacticalSaved') })
       } else {
-        toast({ title: tr('common.errorSave'), variant: 'destructive' })
+        const json = await res.json().catch(() => ({}))
+        // O servidor já diz exatamente o que falhou (ex: limite de 50 elementos/100
+        // frames excedido) — mostrar isso em vez de um erro genérico que não ajuda
+        // o treinador a perceber o que remover.
+        const fieldErrors = json.details?.fieldErrors as Record<string, string[]> | undefined
+        const detail = fieldErrors ? Object.values(fieldErrors).flat().join(' ') : undefined
+        toast({ title: json.error ?? tr('common.errorSave'), description: detail, variant: 'destructive' })
       }
     } finally {
       setSaving(false)
