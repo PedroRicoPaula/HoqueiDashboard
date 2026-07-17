@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthStore } from '@/store/authStore'
 import { Loader2, ShieldAlert } from 'lucide-react'
 
 interface UserPermissions {
@@ -101,6 +102,8 @@ export function PermissionsModal({
   open, onClose, userId, userName, permissions, onSaved,
 }: PermissionsModalProps) {
   const { toast } = useToast()
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const isSelf = userId === currentUserId
   const [saving, setSaving] = useState(false)
   const [perms, setPerms] = useState<Record<string, boolean>>(
     permissions
@@ -131,6 +134,7 @@ export function PermissionsModal({
   )
 
   const toggle = (key: string) => {
+    if (key === 'isAdmin' && isSelf) return // não se pode auto-remover admin — ver PUT .../route.ts
     setPerms((prev) => {
       const newVal = !prev[key]
       const updates: Record<string, boolean> = { [key]: newVal }
@@ -183,11 +187,14 @@ export function PermissionsModal({
               <ShieldAlert className="h-5 w-5 text-red-500" />
               <div>
                 <Label className="text-sm font-semibold text-red-700">Administrador</Label>
-                <p className="text-xs text-red-500">Acesso total a todas as funcionalidades</p>
+                <p className="text-xs text-red-500">
+                  {isSelf ? 'Não pode remover admin da sua própria conta' : 'Acesso total a todas as funcionalidades'}
+                </p>
               </div>
             </div>
             <Switch
               checked={perms.isAdmin ?? false}
+              disabled={isSelf}
               onCheckedChange={() => toggle('isAdmin')}
             />
           </div>

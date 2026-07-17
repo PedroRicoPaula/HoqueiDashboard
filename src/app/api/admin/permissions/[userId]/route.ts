@@ -41,6 +41,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ userId: 
 
     const data = parsed.data
 
+    // Um admin nunca pode remover o próprio isAdmin — chegar aqui já exige isAdmin (linha
+    // acima), por isso userId === user.id implica que é o único caminho de acesso a esta
+    // página para si próprio; sem esta proteção ficaria trancado de /admin/* sem forma de
+    // recuperar dentro da app (super admin não acede ao dashboard de clubes, regra 12).
+    if (userId === user.id) {
+      data.isAdmin = true
+    }
+
     const permissions = await prisma.permission.upsert({
       where: { userId },
       update: data,
