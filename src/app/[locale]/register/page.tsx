@@ -12,6 +12,8 @@ interface ClubForm {
   email: string
   country: string
   language: string
+  password: string
+  confirmPassword: string
 }
 
 const COUNTRIES = ['pt', 'es', 'fr', 'it', 'other'] as const
@@ -32,6 +34,8 @@ export default function RegisterPage() {
     email: '',
     country: locale === 'pt' ? 'pt' : locale === 'es' ? 'es' : locale === 'fr' ? 'fr' : locale === 'it' ? 'it' : 'other',
     language: locale,
+    password: '',
+    confirmPassword: '',
   })
 
   function update(field: keyof ClubForm, value: string) {
@@ -41,6 +45,8 @@ export default function RegisterPage() {
   function validateStep1() {
     if (!form.name.trim()) return t('clubNameRequired')
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return t('emailInvalid')
+    if (form.password.length < 8) return t('passwordTooShort')
+    if (form.password !== form.confirmPassword) return t('passwordMismatch')
     return null
   }
 
@@ -110,6 +116,30 @@ export default function RegisterPage() {
                     onChange={e => update('email', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                     placeholder="admin@clube.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('password')}</label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={e => update('password', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder={t('passwordPlaceholder')}
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('confirmPassword')}</label>
+                  <input
+                    type="password"
+                    value={form.confirmPassword}
+                    onChange={e => update('confirmPassword', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder={t('confirmPasswordPlaceholder')}
+                    minLength={8}
+                    autoComplete="new-password"
                   />
                 </div>
                 <div>

@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
 import { logger } from '@/lib/logger'
@@ -18,6 +17,11 @@ const registerSchema = z.object({
   country: z.string().min(2).max(10),
   language: z.enum(['pt', 'es', 'en', 'fr', 'it']),
   plan: z.enum(['monthly', 'yearly']),
+  password: z.string().min(8),
+  confirmPassword: z.string().min(8),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'As palavras-passe não coincidem',
+  path: ['confirmPassword'],
 })
 
 function slugify(name: string): string {
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
     }
 
-    const { name, email, country, language, plan } = parsed.data
+    const { name, email, country, language, plan, password } = parsed.data
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {
@@ -68,8 +72,11 @@ export async function POST(req: Request) {
     const customer = await stripe.customers.create({ name, email })
 
     const slug = await uniqueSlug(slugify(name))
-    // Placeholder password — user will set their own via reset-password link after checkout
-    const placeholderPassword = await hashPassword(randomBytes(32).toString('hex'))
+    // Password definida pelo utilizador já aqui — fica pronta a usar assim que o
+    // pagamento for confirmado (ver /api/register/complete). O clube só entra em
+    // ACTIVE depois de pagar; até lá o login continua bloqueado independentemente
+    // de a password já existir.
+    const hashedPassword = await hashPassword(password)
 
     const [club, user] = await prisma.$transaction(async (tx) => {
       const c = await tx.club.create({
@@ -88,7 +95,7 @@ export async function POST(req: Request) {
           clubId: c.id,
           name: 'Administrador',
           email,
-          password: placeholderPassword,
+          password: hashedPassword,
           permissions: {
             create: {
               viewAthletes: true, editAthletes: true,
@@ -120,7 +127,7 @@ export async function POST(req: Request) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { clubId: club.id, userId: user.id },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?registered=1`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/register/complete?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_LANDING_URL ?? 'https://hoqueimanager.com'}/${language}/register?cancelled=1`,
       subscription_data: {
         metadata: { clubId: club.id },

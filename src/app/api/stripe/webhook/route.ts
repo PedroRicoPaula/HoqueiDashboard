@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
-import { sendEmail, welcomeEmailHtml } from '@/lib/email'
+import { activateClubFromSession } from '@/lib/clubActivation'
 import Stripe from 'stripe'
-import crypto from 'crypto'
 
 export async function POST(req: Request) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
@@ -25,53 +24,22 @@ export async function POST(req: Request) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
         const clubId = session.metadata?.clubId
-        const userId = session.metadata?.userId
         if (!clubId) break
 
+        // Idempotente com /api/register/complete — ver src/lib/clubActivation.ts.
+        // A password já foi definida pelo utilizador no formulário de registo;
+        // este webhook só existe como backstop caso o browser nunca volte ao
+        // success_url (ex: fecha o separador do Stripe Checkout antes de voltar).
         const expanded = await stripe.checkout.sessions.retrieve(session.id, {
           expand: ['line_items'],
         })
-        const stripePriceId = expanded.line_items?.data?.[0]?.price?.id ?? null
-
-        const club = await prisma.club.update({
-          where: { id: clubId },
-          data: {
-            status: 'ACTIVE',
-            stripeSubscriptionId: session.subscription as string,
-            stripePriceId,
-          },
-        })
+        const club = await activateClubFromSession(expanded)
+        if (!club) break
 
         await logAudit(req, null, club.email, 'SUBSCRIPTION_ACTIVATED', 'Club', clubId, {
           stripeEventId: event.id,
           stripeSubscriptionId: session.subscription,
         })
-
-        if (userId) {
-          const user = await prisma.user.findUnique({ where: { id: userId } })
-          if (user) {
-            // Create a password reset token so the user can set their own password
-            await prisma.passwordResetToken.updateMany({
-              where: { userId: user.id, used: false },
-              data: { used: true },
-            })
-            const token = crypto.randomBytes(32).toString('hex')
-            // Give 24h to set the password (longer window for new registrations)
-            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-            await prisma.passwordResetToken.create({
-              data: { userId: user.id, token, expiresAt },
-            })
-
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.hoqueimanager.com'
-            const setPasswordUrl = `${appUrl}/reset-password?token=${token}`
-
-            await sendEmail({
-              to: user.email,
-              subject: `Bem-vindo ao HoqueiManager — ${club.name}`,
-              html: welcomeEmailHtml(club.name, user.email, setPasswordUrl),
-            })
-          }
-        }
         break
       }
 

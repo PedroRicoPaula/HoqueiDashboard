@@ -82,7 +82,7 @@ function LoginForm() {
     <>
       {registered && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Registo completo! Verifique o seu email para definir a palavra-passe e entrar.
+          Registo completo! Entre com o email e a palavra-passe que definiu.
         </div>
       )}
 
