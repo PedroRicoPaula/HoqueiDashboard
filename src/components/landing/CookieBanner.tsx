@@ -24,7 +24,7 @@ export function CookieBanner({ locale }: { locale: string }) {
     <div className="fixed bottom-0 inset-x-0 z-50 p-4 bg-gray-900 text-white">
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-sm text-gray-300">
-          Utilizamos um cookie técnico estritamente necessário para a autenticação.{' '}
+          Utilizamos um cookie técnico estritamente necessário para a autenticação e o Google Analytics para perceber como o site é usado.{' '}
           <Link href={`/${locale}/privacy`} className="underline hover:text-white">
             Política de Privacidade
           </Link>

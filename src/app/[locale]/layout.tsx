@@ -5,6 +5,9 @@ import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
 import { getMessages } from 'next-intl/server'
 import { CookieBanner } from '@/components/landing/CookieBanner'
+import Script from 'next/script'
+
+const GA_MEASUREMENT_ID = 'G-JZJMM066FR'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://hoqueimanager.com'
 
@@ -33,6 +36,18 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+        strategy="afterInteractive"
+      />
+      <Script id="ga-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${GA_MEASUREMENT_ID}');
+        `}
+      </Script>
       {children}
       <CookieBanner locale={locale} />
     </NextIntlClientProvider>

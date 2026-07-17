@@ -100,8 +100,10 @@ export default async function PrivacyPage({
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">8. Cookies</h2>
             <p>
-              Utilizamos apenas um cookie de sessão técnico (<code>hm_token</code>) estritamente necessário para
-              a autenticação. Não utilizamos cookies de rastreamento ou publicidade.
+              Utilizamos um cookie de sessão técnico (<code>hm_token</code>) estritamente necessário para
+              a autenticação. Nas páginas públicas (fora do dashboard), usamos também o Google Analytics para
+              perceber como o site é utilizado — que define cookies próprios de medição de audiência. Não
+              utilizamos cookies de publicidade.
             </p>
           </section>
 

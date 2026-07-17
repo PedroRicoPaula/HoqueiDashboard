@@ -22,11 +22,11 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       isDev
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com"
-        : "script-src 'self' 'unsafe-inline' https://js.stripe.com",
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com"
+        : "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: ${r2ImgSrc}`,
-      "connect-src 'self' https://api.stripe.com",
+      "connect-src 'self' https://api.stripe.com https://*.google-analytics.com https://www.googletagmanager.com",
       "font-src 'self' data:",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
