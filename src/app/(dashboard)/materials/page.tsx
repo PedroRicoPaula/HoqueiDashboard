@@ -26,6 +26,8 @@ import { Plus, Search, Pencil, Trash2, Loader2, Layers } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 import { MATERIAL_STATE_LABELS, MATERIAL_STATE_COLORS, MATERIAL_TYPES } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
+import { CalendarDays } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ const materialSchema = z.object({
   notes: z.string().optional(),
   paidByAthlete: z.boolean().optional().default(false),
   paidAmount: z.coerce.number().nullable().optional(),
+  seasonId: z.string().uuid().nullable().optional(),
 })
 type MaterialForm = z.infer<typeof materialSchema>
 
@@ -89,6 +92,9 @@ function newBatchItem(): BatchItem {
 
 export default function MaterialsPage() {
   const dashLabels = useDashLabels()
+  const { seasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const selectedSeason = getSelectedSeason()
+  const activeSeason = getActiveSeason()
 
   // Data state
   const [materials, setMaterials] = useState<Material[]>([])
@@ -155,10 +161,11 @@ export default function MaterialsPage() {
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (stateFilter !== 'all') params.set('state', stateFilter)
     if (categoryFilter !== 'all') params.set('category', categoryFilter)
+    if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
     const res = await fetch(`/api/materials?${params}`)
     if (res.ok) setMaterials(await res.json())
     setLoading(false)
-  }, [debouncedSearch, stateFilter, categoryFilter])
+  }, [debouncedSearch, stateFilter, categoryFilter, selectedSeasonId])
 
   useEffect(() => { fetchMaterials() }, [fetchMaterials])
 
@@ -172,7 +179,8 @@ export default function MaterialsPage() {
 
   const openCreate = () => {
     setEditingMaterial(null)
-    reset({ name: '', category: 'ATHLETE', type: '', state: 'FREE', athleteId: null, notes: '', paidByAthlete: false, paidAmount: null })
+    const defaultSeasonId = selectedSeasonId ?? activeSeason?.id ?? null
+    reset({ name: '', category: 'ATHLETE', type: '', state: 'FREE', athleteId: null, notes: '', paidByAthlete: false, paidAmount: null, seasonId: defaultSeasonId })
     setTypeSelect('')
     setTypeCustom('')
     setBatchMode(false)
@@ -197,6 +205,7 @@ export default function MaterialsPage() {
       notes: m.notes ?? '',
       paidByAthlete: m.paidByAthlete ?? false,
       paidAmount: m.paidAmount ?? null,
+      seasonId: (m as { seasonId?: string | null }).seasonId ?? null,
     })
     setSheetOpen(true)
   }
@@ -349,10 +358,20 @@ export default function MaterialsPage() {
         )}
       </div>
 
-      {!loading && (
-        <p className="text-sm text-muted-foreground">
-          {materials.length} material{materials.length !== 1 ? 'is' : ''}
-        </p>
+      {(!loading || selectedSeason) && (
+        <div className="flex items-center gap-3">
+          {!loading && (
+            <p className="text-sm text-muted-foreground">
+              {materials.length} material{materials.length !== 1 ? 'is' : ''}
+            </p>
+          )}
+          {selectedSeason && (
+            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+              <CalendarDays className="h-3 w-3" />
+              {selectedSeason.name}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Table */}
@@ -603,6 +622,22 @@ export default function MaterialsPage() {
                 <Label>Notas</Label>
                 <Input {...register('notes')} />
               </div>
+
+              {/* Season */}
+              {seasons.length > 0 && (
+                <div className="space-y-1">
+                  <Label>Época</Label>
+                  <select
+                    {...register('seasonId')}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Sem época</option>
+                    {seasons.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}{s.isActive ? ' (ativa)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">

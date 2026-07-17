@@ -34,7 +34,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { name, startDate, endDate } = parsed.data
+    const { name, startDate, endDate, defaultAthleteMonthlyFee, defaultMemberMonthlyQuota } = parsed.data
     const newStart = startDate ? new Date(startDate) : undefined
     const newEnd   = endDate   ? new Date(endDate)   : undefined
 
@@ -45,9 +45,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const updated = await db.season.update({
       where: { id },
       data: {
-        ...(name      ? { name }             : {}),
+        ...(name      ? { name }                : {}),
         ...(newStart  ? { startDate: newStart } : {}),
-        ...(newEnd    ? { endDate: newEnd }   : {}),
+        ...(newEnd    ? { endDate: newEnd }     : {}),
+        ...(defaultAthleteMonthlyFee  !== undefined ? { defaultAthleteMonthlyFee }  : {}),
+        ...(defaultMemberMonthlyQuota !== undefined ? { defaultMemberMonthlyQuota } : {}),
       },
     })
 

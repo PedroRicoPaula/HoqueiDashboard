@@ -41,15 +41,18 @@ export async function GET(req: Request) {
     let allSeasonMonths: Array<{ year: number; month: number }>
     let seasonFilter: { seasonId: string } | Record<string, never> = {}
 
+    let seasonDefaultAthleteMonthlyFee: number | null = null
+
     if (seasonId) {
       const season = await db.season.findUnique({ where: { id: seasonId } })
       if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
-      const s = season as { name: string; startDate: Date; endDate: Date }
+      const s = season as { name: string; startDate: Date; endDate: Date; defaultAthleteMonthlyFee: number | null }
       seasonLabelStr = s.name
       seasonStart = new Date(s.startDate).getFullYear()
       seasonEnd = new Date(s.endDate).getFullYear()
       allSeasonMonths = computeSeasonMonths(new Date(s.startDate), new Date(s.endDate))
       seasonFilter = { seasonId }
+      seasonDefaultAthleteMonthlyFee = s.defaultAthleteMonthlyFee
     } else {
       seasonStart = getCurrentSeasonStart()
       seasonEnd = seasonStart + 1
@@ -96,7 +99,7 @@ export async function GET(req: Request) {
       db.athlete.count(),
       db.member.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
       db.sponsor.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
-      db.material.count(),
+      db.material.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
       db.athlete.groupBy({ by: ['ageGroup'], _count: { id: true } }),
       db.material.groupBy({ by: ['state'], _count: { id: true } }),
       db.travel.findMany({
@@ -117,12 +120,14 @@ export async function GET(req: Request) {
           ],
         },
       }),
-      // Athletes with late payments — full season range (Sep-Jun), not just current year
+      // Athletes with late payments — full season range, not just current year
       totalPastSeasonMonths > 0
         ? db.athlete.findMany({
-            where: { feeExempt: false, monthlyFee: { gt: 0 }, ageGroup: { not: 'SENIORS' } },
+            where: { feeExempt: false, ageGroup: { not: 'SENIORS' } },
             select: {
               id: true,
+              monthlyFee: true,
+              discountPercent: true,
               payments: {
                 where: {
                   paid: true,
@@ -132,7 +137,7 @@ export async function GET(req: Request) {
               },
             },
           })
-        : Promise.resolve([] as { id: string; payments: { id: string }[] }[]),
+        : Promise.resolve([] as { id: string; monthlyFee: number; discountPercent: number | null; payments: { id: string }[] }[]),
       // Athlete fee revenue for current season
       allSeasonMonths.length > 0
         ? db.athletePayment.aggregate({
@@ -143,9 +148,9 @@ export async function GET(req: Request) {
             },
           })
         : Promise.resolve({ _sum: { amount: null } }),
-      // Member quotas paid this year — use stored amount, fallback to current monthlyQuota
+      // Member quotas paid — use stored amount, fallback to current monthlyQuota
       db.quota.findMany({
-        where: { paid: true, year: currentYear },
+        where: { paid: true, year: currentYear, ...seasonFilter },
         select: { amount: true, member: { select: { monthlyQuota: true } } },
       }),
       // Active sponsor annual contributions
@@ -153,14 +158,15 @@ export async function GET(req: Request) {
         _sum: { annualContribution: true },
         where: { contractEnd: { gte: now }, ...seasonFilter },
       }),
-      // Total material cost (all materials with a value set)
+      // Total material cost (filtered by season if selected)
       db.material.aggregate({
         _sum: { paidAmount: true },
+        where: Object.keys(seasonFilter).length ? seasonFilter : undefined,
       }),
-      // Material savings (paid by athlete)
+      // Material savings (paid by athlete, filtered by season)
       db.material.aggregate({
         _sum: { paidAmount: true },
-        where: { paidByAthlete: true },
+        where: { paidByAthlete: true, ...(Object.keys(seasonFilter).length ? seasonFilter : {}) },
       }),
       // Attendance: sessions in last 30 days
       db.trainingSession.count({
@@ -174,17 +180,17 @@ export async function GET(req: Request) {
           session: { date: { gte: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } },
         },
       }),
-      // Textile: total count assigned
-      db.textileItem.count({ where: { state: 'ASSIGNED' } }),
-      // Textile: savings (paid by athlete)
+      // Textile: total count assigned (filtered by season if selected)
+      db.textileItem.count({ where: { state: 'ASSIGNED', ...(Object.keys(seasonFilter).length ? seasonFilter : {}) } }),
+      // Textile: savings (paid by athlete, filtered by season)
       db.textileItem.aggregate({
         _sum: { paidAmount: true },
-        where: { paidByAthlete: true },
+        where: { paidByAthlete: true, ...(Object.keys(seasonFilter).length ? seasonFilter : {}) },
       }),
-      // Textile: cost paid by club (not by athlete)
+      // Textile: cost paid by club (filtered by season)
       db.textileItem.aggregate({
         _sum: { paidAmount: true },
-        where: { paidByAthlete: false, paidAmount: { not: null } },
+        where: { paidByAthlete: false, paidAmount: { not: null }, ...(Object.keys(seasonFilter).length ? seasonFilter : {}) },
       }),
       // Direction: salaries paid this year
       db.directionSalaryPayment.aggregate({
@@ -193,9 +199,14 @@ export async function GET(req: Request) {
       }),
     ])
 
-    // Athletes with late payments: paid months in past season < total past season months
-    const athletesWithLatePayments = (athletePaymentData as { id: string; payments: { id: string }[] }[]).filter(
-      (a) => a.payments.length < totalPastSeasonMonths
+    // Athletes with late payments: those with effectiveFee > 0 and paid months < past season months
+    const athletesWithLatePayments = (athletePaymentData as { id: string; monthlyFee: number; discountPercent: number | null; payments: { id: string }[] }[]).filter(
+      (a) => {
+        const base = seasonDefaultAthleteMonthlyFee ?? a.monthlyFee
+        const disc = a.discountPercent ?? 0
+        const eff = base > 0 ? base * (1 - disc / 100) : 0
+        return eff > 0 && a.payments.length < totalPastSeasonMonths
+      }
     ).length
 
     // Compute total member quotas collected (use stored amount; fallback to current monthlyQuota for old records)
@@ -223,6 +234,10 @@ export async function GET(req: Request) {
         sponsors: sponsorCount,
         materials: materialCount,
       },
+      // aliases for easier E2E test assertions
+      totalAthletes: athleteCount,
+      totalMembers: memberCount,
+      totalSponsors: sponsorCount,
       athletesByAgeGroup: (athletesByAgeGroup as { ageGroup: string; _count: { id: number } }[]).map((g) => ({ ageGroup: g.ageGroup, count: g._count.id })),
       materialsByState: (materialsByState as { state: string; _count: { id: number } }[]).map((g) => ({ state: g.state, count: g._count.id })),
       upcomingTravels,

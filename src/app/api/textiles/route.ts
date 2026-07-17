@@ -16,10 +16,11 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const search = searchParams.get('search') || ''
-    const category = searchParams.get('category')
-    const state = searchParams.get('state')
-    const season = searchParams.get('season')
+    const search    = searchParams.get('search')   || ''
+    const category  = searchParams.get('category')
+    const state     = searchParams.get('state')
+    const season    = searchParams.get('season')
+    const seasonId  = searchParams.get('seasonId') || null
     const athleteId = searchParams.get('athleteId')
 
     const items = await db.textileItem.findMany({
@@ -31,8 +32,9 @@ export async function GET(req: Request) {
           ],
         } : {}),
         ...(category ? { category: category as TextileCategory } : {}),
-        ...(state ? { state: state as TextileState } : {}),
-        ...(season ? { season } : {}),
+        ...(state    ? { state:    state    as TextileState    } : {}),
+        ...(season   ? { season }   : {}),
+        ...(seasonId ? { seasonId } : {}),
         ...(athleteId ? { athleteId } : {}),
       },
       orderBy: [{ season: 'desc' }, { category: 'asc' }, { type: 'asc' }],

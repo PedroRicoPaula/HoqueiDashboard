@@ -7,6 +7,8 @@ export interface SeasonOption {
   startDate: string
   endDate: string
   isActive: boolean
+  defaultAthleteMonthlyFee?: number | null
+  defaultMemberMonthlyQuota?: number | null
 }
 
 interface SeasonState {

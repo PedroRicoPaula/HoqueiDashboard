@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     const seasons = await db.season.findMany({
       orderBy: { startDate: 'desc' },
       select: {
-        id: true, name: true, startDate: true, endDate: true, isActive: true, createdAt: true,
+        id: true, name: true, startDate: true, endDate: true, isActive: true,
+        defaultAthleteMonthlyFee: true, defaultMemberMonthlyQuota: true,
+        createdAt: true,
         _count: { select: { members: true, sponsors: true } },
       },
     })

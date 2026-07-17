@@ -161,19 +161,23 @@ model AuditLog {
 // ─────────────────────────────────────────
 
 model Season {
-  id              String           @id @default(uuid())
-  clubId          String
-  club            Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  name            String           // ex: "2025/2026"
-  startDate       DateTime
-  endDate         DateTime
-  isActive        Boolean          @default(false)
-  members         Member[]
-  sponsors        Sponsor[]
-  athletePayments AthletePayment[]
-  quotas          Quota[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id                       String           @id @default(uuid())
+  clubId                   String
+  club                     Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name                     String           // ex: "2025/2026"
+  startDate                DateTime
+  endDate                  DateTime
+  isActive                 Boolean          @default(false)
+  defaultAthleteMonthlyFee Float?              // default fee for all athletes this season
+  defaultMemberMonthlyQuota Float?             // default quota for all members this season
+  members                  Member[]
+  sponsors                 Sponsor[]
+  athletePayments          AthletePayment[]
+  quotas                   Quota[]
+  materials                Material[]
+  textileItems             TextileItem[]       @relation("TextileItemSeason")
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
 
   @@unique([clubId, name])
   @@index([clubId])
@@ -200,7 +204,8 @@ model Athlete {
   idCard            String?
   parentName        String?
   parentPhone       String?
-  monthlyFee        Float              @default(0)
+  monthlyFee        Float              @default(0)  // legacy fallback; use Season.defaultAthleteMonthlyFee
+  discountPercent   Float?                          // individual discount %, 0-100
   feeExempt         Boolean            @default(false)
   materials         Material[]
   payments          AthletePayment[]
@@ -306,6 +311,8 @@ model Material {
   id            String           @id @default(uuid())
   clubId        String
   club          Club             @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  seasonId      String?
+  season        Season?          @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   name          String
   category      MaterialCategory
   type          String
@@ -322,6 +329,7 @@ model Material {
   @@index([clubId, state])
   @@index([clubId, category])
   @@index([athleteId])
+  @@index([seasonId])
 }
 
 enum MaterialCategory {
@@ -552,13 +560,15 @@ model TextileItem {
   id                     String          @id @default(uuid())
   clubId                 String
   club                   Club            @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  seasonId               String?
+  seasonRef              Season?         @relation("TextileItemSeason", fields: [seasonId], references: [id], onDelete: SetNull)
   category               TextileCategory
   type                   TextileType
   size                   String
   jerseyNumber           Int?
   personalized           Boolean         @default(false)
   personalizationDetails String?
-  season                 String
+  season                 String          // legacy text label kept for display
   state                  TextileState    @default(STOCK)
   athleteId              String?
   athlete                Athlete?        @relation(fields: [athleteId], references: [id], onDelete: SetNull)
@@ -576,6 +586,7 @@ model TextileItem {
   @@index([clubId, category])
   @@index([clubId, season])
   @@index([athleteId])
+  @@index([seasonId])
 }
 
 enum TextileCategory {

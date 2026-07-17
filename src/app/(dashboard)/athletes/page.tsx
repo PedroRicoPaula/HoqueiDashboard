@@ -24,11 +24,12 @@ import { Switch } from '@/components/ui/switch'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
-import { Plus, Search, Pencil, Trash2, Loader2, Euro, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Loader2, Euro, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle, Percent } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AGE_GROUPS, AGE_GROUP_LABELS } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
 
 function calcAge(birthDate: string): number {
   const b = new Date(birthDate)
@@ -53,7 +54,7 @@ const athleteSchema = z.object({
   idCard: z.string().optional(),
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
-  monthlyFee: z.coerce.number().min(0).optional().default(0),
+  discountPercent: z.coerce.number().min(0).max(100).nullable().optional(),
   feeExempt: z.boolean().optional().default(false),
 })
 
@@ -73,7 +74,7 @@ interface Athlete {
   idCard?: string
   parentName?: string
   parentPhone?: string
-  monthlyFee: number
+  discountPercent?: number | null
   feeExempt: boolean
 }
 
@@ -152,6 +153,10 @@ function rowToAthlete(row: Record<string, string>) {
 
 export default function AthletesPage() {
   const dashLabels = useDashLabels()
+  const { getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const activeSeason = getActiveSeason()
+  const selectedSeason = getSelectedSeason()
+  const seasonDefaultFee = (selectedSeason ?? activeSeason)?.defaultAthleteMonthlyFee ?? null
 
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [total, setTotal] = useState(0)
@@ -206,7 +211,7 @@ export default function AthletesPage() {
   const openCreate = () => {
     setEditingAthlete(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    reset({ number: undefined as any, name: '', ageGroup: 'SENIORS', birthDate: '', phone: '', email: '', nif: '', address: '', school: '', idCard: '', parentName: '', parentPhone: '', monthlyFee: 0, feeExempt: false })
+    reset({ number: undefined as any, name: '', ageGroup: 'SENIORS', birthDate: '', phone: '', email: '', nif: '', address: '', school: '', idCard: '', parentName: '', parentPhone: '', discountPercent: null, feeExempt: false })
     setSheetOpen(true)
   }
 
@@ -226,7 +231,7 @@ export default function AthletesPage() {
       idCard: athlete.idCard ?? '',
       parentName: athlete.parentName ?? '',
       parentPhone: athlete.parentPhone ?? '',
-      monthlyFee: athlete.monthlyFee ?? 0,
+      discountPercent: athlete.discountPercent ?? null,
       feeExempt: athlete.feeExempt ?? false,
     })
     setSheetOpen(true)
@@ -504,15 +509,28 @@ export default function AthletesPage() {
               </div>
             )}
             {ageGroupValue !== 'SENIORS' && (
-              <div className="pt-2 border-t">
-                <p className="text-sm font-medium text-muted-foreground mb-3">Mensalidade</p>
+              <div className="pt-2 border-t space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Mensalidade</p>
+                {seasonDefaultFee != null ? (
+                  <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
+                    <span className="text-blue-800">
+                      Mensalidade da época: <strong>{seasonDefaultFee.toFixed(2)}€/mês</strong>
+                    </span>
+                    <p className="text-xs text-blue-600 mt-0.5">Definida nas Definições · aplica-se a todos os atletas</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                    Sem mensalidade de época definida. Configurar em <a href="/settings" className="underline font-medium">Definições</a>.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <Label>Valor mensal (€)</Label>
+                    <Label>Desconto individual (%)</Label>
                     <div className="relative">
-                      <Euro className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type="number" min="0" step="0.01" className="pl-9" {...register('monthlyFee')} />
+                      <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input type="number" min="0" max="100" step="1" className="pl-9" placeholder="0" {...register('discountPercent')} />
                     </div>
+                    <p className="text-xs text-muted-foreground">Opcional — desconto sobre o valor da época</p>
                   </div>
                   <div className="space-y-1">
                     <Label>Isento de pagamento</Label>
@@ -522,6 +540,11 @@ export default function AthletesPage() {
                     </div>
                   </div>
                 </div>
+                {seasonDefaultFee != null && watch('discountPercent') != null && Number(watch('discountPercent')) > 0 && !watch('feeExempt') && (
+                  <p className="text-xs text-emerald-700 font-medium">
+                    Valor efetivo: {(seasonDefaultFee * (1 - Number(watch('discountPercent')) / 100)).toFixed(2)}€/mês
+                  </p>
+                )}
               </div>
             )}
             {ageGroupValue !== 'SENIORS' && (

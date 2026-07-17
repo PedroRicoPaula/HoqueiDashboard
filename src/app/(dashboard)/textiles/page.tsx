@@ -26,6 +26,8 @@ import {
   TEXTILE_SIZES_ALL, TEXTILE_STATE_LABELS, TEXTILE_STATE_COLORS,
 } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useSeasonStore } from '@/store/seasonStore'
+import { CalendarDays } from 'lucide-react'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -76,6 +78,9 @@ export default function TextilesPage() {
   const dashLabels = useDashLabels()
   const { can } = usePermissions()
   const { toast } = useToast()
+  const { seasons: storeSeason, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const selectedSeason = getSelectedSeason()
+  const activeSeason = getActiveSeason()
 
   const [items, setItems] = useState<TextileItem[]>([])
   const [athletes, setAthletes] = useState<Athlete[]>([])
@@ -106,6 +111,7 @@ export default function TextilesPage() {
     personalized: false,
     personalizationDetails: '',
     season: getCurrentSeason(),
+    seasonId: null as string | null,
     state: 'STOCK' as string,
     athleteId: null as string | null,
     paidByAthlete: false,
@@ -132,10 +138,11 @@ export default function TextilesPage() {
     if (categoryFilter !== 'all') params.set('category', categoryFilter)
     if (stateFilter !== 'all') params.set('state', stateFilter)
     if (seasonFilter !== 'all') params.set('season', seasonFilter)
+    if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
     const res = await fetch(`/api/textiles?${params}`)
     if (res.ok) setItems(await res.json())
     setLoading(false)
-  }, [debouncedSearch, categoryFilter, stateFilter, seasonFilter])
+  }, [debouncedSearch, categoryFilter, stateFilter, seasonFilter, selectedSeasonId])
 
   useEffect(() => { fetchItems() }, [fetchItems])
   useEffect(() => {
@@ -158,10 +165,12 @@ export default function TextilesPage() {
   const openCreate = () => {
     setEditingItem(null)
     setKitMode(false)
+    const defaultSeasonId = selectedSeasonId ?? activeSeason?.id ?? null
+    const defaultSeasonName = storeSeason.find((s) => s.id === defaultSeasonId)?.name ?? getCurrentSeason()
     setForm({
       category: 'GAME', type: 'GAME_SHIRT', size: 'M', jerseyNumber: '',
       personalized: false, personalizationDetails: '',
-      season: getCurrentSeason(), state: 'STOCK', athleteId: null,
+      season: defaultSeasonName, seasonId: defaultSeasonId, state: 'STOCK', athleteId: null,
       paidByAthlete: false, paidAmount: '', totalCost: '', notes: '',
     })
     setKitItems([
@@ -183,6 +192,7 @@ export default function TextilesPage() {
       personalized: item.personalized,
       personalizationDetails: item.personalizationDetails ?? '',
       season: item.season,
+      seasonId: (item as { seasonId?: string | null }).seasonId ?? null,
       state: item.state,
       athleteId: item.athleteId ?? null,
       paidByAthlete: item.paidByAthlete,
@@ -201,6 +211,7 @@ export default function TextilesPage() {
     personalized: f.personalized,
     personalizationDetails: f.personalizationDetails || null,
     season: f.season,
+    seasonId: f.seasonId || null,
     state: f.state,
     athleteId: f.athleteId || null,
     paidByAthlete: f.paidByAthlete,
@@ -326,10 +337,20 @@ export default function TextilesPage() {
         )}
       </div>
 
-      {!loading && (
-        <p className="text-sm text-muted-foreground">
-          {items.length} {items.length !== 1 ? 'itens' : 'item'}
-        </p>
+      {(!loading || selectedSeason) && (
+        <div className="flex items-center gap-3">
+          {!loading && (
+            <p className="text-sm text-muted-foreground">
+              {items.length} {items.length !== 1 ? 'itens' : 'item'}
+            </p>
+          )}
+          {selectedSeason && (
+            <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+              <CalendarDays className="h-3 w-3" />
+              {selectedSeason.name}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Table */}
@@ -480,11 +501,29 @@ export default function TextilesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Época *</Label>
-                <Input
-                  value={form.season}
-                  onChange={(e) => setForm((p) => ({ ...p, season: e.target.value }))}
-                  placeholder="ex: 2025/26"
-                />
+                {storeSeason.length > 0 ? (
+                  <Select
+                    value={form.seasonId ?? ''}
+                    onValueChange={(v) => {
+                      const s = storeSeason.find((x) => x.id === v)
+                      setForm((p) => ({ ...p, seasonId: v || null, season: s?.name ?? p.season }))
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Sem época</SelectItem>
+                      {storeSeason.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}{s.isActive ? ' (ativa)' : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={form.season}
+                    onChange={(e) => setForm((p) => ({ ...p, season: e.target.value }))}
+                    placeholder="ex: 2025/26"
+                  />
+                )}
               </div>
             </div>
 

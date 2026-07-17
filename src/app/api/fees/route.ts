@@ -28,8 +28,19 @@ function computeSeasonMonths(startDate: Date, endDate: Date): Array<{ year: numb
 
 type AthleteWithPayments = {
   id: string; number: number; name: string; ageGroup: string;
-  monthlyFee: number; feeExempt: boolean;
+  monthlyFee: number; discountPercent: number | null; feeExempt: boolean;
   payments: { year: number; month: number; paid: boolean; amount: number | null }[]
+}
+
+function computeEffectiveFee(
+  athleteMonthlyFee: number,
+  discountPercent: number | null | undefined,
+  seasonDefaultFee: number | null | undefined,
+): number {
+  const base = seasonDefaultFee != null ? seasonDefaultFee : athleteMonthlyFee
+  if (!base || base <= 0) return 0
+  const discount = discountPercent ?? 0
+  return parseFloat((base * (1 - discount / 100)).toFixed(2))
 }
 
 export async function GET(req: Request) {
@@ -50,6 +61,7 @@ export async function GET(req: Request) {
     let months: Array<{ year: number; month: number }>
     let seasonStart: number
     let seasonLabel: string | undefined
+    let seasonDefaultFee: number | null = null
 
     if (seasonId) {
       const season = await db.season.findUnique({ where: { id: seasonId } })
@@ -57,6 +69,7 @@ export async function GET(req: Request) {
       months = computeSeasonMonths(new Date((season as { startDate: Date }).startDate), new Date((season as { endDate: Date }).endDate))
       seasonStart = new Date((season as { startDate: Date }).startDate).getFullYear()
       seasonLabel = (season as { name: string }).name
+      seasonDefaultFee = (season as { defaultAthleteMonthlyFee: number | null }).defaultAthleteMonthlyFee
     } else {
       const yearParam = searchParams.get('season')
       seasonStart = yearParam ? parseInt(yearParam) : getCurrentSeasonStart()
@@ -96,6 +109,7 @@ export async function GET(req: Request) {
     let athletesWithArrears = 0
 
     for (const athlete of allAthletes) {
+      const effectiveFee = computeEffectiveFee(athlete.monthlyFee, athlete.discountPercent, seasonDefaultFee)
       const paymentsMap = new Map(athlete.payments.map((p) => [`${p.year}-${p.month}`, p]))
       let hasArrears = false
       let allPastPaid = true
@@ -103,12 +117,12 @@ export async function GET(req: Request) {
       for (const { year, month } of months) {
         const payment = paymentsMap.get(`${year}-${month}`)
         if (payment?.paid && payment.amount != null) totalCollected += payment.amount
-        if (!athlete.feeExempt && athlete.monthlyFee > 0 && isMonthPast(month, year) && !payment?.paid) {
-          hasArrears = true; allPastPaid = false; totalPending += athlete.monthlyFee
+        if (!athlete.feeExempt && effectiveFee > 0 && isMonthPast(month, year) && !payment?.paid) {
+          hasArrears = true; allPastPaid = false; totalPending += effectiveFee
         }
       }
 
-      if (!athlete.feeExempt && athlete.monthlyFee > 0) {
+      if (!athlete.feeExempt && effectiveFee > 0) {
         if (hasArrears) athletesWithArrears++
         else if (allPastPaid) athletesFullyPaid++
       }
@@ -137,12 +151,15 @@ export async function GET(req: Request) {
       name: athlete.name,
       ageGroup: athlete.ageGroup,
       monthlyFee: athlete.monthlyFee,
+      discountPercent: athlete.discountPercent,
+      effectiveFee: computeEffectiveFee(athlete.monthlyFee, athlete.discountPercent, seasonDefaultFee),
       feeExempt: athlete.feeExempt,
       payments: athlete.payments,
     }))
 
     return NextResponse.json({
       athletes: athletesData,
+      seasonDefaultFee,
       summary: {
         totalCollected,
         totalPending,

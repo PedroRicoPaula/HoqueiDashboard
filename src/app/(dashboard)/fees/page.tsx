@@ -78,6 +78,8 @@ interface AthleteWithPayments {
   name: string
   ageGroup: string
   monthlyFee: number
+  discountPercent: number | null
+  effectiveFee: number
   feeExempt: boolean
   payments: AthletePayment[]
 }
@@ -98,7 +100,7 @@ interface PaidCellDialog {
   year: number
   labelFull: string
   payment: AthletePayment
-  monthlyFee: number
+  effectiveFee: number
 }
 
 export default function FeesPage() {
@@ -232,7 +234,7 @@ export default function FeesPage() {
           return fetch(`/api/athletes/${athleteId}/payments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ month, year, paid: true, amount: athlete?.monthlyFee ?? null, notes: batchNotes || null }),
+            body: JSON.stringify({ month, year, paid: true, amount: athlete?.effectiveFee ?? null, notes: batchNotes || null }),
           })
         })
       )
@@ -262,7 +264,7 @@ export default function FeesPage() {
   const handleColumnBulkClick = (month: number, year: number, labelFull: string) => {
     if (!canEdit) return
     const unpaid = athletes.filter(
-      (a) => !a.feeExempt && a.monthlyFee > 0 && !getPayment(a, month, year)?.paid
+      (a) => !a.feeExempt && (a.effectiveFee ?? 0) > 0 && !getPayment(a, month, year)?.paid
     )
     if (unpaid.length === 0) {
       toast({ title: `Todos os atletas já têm ${labelFull} ${year} registado` })
@@ -282,7 +284,7 @@ export default function FeesPage() {
           fetch(`/api/athletes/${a.id}/payments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ month, year, paid: true, amount: a.monthlyFee, notes: columnBulkNotes || null }),
+            body: JSON.stringify({ month, year, paid: true, amount: a.effectiveFee, notes: columnBulkNotes || null }),
           })
         )
       )
@@ -324,7 +326,7 @@ export default function FeesPage() {
       const res = await fetch(`/api/athletes/${athlete.id}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, year, paid: true, amount: athlete.monthlyFee, notes: confirmNotes || null }),
+        body: JSON.stringify({ month, year, paid: true, amount: athlete.effectiveFee, notes: confirmNotes || null }),
       })
       if (res.ok) {
         setConfirmDialog(null)
@@ -355,9 +357,9 @@ export default function FeesPage() {
       year,
       labelFull,
       payment,
-      monthlyFee: athlete.monthlyFee,
+      effectiveFee: athlete.effectiveFee,
     })
-    setEditAmount(payment.amount != null ? String(payment.amount) : String(athlete.monthlyFee))
+    setEditAmount(payment.amount != null ? String(payment.amount) : String(athlete.effectiveFee))
     setEditNotes(payment.notes ?? '')
   }
 
@@ -372,7 +374,7 @@ export default function FeesPage() {
           month: paidDialog.month,
           year: paidDialog.year,
           paid,
-          amount: paid ? parseFloat(editAmount) || paidDialog.monthlyFee : null,
+          amount: paid ? parseFloat(editAmount) || paidDialog.effectiveFee : null,
           notes: editNotes || null,
         }),
       })
@@ -420,7 +422,7 @@ export default function FeesPage() {
     const payment = getPayment(athlete, month, year)
     const past = isMonthPast(month, year)
     const curr = isMonthCurrent(month, year)
-    const hasConfiguredFee = athlete.monthlyFee > 0
+    const hasConfiguredFee = athlete.effectiveFee > 0
     const selected = selectionMode && isCellSelected(athlete.id, month, year)
 
     if (selectionMode && !payment?.paid) {
@@ -481,7 +483,7 @@ export default function FeesPage() {
     if (athlete.feeExempt) return 'bg-gray-50'
     const payment = getPayment(athlete, month, year)
     if (payment?.paid) return 'bg-emerald-50 hover:bg-emerald-100'
-    if (isMonthPast(month, year) && athlete.monthlyFee > 0) return 'bg-red-50 hover:bg-red-100'
+    if (isMonthPast(month, year) && athlete.effectiveFee > 0) return 'bg-red-50 hover:bg-red-100'
     if (isMonthCurrent(month, year)) return 'bg-amber-50 hover:bg-amber-100'
     return 'bg-white hover:bg-gray-50'
   }
@@ -694,7 +696,7 @@ export default function FeesPage() {
                     </Badge>
                   </td>
                   <td className="px-2 py-2 text-right text-xs text-muted-foreground">
-                    {athlete.feeExempt ? '—' : `${athlete.monthlyFee.toFixed(0)}€`}
+                    {athlete.feeExempt ? '—' : `${athlete.effectiveFee.toFixed(0)}€`}
                   </td>
                   {activeMonths.map((sm) => {
                     const onClick = getCellClickHandler(athlete, sm.month, sm.year, sm.labelFull)
@@ -737,8 +739,8 @@ export default function FeesPage() {
                     }, 0)
                     const pendingTotal = activeMonths.filter((sm) => {
                       const p = getPayment(athlete, sm.month, sm.year)
-                      return athlete.monthlyFee > 0 && isMonthPast(sm.month, sm.year) && !p?.paid
-                    }).length * athlete.monthlyFee
+                      return athlete.effectiveFee > 0 && isMonthPast(sm.month, sm.year) && !p?.paid
+                    }).length * athlete.effectiveFee
                     return (
                       <td key="total" className="px-3 py-2 text-right text-xs sticky right-0 bg-inherit z-10">
                         <div className="flex flex-col items-end gap-0.5">
@@ -853,7 +855,8 @@ export default function FeesPage() {
                   {confirmDialog.labelFull} {confirmDialog.year}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Mensalidade: {confirmDialog.athlete.monthlyFee.toFixed(2)}€
+                  Mensalidade: {confirmDialog.athlete.effectiveFee.toFixed(2)}€
+                  {confirmDialog.athlete.discountPercent ? ` (${confirmDialog.athlete.discountPercent}% desconto)` : ''}
                 </div>
               </div>
               <div className="space-y-1">

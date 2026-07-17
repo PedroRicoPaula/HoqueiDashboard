@@ -62,14 +62,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const { month, year, paid, amount, notes } = parsed.data
 
+    const { searchParams } = new URL(req.url)
+    const seasonId = searchParams.get('seasonId') || null
+
     const athlete = await db.athlete.findUnique({ where: { id } })
     if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 404 })
+
+    // Compute effective fee: season default (if season passed) × (1 - discount)
+    let effectiveAmount = (athlete as { monthlyFee: number }).monthlyFee
+    if (seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId }, select: { defaultAthleteMonthlyFee: true } })
+      const seasonFee = (season as { defaultAthleteMonthlyFee: number | null } | null)?.defaultAthleteMonthlyFee
+      if (seasonFee != null) {
+        const disc = (athlete as { discountPercent: number | null }).discountPercent ?? 0
+        effectiveAmount = parseFloat((seasonFee * (1 - disc / 100)).toFixed(2))
+      }
+    }
 
     const payment = await db.athletePayment.upsert({
       where: { athleteId_month_year: { athleteId: id, month, year } },
       update: {
         paid,
-        amount: paid ? (amount ?? (athlete as { monthlyFee: number }).monthlyFee) : null,
+        amount: paid ? (amount ?? effectiveAmount) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
       },
@@ -79,7 +93,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         month,
         year,
         paid,
-        amount: paid ? (amount ?? (athlete as { monthlyFee: number }).monthlyFee) : null,
+        amount: paid ? (amount ?? effectiveAmount) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
       },

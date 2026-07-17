@@ -16,16 +16,18 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const state = searchParams.get('state') || ''
+    const state    = searchParams.get('state')    || ''
     const category = searchParams.get('category') || ''
-    const search = searchParams.get('search') || ''
+    const search   = searchParams.get('search')   || ''
+    const seasonId = searchParams.get('seasonId') || null
 
     const materials = await db.material.findMany({
       where: {
         AND: [
-          state ? { state: state as MaterialState } : {},
+          state    ? { state:    state    as MaterialState    } : {},
           category ? { category: category as MaterialCategory } : {},
-          search ? { OR: [
+          seasonId ? { seasonId }                               : {},
+          search   ? { OR: [
             { name: { contains: search, mode: 'insensitive' } },
             { type: { contains: search, mode: 'insensitive' } },
           ]} : {},

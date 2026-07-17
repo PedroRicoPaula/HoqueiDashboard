@@ -9,7 +9,10 @@ export const createSeasonSchema = z.object({
   endDate:   z.string().min(1, 'Data de fim obrigatória'),
 })
 
-export const updateSeasonSchema = createSeasonSchema.partial()
+export const updateSeasonSchema = createSeasonSchema.partial().extend({
+  defaultAthleteMonthlyFee:  z.coerce.number().min(0).nullable().optional(),
+  defaultMemberMonthlyQuota: z.coerce.number().min(0).nullable().optional(),
+})
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -39,8 +42,9 @@ export const createAthleteSchema = z.object({
   idCard: z.string().optional(),
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
-  monthlyFee: z.coerce.number().min(0).optional().default(0),
-  feeExempt: z.boolean().optional().default(false),
+  monthlyFee:     z.coerce.number().min(0).optional().default(0),
+  discountPercent: z.coerce.number().min(0).max(100).nullable().optional(),
+  feeExempt:      z.boolean().optional().default(false),
 })
 
 export const updateAthleteSchema = createAthleteSchema.partial()
@@ -53,7 +57,7 @@ export const createMemberSchema = z.object({
   phone:        z.string().optional(),
   email:        z.string().email('Email inválido').optional().or(z.literal('')),
   address:      z.string().optional(),
-  monthlyQuota: z.coerce.number().min(0).default(0),
+  monthlyQuota: z.coerce.number().min(0).optional().default(0),
 })
 
 export const updateMemberSchema = createMemberSchema.partial()
@@ -61,14 +65,15 @@ export const updateMemberSchema = createMemberSchema.partial()
 // ─── Materials ────────────────────────────────────────────────────────────────
 
 export const createMaterialSchema = z.object({
-  name: z.string().optional().default(''),
-  category: z.enum(['ATHLETE', 'GOALKEEPER', 'SMALL']),
-  type: z.string().min(1, 'Tipo obrigatório'),
-  state: z.enum(['FREE', 'ASSIGNED', 'DAMAGED']).optional().default('FREE'),
-  athleteId: z.string().uuid().nullable().optional(),
-  notes: z.string().optional(),
+  name:          z.string().optional().default(''),
+  category:      z.enum(['ATHLETE', 'GOALKEEPER', 'SMALL']),
+  type:          z.string().min(1, 'Tipo obrigatório'),
+  state:         z.enum(['FREE', 'ASSIGNED', 'DAMAGED']).optional().default('FREE'),
+  seasonId:      z.string().uuid().nullable().optional(),
+  athleteId:     z.string().uuid().nullable().optional(),
+  notes:         z.string().optional(),
   paidByAthlete: z.boolean().optional().default(false),
-  paidAmount: z.coerce.number().nullable().optional(),
+  paidAmount:    z.coerce.number().nullable().optional(),
 })
 
 export const updateMaterialSchema = createMaterialSchema.partial()
@@ -171,15 +176,16 @@ export const bulkAttendanceSchema = z.object({
 // ─── Textiles ─────────────────────────────────────────────────────────────────
 
 export const createTextileSchema = z.object({
-  category: z.enum(['GAME', 'TRAINING', 'OTHER']),
-  type: z.enum(['GAME_SHIRT', 'GAME_SHORTS', 'GAME_SOCKS', 'GK_SHIRT', 'TRAINING_TOP', 'TRAINING_PANTS', 'TRAINING_KIT', 'JACKET', 'TSHIRT', 'OTHER']),
-  size: z.string().min(1, 'Tamanho obrigatório'),
+  category:      z.enum(['GAME', 'TRAINING', 'OTHER']),
+  type:          z.enum(['GAME_SHIRT', 'GAME_SHORTS', 'GAME_SOCKS', 'GK_SHIRT', 'TRAINING_TOP', 'TRAINING_PANTS', 'TRAINING_KIT', 'JACKET', 'TSHIRT', 'OTHER']),
+  size:          z.string().min(1, 'Tamanho obrigatório'),
+  seasonId:      z.string().uuid().nullable().optional(),
   // Use union to avoid coerce-then-positive failing on null values in Zod v4
-  jerseyNumber: z.union([z.number().int().positive(), z.null()]).optional(),
-  personalized: z.boolean().optional().default(false),
+  jerseyNumber:  z.union([z.number().int().positive(), z.null()]).optional(),
+  personalized:  z.boolean().optional().default(false),
   personalizationDetails: z.string().nullable().optional(),
-  season: z.string().regex(/^\d{4}\/\d{2}$/, 'Formato inválido — use AAAA/AA (ex: 2025/26)'),
-  state: z.enum(['STOCK', 'ASSIGNED', 'DAMAGED', 'LOST']).optional().default('STOCK'),
+  season:        z.string().regex(/^\d{4}\/\d{2}$/, 'Formato inválido — use AAAA/AA (ex: 2025/26)'),
+  state:         z.enum(['STOCK', 'ASSIGNED', 'DAMAGED', 'LOST']).optional().default('STOCK'),
   athleteId: z.string().uuid().nullable().optional(),
   isPartOfKit: z.boolean().optional().default(false),
   kitRef: z.string().nullable().optional(),

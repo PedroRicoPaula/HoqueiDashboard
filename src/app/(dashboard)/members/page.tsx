@@ -244,8 +244,11 @@ export default function MembersPage() {
   const { toast } = useToast()
   const debouncedSearch = useDebounce(search)
 
-  const { seasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const { seasons, selectedSeasonId, getSelectedSeason, getActiveSeason } = useSeasonStore()
   const selectedSeason = getSelectedSeason()
+  const activeSeason = getActiveSeason()
+  const currentSeason = selectedSeason ?? activeSeason
+  const seasonDefaultQuota = currentSeason?.defaultMemberMonthlyQuota ?? null
 
   const {
     register, handleSubmit, reset, formState: { errors },
@@ -272,7 +275,7 @@ export default function MembersPage() {
 
   const openCreate = () => {
     setEditingMember(null)
-    reset({ name: '', phone: '', email: '', address: '', monthlyQuota: 0, seasonId: selectedSeasonId ?? null })
+    reset({ name: '', phone: '', email: '', address: '', monthlyQuota: seasonDefaultQuota ?? 0, seasonId: selectedSeasonId ?? null })
     setSheetOpen(true)
   }
 
@@ -477,10 +480,29 @@ export default function MembersPage() {
               <Label>Morada</Label>
               <Input {...register('address')} />
             </div>
-            <div className="space-y-1">
-              <Label>Quota Mensal (€)</Label>
-              <Input type="number" step="0.01" {...register('monthlyQuota')} />
-            </div>
+            {editingMember ? (
+              <div className="space-y-1">
+                <Label>Quota Mensal (€)</Label>
+                <Input type="number" step="0.01" {...register('monthlyQuota')} />
+              </div>
+            ) : (
+              <div className="rounded-md border p-3 space-y-1">
+                <p className="text-sm font-medium">Quota Mensal</p>
+                {seasonDefaultQuota != null ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Valor da época: <strong className="text-foreground">{seasonDefaultQuota.toFixed(2)}€/mês</strong>
+                    </p>
+                    <p className="text-xs text-blue-600">Definida automaticamente com base na época ativa</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-600">
+                    Sem quota de época definida. Configurar em{' '}
+                    <a href="/settings" className="underline">Definições</a>.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex gap-3 pt-4">
               <Button type="button" variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>Cancelar</Button>
               <Button type="submit" className="flex-1" disabled={saving}>
