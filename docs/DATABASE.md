@@ -394,9 +394,20 @@ RateLimit {
 | `20260607000001_sponsor_enhancements` | Jun 2026 | Re-adiciona `logoUrl` + 5 campos novos: `sponsorTypes String[]`, `equipmentZones Int[]`, `bannerCount Int?`, `includesSticks Boolean`, `includesShinguards Boolean` | ✅ aplicada |
 | `20260619000001_logo_and_reset_token` | Jun 2026 | `logoUrl TEXT?` em `Club`; novo modelo `PasswordResetToken` | ✅ aplicada |
 | *(db push — sem migration)* | Jun 2026 | `primaryColor TEXT NOT NULL DEFAULT '142 71% 45%'` em `Club` — cor HSL da paleta do clube | aplicada via `db push` |
+| *(db push — sem migration)* | ~Jun 2026 (data exata desconhecida — coincide com CREATE_FREE_CLUB/CHANGE_CLUB_STATUS em `AuditAction`, 2026-06-25) | `isFreeClub BOOLEAN NOT NULL DEFAULT false` + `statusChangedAt TIMESTAMP?` em `Club` | aplicada via `db push`; migration própria só em `20260717121034` (ver nota abaixo) |
 | `20260626000001_add_clubid_to_payment_models` | Jun 2026 | `clubId FK → Club (NOT NULL, CASCADE)` em `AthletePayment`, `Quota`, `DirectionSalaryPayment`, `AttendanceRecord`. Backfill via UPDATE das tabelas pai. Indexes `clubId_idx` em cada tabela. Resolve DEBT-017. | ✅ aplicada |
 | `20260716000001_season_feature` | Jul 2026 | Modelo `Season` (CREATE TABLE + FK + indexes); `seasonId TEXT?` + FK `SetNull` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `(clubId,number)` para `(clubId,number,seasonId)` (DROP + CREATE UNIQUE INDEX); indexes `seasonId_idx` nas 4 tabelas. | ✅ aplicada |
 | `20260716000002_season_fees` | Jul 2026 | `Season.defaultAthleteMonthlyFee DOUBLE PRECISION?` + `Season.defaultMemberMonthlyQuota DOUBLE PRECISION?`; `Athlete.discountPercent DOUBLE PRECISION?`; `Material.seasonId TEXT?` + FK `SetNull` + index; `TextileItem.seasonId TEXT?` + FK `SetNull` + index (named relation "TextileItemSeason" — necessário porque `TextileItem` já tem campo texto `season`). | ✅ aplicada |
+| `20260717121034_club_free_status_columns` | Jul 2026 | `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "isFreeClub"...` / `"statusChangedAt"...` — migration retroactiva para o gap documentado abaixo (INFRA-003). `IF NOT EXISTS` = segura em qualquer estado da BD (Neon já tinha via `db push`, BD nova não tinha nada) | ✅ aplicada |
+
+### ~~`isFreeClub`/`statusChangedAt` em falta em BD criada de raiz~~ ✅ RESOLVIDO 2026-07-17 (INFRA-003)
+**Encontrado:** 2026-07-17, ao correr `prisma migrate deploy` pela primeira vez contra uma BD local completamente nova. `prisma.club.create()` falha com `The column isFreeClub of relation Club does not exist in the current database` — e por arrasto, `src/tests/tenant-isolation.test.ts` (que cria clubes de teste directamente via Prisma) deixa de passar.  
+**Causa:** igual ao caso documentado do `primaryColor` acima — coluna adicionada ao `schema.prisma` e aplicada em produção via `db push` (antes do baseline de 2026-07-16), mas nunca chegou a ganhar uma migration `.sql` própria. O `resolve-migration.js` faz *baseline* de tudo antes de `20260716000001_season_feature` — ou seja, assume que a BD já tem essas colunas, sem verificar. Em produção (Neon, já tinha as colunas de antes) isto passa despercebido; numa BD nova (`createdb` + `migrate deploy`) as colunas simplesmente nunca são criadas.  
+**Confirmado em produção o mesmo dia:** `POST /api/register` a devolver 500 real em `hoqueimanager.com` — mesma causa exacta (`tx.club.create()`).  
+**Fix:** migration `20260717121034_club_free_status_columns` — `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "isFreeClub" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS "statusChangedAt" TIMESTAMP(3);`. `IF NOT EXISTS` torna-a segura mesmo a Neon já tendo as colunas. Testada localmente antes do deploy: `migrate deploy` + `club.create()` real + `tenant-isolation.test.ts` (67/67).  
+Ver [INFRA-003] em `docs/ISSUES-BACKLOG.md`.
+
+---
 
 ### Porquê a 20260511000001 falhou
 A migration tentava:

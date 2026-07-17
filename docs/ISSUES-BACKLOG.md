@@ -5,6 +5,36 @@
 
 ## 🔴 Bugs Activos
 
+(nenhum activo no momento — ver histórico abaixo)
+
+---
+
+### ~~[INFRA-003] `Club.isFreeClub`/`Club.statusChangedAt` sem migration — falha em BD criada de raiz~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17, ao correr `prisma migrate deploy` contra uma BD local nova (primeira vez que alguém faz um fresh setup completo desde o baseline de INFRA-001). `prisma.club.create()` falha com `column isFreeClub of relation Club does not exist`. Efeito colateral: `src/tests/tenant-isolation.test.ts` deixa de passar (cria clubes via Prisma directo no `beforeAll`).
+**Causa:** mesmo padrão do `primaryColor` (ver `docs/DATABASE.md`) — coluna adicionada ao schema e aplicada via `db push` antes do histórico de migrations existir, nunca migrada formalmente. O baseline (`scripts/resolve-migration.js`, de INFRA-001) assume que tudo antes de `20260716000001` já está aplicado, sem verificar coluna a coluna.
+**Confirmado em produção o mesmo dia:** utilizador reportou `POST /api/register` a devolver 500 em `hoqueimanager.com` — mesma causa exacta (`tx.club.create()` em `register/route.ts`).
+**Fix:** migration `20260717121034_club_free_status_columns` — `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "isFreeClub"...` / `"statusChangedAt"...`. `IF NOT EXISTS` torna-a segura independentemente de a Neon já ter ou não as colunas. Testada localmente (`migrate deploy` + `club.create()` real + `tenant-isolation.test.ts` voltou a passar) antes do deploy. Detalhe em `docs/DATABASE.md`.
+
+---
+
+### ~~[BUG-027] Têxteis — regex de época rejeitava o próprio formato sugerido pela página de Épocas~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (teste manual do fluxo de criação, após fix de BUG-025/026). `createTextileSchema.season` validava `^\d{4}\/\d{2}$` (ex: "2025/26"). A página `/seasons` sugere "2025/2026" como placeholder/exemplo de nome de época — e o form de Têxteis preenche automaticamente `season` a partir do nome da Season seleccionada. Resultado: criar qualquer têxtil associado a uma época em formato "2025/2026" (4+4 dígitos) dava 400 Bad Request.
+**Fix:** `src/lib/validations.ts` — `season: z.string().regex(...)` substituído por `z.string().min(3).max(20)`, alinhado com o limite de `createSeasonSchema.name`. `Season.name` é texto livre desde a feature de Épocas; já não faz sentido restringir o campo legado a um formato mais rígido que o próprio nome de que deriva.
+
+---
+
+### ~~[BUG-026] Têxteis — `Select.Item value=""` crashava o Radix Select ao abrir "Novo Item"~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (reportado pelo utilizador). Consola: `Error: A <Select.Item /> must have a value prop that is not an empty string`. O picker de época do form de criação usava `<SelectItem value="">Sem época</SelectItem>` — Radix reserva string vazia para representar "sem seleção"/placeholder, não aceita como valor de item.
+**Fix:** `src/app/(dashboard)/textiles/page.tsx` — sentinela `"none"` em vez de `""` (`value={form.seasonId ?? 'none'}`, `onValueChange` mapeia `'none'` → `null`).
+
+---
+
+### ~~[BUG-025] Erro de hidratação React #418 em Têxteis/Sócios/Patrocinadores/Sidebar em hard-reload~~ ✅ RESOLVIDO 2026-07-17
+**Encontrado:** 2026-07-17 (reportado pelo utilizador, consola de produção: `Minified React error #418`). Reproduzido de forma determinística: login → criar época → hard-reload em `/textiles` → crash. Causa raiz: `authStore`/`seasonStore` (Zustand `persist`, localStorage) lidos directamente no primeiro render de `textiles/page.tsx`, `members/page.tsx`, `sponsors/page.tsx` e `SeasonSelector.tsx` — em qualquer JSX que troca de **estrutura** consoante `seasons.length`/`selectedSeason` (ex: `<Select>` vs `<Input>`, badge presente/ausente). SSR nunca tem `localStorage`; no cliente, dados já vinham disponíveis mais cedo do que o esperado por causa de boundaries internas do App Router (ver detalhe em `docs/CONVENTIONS.md`) — o fix "standard" do Zustand (`skipHydration` + `rehydrate()` num ancestral) **não foi suficiente sozinho**, confirmado por reprodução do mesmo erro mesmo depois de o aplicar.
+**Fix:** hook `useMounted()` novo (`src/hooks/useMounted.ts`) — gate local por componente, independente de ordem de efeitos entre componentes. Aplicado nos 4 ficheiros acima, mantendo também `skipHydration`+`rehydrate()` nas stores como primeira camada. Ver padrão completo documentado em `docs/CONVENTIONS.md` → "Stores Zustand persistidas (localStorage) — hidratação segura em SSR".
+
+---
+
 ### ~~[BUG-024] Secção "Mensalidade" não aparecia para atletas Seniores no formulário de criação~~ ✅ RESOLVIDO 2026-07-17
 **Encontrado:** 2026-07-17 (teste UI pós-deploy). O bloco `Mensalidade` (com info da tarifa da época, desconto individual e toggle de isenção) estava envolto em `{ageGroupValue !== 'SENIORS' && (...)}` — condição que devia guardar apenas "Escola" e "Encarregado de Educação". Como o escalão por defeito ao criar é "Seniores", a secção de mensalidade nunca aparecia.  
 **Fix:** `src/app/(dashboard)/athletes/page.tsx` — removido o `!== 'SENIORS'` que envolvia o bloco de mensalidade. Secção agora aparece para todos os escalões. "Escola" e "Encarregado de Educação" mantêm a condicional.
@@ -460,3 +490,5 @@ Ver [DEBT-002] — Upstash Redis.
 | 2026-07-15 | FEAT: Importação CSV FPP para Atletas | `parseCsv` agora strip quotes dos headers; `parseAgeGroup` mapeia "Sénior Masculino - 3ª Divisão" → SENIORS, "Sub-19 Masculino" → SUB19, etc.; `rowToAthlete` usa `num_fpp` como número e `escal_o` como escalão (normalização da coluna "Num FPP" e "Escalão" da FPP). |
 | 2026-07-15 | FEAT: Importação CSV FPP para Direção | `parseDirectionCsv()` agrupa pessoas por Num FPP e mescla cargos; `POST /api/direction` aceita array; UI com botão "Importar CSV FPP" + dialog com pré-visualização em `direction/page.tsx`. |
 | 2026-07-15 | FEAT: Secção "Primeiros Passos" no dashboard | Card com 4 ações guiadas (Atletas, Mensalidades, Sócios, Definições) mostrado quando clube tem 0 atletas. i18n em 5 línguas (`messages/dashboard/*.json` chave `onboarding`). |
+| 2026-07-17 | UX: Época nova ficava com mensalidade/quota default vazias em Definições | `POST /api/seasons` passa a criar toda época já com `defaultAthleteMonthlyFee: 5, defaultMemberMonthlyQuota: 5` em vez de `null`. Ver BUG-025/026/027 e INFRA-003 acima para os restantes fixes desta sessão (hidratação, Select vazio, regex de época). |
+| 2026-07-17 | FEAT: Registo — password no formulário + login automático pós-pagamento | `[locale]/register` recebe password+confirmação; `POST /api/register` grava a hash logo na criação (sem placeholder). Novo `/register/complete?session_id=...` (`success_url` do Stripe) confirma pagamento directo no Stripe e faz login automático — mesmo contrato de `/api/auth/login`. Novo `src/lib/clubActivation.ts` partilhado com o webhook (idempotente). Webhook deixa de criar `PasswordResetToken`/enviar email de boas-vindas (`welcomeEmailHtml` removido). `RESEND_API_KEY` já não é crítico para onboarding, só para `/forgot-password`. Ver regra 13 em `CLAUDE.md`. |

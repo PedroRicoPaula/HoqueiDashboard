@@ -7,7 +7,7 @@
 **Status:** ✅ funcional  
 **Páginas:** `/{locale}` (landing), `/{locale}/register` (registo), `/{locale}/privacy`, `/{locale}/terms`  
 **Permissão:** pública (sem autenticação)  
-**APIs:** `POST /api/register`
+**APIs:** `POST /api/register`, `POST /api/register/complete`
 
 ### Funcionalidades
 - Landing page marketing em 5 idiomas (PT/ES/EN/FR/IT) via `next-intl`
@@ -22,10 +22,10 @@
 - **Footer**: duas linhas — (1) logo + links nav; (2) copyright + "Feito por Pedro Paula" + locale switcher
 - **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
 - Sem trial — messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
-- Registo 2 passos: (1) dados do clube, (2) seleção de plano; mensagens de validação i18n
-- `POST /api/register` → rate limited (5/hora/IP) → cria `Club` (PENDING_PAYMENT) + `User` admin (password placeholder — ninguém sabe) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
-- Stripe Checkout redireciona para `/login?registered=1` em sucesso; em cancelamento redireciona para `NEXT_PUBLIC_LANDING_URL/{locale}/register?cancelled=1` (fallback: `hoqueimanager.com`)
-- **Fluxo pós-pagamento seguro (set-password):** webhook `checkout.session.completed` → incrementa `tokenVersion` do user → cria `PasswordResetToken` (24h) → envia email "Definir Palavra-passe" via Resend (`welcomeEmailHtml`). O utilizador clica no link, define a sua password, e só então pode fazer login. Zero credenciais em metadata Stripe ou email em claro.
+- Registo 2 passos: (1) dados do clube **+ password/confirmar password**, (2) seleção de plano; mensagens de validação i18n
+- `POST /api/register` → rate limited (5/hora/IP) → valida `password`/`confirmPassword` (`min(8)` + iguais) → cria `Club` (PENDING_PAYMENT) + `User` admin com a hash da password já definida (sem placeholder) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
+- **Login automático pós-pagamento (2026-07-17):** `success_url` do Checkout aponta para `/register/complete?session_id={CHECKOUT_SESSION_ID}` — página fora de `[locale]`/`(dashboard)`. `POST /api/register/complete` confirma `payment_status === 'paid'` **directo no Stripe** (não espera pelo webhook — evita a corrida entre o browser voltar e o webhook assíncrono chegar), activa o clube via `src/lib/clubActivation.ts` e devolve o mesmo contrato JSON de `/api/auth/login` (`{user, permissions, redirectTo}` + cookie `hm_token`). A página cliente chama `setAuth()` e entra logo no dashboard — sem passar pelo login. Em cancelamento redireciona para `NEXT_PUBLIC_LANDING_URL/{locale}/register?cancelled=1` (fallback: `hoqueimanager.com`)
+- **Webhook como backstop:** `checkout.session.completed` chama o mesmo `activateClubFromSession()` (idempotente — não importa qual dos dois activa primeiro) só para o caso de o browser nunca voltar ao `success_url`. Já não cria `PasswordResetToken` nem envia email — a password já existe desde o registo. `RESEND_API_KEY` deixou de ser necessário para o onboarding, só para `/forgot-password`.
 - Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento e regista `logAudit` em todos os eventos
 - **Cookie consent banner** (`CookieBanner.tsx`): aparece na 1ª visita, persiste aceitação em `localStorage` chave `hm_cookie_consent`
 - **Política de Privacidade** (`/{locale}/privacy`) e **Termos de Utilização** (`/{locale}/terms`) — Server Components, link no footer. Email de contacto: `pedroricopaula@gmail.com` (substituiu placeholders `@hoqueimanager.com`).
@@ -35,6 +35,8 @@
 - `src/app/[locale]/layout.tsx` — NextIntlClientProvider + CookieBanner
 - `src/app/[locale]/page.tsx` — landing page (Server Component)
 - `src/app/[locale]/register/page.tsx` — wizard 2 passos (Client Component)
+- `src/app/register/complete/page.tsx` — confirmação de pagamento + login automático (fora de `[locale]`, hardcoded PT como `/login`)
+- `src/lib/clubActivation.ts` — `activateClubFromSession()` partilhado entre `/api/register/complete` e o webhook
 - `src/app/[locale]/privacy/page.tsx` — Política de Privacidade
 - `src/app/[locale]/terms/page.tsx` — Termos de Utilização
 - `src/components/landing/CookieBanner.tsx` — banner GDPR (client component)
@@ -122,7 +124,7 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/api/seasons` | Lista épocas do clube (com `_count.members` + `_count.sponsors`) |
-| POST | `/api/seasons` | Criar época (`name`, `startDate`, `endDate`) |
+| POST | `/api/seasons` | Criar época (`name`, `startDate`, `endDate`); `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` inicializados a `5` (não `null`) para Definições nunca mostrar valores vazios — clube ajusta depois se quiser |
 | PATCH | `/api/seasons/[id]` | Atualizar campos ou ativar época (`{ isActive: true }` → desativa todas as outras) |
 | DELETE | `/api/seasons/[id]` | Eliminar época (rejeita se tiver members/sponsors/athletePayments/quotas associados) |
 
@@ -184,6 +186,8 @@ updateSeasonSchema: { name?, startDate?, endDate?, isActive? }
 - Nome duplicado no mesmo clube → 409 (Prisma P2002 unique `[clubId, name]`)
 - Épocas sem `isActive` existem (nunca foram ativadas); o Sidebar mostra a ativa com destaque verde
 - TENANTED: `db.season.create()` requer `clubId: ctx.clubId` explicitamente no `data` (TS type o exige; ver nota em DATABASE.md)
+- `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` nascem a `5` em toda época nova (2026-07-17) — evita inputs vazios em Definições logo após registo/criação de época; continuam nullable no schema (épocas antigas podem ter `null`)
+- `SeasonSelector.tsx` só lê `seasons`/`selectedSeasonId` do store depois de montar (`useMounted()`) — ver padrão "Stores Zustand persistidas" em `docs/CONVENTIONS.md`; sem isto, hard-reload numa página com época selecionada causava erro de hidratação React #418
 
 ---
 
@@ -787,7 +791,7 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 - `kitRef` = `"kit-{timestamp}"` — agrupa peças criadas em batch; sem FK própria
 - Quando estado ≠ ASSIGNED: `athleteId`, `paidByAthlete`, `paidAmount` são limpos automaticamente no PUT
 - `onDelete: SetNull` no atleta (eliminar atleta não elimina têxteis, apenas desassocia)
-- **Formato época validado**: regex `^\d{4}\/\d{2}$` (ex: "2025/26") — erro se formato inválido
+- **Campo `season` (texto legado)**: `z.string().min(3).max(20)` — sem regex de formato fixo (era `^\d{4}\/\d{2}$`, ex. "2025/26"; removido 2026-07-17 porque `Season.name` aceita qualquer formato — ex. "2025/2026" — e o form preenche `season` a partir do nome da Season selecionada, pelo que o regex antigo rejeitava com 400 qualquer época cujo nome não fosse exatamente "AAAA/AA". Ver BUG-027 em `docs/ISSUES-BACKLOG.md`.)
 
 ---
 
