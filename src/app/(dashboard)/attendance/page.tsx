@@ -548,37 +548,23 @@ export default function AttendancePage() {
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true)
-    const sessRes = await fetch('/api/attendance')
-    if (!sessRes.ok) { setStatsLoading(false); return }
-    const allSessions: Session[] = await sessRes.json()
-
-    const athleteMap = new Map<string, AthleteStat>()
-    allAthletes.forEach((a) => {
-      athleteMap.set(a.id, { id: a.id, name: a.name, number: a.number, ageGroup: a.ageGroup,
-        ownSessions: 0, ownPresent: 0, otherSessions: 0, otherPresent: 0, total: 0, totalPresent: 0 })
-    })
-
-    await Promise.all(allSessions.filter((s) => !s.cancelled).map(async (s) => {
-      const rRes = await fetch(`/api/attendance/${s.id}/records`)
-      if (!rRes.ok) return
-      const recs: AthleteRecord[] = await rRes.json()
-      recs.forEach((r) => {
-        const stat = athleteMap.get(r.athleteId)
-        if (!stat) return
-        const isOwn = s.primaryAgeGroup === r.athlete.ageGroup
-        if (isOwn) { stat.ownSessions++; if (r.present) stat.ownPresent++ }
-        else { stat.otherSessions++; if (r.present) stat.otherPresent++ }
-        stat.total++; if (r.present) stat.totalPresent++
-      })
-    }))
-
-    setStats(Array.from(athleteMap.values()).filter((s) => s.total > 0).sort((a, b) => b.totalPresent - a.totalPresent))
-    setStatsLoading(false)
-  }, [allAthletes])
+    try {
+      // Uma query agregada no servidor (src/lib/attendanceStats.ts) em vez de um
+      // fetch por sessão — antes crescia sem limite a cada época nova.
+      const res = await fetch('/api/attendance/stats')
+      if (!res.ok) { toast({ title: 'Erro ao carregar estatísticas', variant: 'destructive' }); return }
+      const data: AthleteStat[] = await res.json()
+      setStats(data.filter((s) => s.total > 0).sort((a, b) => b.totalPresent - a.totalPresent))
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar estatísticas', variant: 'destructive' })
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [toast])
 
   useEffect(() => {
-    if (tab === 'stats' && allAthletes.length > 0) loadStats()
-  }, [tab, loadStats, allAthletes.length])
+    if (tab === 'stats') loadStats()
+  }, [tab, loadStats])
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
@@ -1253,10 +1239,10 @@ export default function AttendancePage() {
                 {sessionModal.existingSession?.cancelled ? 'Reativar treino' : 'Cancelar treino'}
               </Button>
             )}
-            {!sessionModal.existingSession?.cancelled && (
+            {!sessionModal.existingSession?.cancelled && (sessionModal.existingSession || can('editAttendance')) && (
               <Button onClick={handleOpenAttendance}>
                 <Users className="h-4 w-4 mr-1.5" />
-                Registar presenças
+                {sessionModal.existingSession ? 'Ver presenças' : 'Registar presenças'}
               </Button>
             )}
           </DialogFooter>
