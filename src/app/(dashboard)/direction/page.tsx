@@ -27,6 +27,8 @@ import { Plus, Pencil, Trash2, Loader2, Mail, Phone, Euro, User, Calendar, Chevr
 import { AGE_GROUPS, DIRECTION_ROLES, DIRECTION_ROLE_LABELS, DIRECTION_ROLE_COLORS, AGE_GROUP_LABELS } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useDashLabels } from '@/hooks/useDashLabels'
+import { useAuthStore } from '@/store/authStore'
+import { getNumberLocale } from '@/lib/date-locale'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,9 @@ interface SeniorAthlete {
 
 function parseFederationRole(escalao: string): string {
   const lower = escalao.toLowerCase().trim()
+  // "treinador adjunto"/"assistente" tem de ser testado ANTES de "treinador" —
+  // senão .includes('treinador') apanha ambos e ASSISTANT_TRAINER nunca sai.
+  if (lower.includes('treinador adjunto') || lower.includes('treinador-adjunto') || lower.includes('assistente')) return 'ASSISTANT_TRAINER'
   if (lower.includes('treinador')) return 'TRAINER'
   if (lower.includes('delegado')) return 'DIRECTOR'
   if (lower.includes('diretor de campo') || lower.includes('director de campo')) return 'FIELD_DIRECTOR'
@@ -111,8 +116,8 @@ function parseDirectionCsv(text: string): { name: string; roles: string[] }[] {
   }))
 }
 
-const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-const MONTHS_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const MONTHS_SHORT_FALLBACK = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const MONTHS_FULL_FALLBACK = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 interface SalaryPayment {
   id: string; month: number; year: number; paid: boolean; amount?: number | null; paidAt?: string | null; notes?: string | null
@@ -124,6 +129,9 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
   const [year, setYear] = useState(new Date().getFullYear())
   const { can } = usePermissions()
   const { toast } = useToast()
+  const dashLabels = useDashLabels()
+  const monthsFull = dashLabels.monthsFull?.slice(1) ?? MONTHS_FULL_FALLBACK
+  const monthsShort = dashLabels.monthsShort?.slice(1) ?? MONTHS_SHORT_FALLBACK
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
@@ -174,7 +182,7 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
         )}
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-        {MONTHS_FULL.map((monthName, idx) => {
+        {monthsFull.map((monthName, idx) => {
           const month = idx + 1
           const payment = getPayment(month)
           const past = isPast(month)
@@ -195,7 +203,7 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
                 !can('editDirection') && 'cursor-default'
               )}
             >
-              <span>{MONTHS_SHORT[idx]}</span>
+              <span>{monthsShort[idx]}</span>
               <span className="text-[10px] mt-0.5">
                 {paid
                   ? (payment?.amount ? `${payment.amount % 1 === 0 ? payment.amount : payment.amount.toFixed(2)}€` : 'Pago')
@@ -255,6 +263,7 @@ function AgeGroupPanel({
 
 export default function DirectionPage() {
   const dashLabels = useDashLabels()
+  const numLocale = getNumberLocale(useAuthStore((s) => s.clubLanguage))
   const roleLabel = (v: string) => dashLabels.directionRoles[v] ?? DIRECTION_ROLE_LABELS[v] ?? v
   const ageGroupLabel = (v: string) => dashLabels.ageGroups[v] ?? AGE_GROUP_LABELS[v] ?? v
   const ROLES = DIRECTION_ROLES.map((value) => ({ value, label: roleLabel(value) }))
@@ -417,14 +426,23 @@ export default function DirectionPage() {
         body: JSON.stringify(importRows),
       })
       const json = await res.json()
-      toast({ title: `${json.created} membro(s) importado(s)${json.errors?.length ? `, ${json.errors.length} erro(s)` : ''}` })
+      if (!res.ok) {
+        toast({ title: 'Erro ao importar', description: json.error ?? 'Nenhum membro foi importado.', variant: 'destructive' })
+        return
+      }
+      const parts = [
+        json.created ? `${json.created} criado(s)` : null,
+        json.updated ? `${json.updated} atualizado(s) (cargos juntados)` : null,
+        json.errors?.length ? `${json.errors.length} erro(s)` : null,
+      ].filter(Boolean)
+      toast({ title: parts.join(', ') || 'Nada para importar', variant: json.errors?.length ? 'destructive' : undefined })
       setImportOpen(false)
       setImportRows([])
       setImportError('')
       if (fileRef.current) fileRef.current.value = ''
       fetchMembers()
     } catch {
-      toast({ title: 'Erro ao importar', variant: 'destructive' })
+      toast({ title: 'Erro de ligação — nenhum membro foi importado', variant: 'destructive' })
     } finally {
       setImporting(false)
     }
@@ -562,7 +580,7 @@ export default function DirectionPage() {
         <p className="text-sm text-muted-foreground text-right">
           Total salários mensais:{' '}
           <strong className="text-foreground">
-            {members.reduce((s, m) => s + (m.salary ?? 0), 0).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} €
+            {members.reduce((s, m) => s + (m.salary ?? 0), 0).toLocaleString(numLocale, { minimumFractionDigits: 2 })} €
           </strong>
         </p>
       )}

@@ -36,18 +36,34 @@ export async function POST(req: Request) {
     if (Array.isArray(body)) {
       const results: unknown[] = []
       const errors: { name: string; error: unknown }[] = []
+      let updated = 0
       for (const item of body) {
         const parsed = createDirectionSchema.safeParse(item)
         if (!parsed.success) { errors.push({ name: item.name ?? 'unknown', error: parsed.error.flatten() }); continue }
         try {
-          const member = await db.directionMember.create({ data: { ...parsed.data, clubId: ctx.clubId } })
-          await logAudit(req, user.id, user.email, 'CREATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name })
-          results.push(member)
+          // Reimportar o mesmo CSV (ex: federação actualizou o plantel) não pode duplicar
+          // pessoas — junta aos cargos já existentes em vez de criar outra linha.
+          const existing = await db.directionMember.findFirst({
+            where: { name: { equals: parsed.data.name, mode: 'insensitive' } },
+          })
+          if (existing) {
+            const mergedRoles = Array.from(new Set([...(existing as { roles: string[] }).roles, ...parsed.data.roles]))
+            const member = await db.directionMember.update({
+              where: { id: (existing as { id: string }).id },
+              data: { roles: mergedRoles },
+            })
+            await logAudit(req, user.id, user.email, 'UPDATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name, roles: mergedRoles, import: true })
+            updated++
+          } else {
+            const member = await db.directionMember.create({ data: { ...parsed.data, clubId: ctx.clubId } })
+            await logAudit(req, user.id, user.email, 'CREATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name, import: true })
+          }
+          results.push(item)
         } catch (e) {
           errors.push({ name: item.name ?? 'unknown', error: String(e) })
         }
       }
-      return NextResponse.json({ created: results.length, errors })
+      return NextResponse.json({ created: results.length - updated, updated, errors })
     }
 
     const parsed = createDirectionSchema.safeParse(body)
