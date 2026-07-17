@@ -5,7 +5,27 @@
 
 ## 🔴 Bugs Activos
 
-(nenhum activo no momento — ver histórico abaixo)
+> Os 5 abaixo vêm da auditoria completa ao dashboard em 2026-07-17 (16 módulos, 3 agentes + revisão própria). São os únicos achados dessa auditoria já registados aqui — os restantes (~12 "importante" + 3 padrões transversais: schemas Zod triplicados, i18n hardcoded onde a tradução já existe em `messages/dashboard/*.json`, fetch sem tratamento de erro) ficam por priorizar com o dono do produto antes de entrarem no backlog oficial. Relatório completo publicado como artifact nessa sessão.
+
+### [BUG-029] Perfil do atleta mostra mensalidades pagas como não pagas (Jan–Jun)
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/api/athletes/[id]/payments/route.ts:30-38` filtra por `year` escalar único; a época atravessa dois anos civis e o cliente (`athletes/[id]/page.tsx:132-136,193`) só pede o ano de início. Os 6 meses Jan-Jun aparecem sempre "por pagar" no perfil mesmo já pagos e correctos na grelha de Mensalidades (`fees/route.ts`, que usa `OR` sobre pares ano/mês correctamente).
+**Impacto:** dados financeiros inconsistentes entre duas páginas do mesmo produto — gera reclamações de encarregados de educação.
+
+### [BUG-030] Importação CSV da Direção atribui cargos errados e duplica pessoas ao reimportar
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/direction/page.tsx:69-77`, `parseFederationRole` testa substrings fixas — `"treinador"` apanha também `"treinador adjunto"`, `ASSISTANT_TRAINER` nunca é produzido. Sem verificação contra membros existentes, reimportar o CSV depois da federação actualizar o plantel duplica pessoas em vez de actualizar cargos.
+**Impacto:** dados de cargos errados sem qualquer aviso; duplicação silenciosa no caso de uso mais óbvio do botão.
+
+### [SEC-030] Admin pode auto-remover `isAdmin` sem protecção — risco de lockout permanente
+**Encontrado:** 2026-07-17 (auditoria dashboard). Nem `src/components/admin/PermissionsModal.tsx:189-192` nem `PUT /api/admin/permissions/[userId]` comparam o utilizador-alvo com o utilizador autenticado. Se for o único admin do clube, fica bloqueado de `/admin/*` sem via de recuperação dentro da app (super admin só acede a `/platform`, regra 12 do CLAUDE.md).
+**Impacto:** lockout completo de um clube, resolúvel só por intervenção directa na BD.
+
+### [DEBT-025] Estatísticas de Assiduidade — N+1 sem limite temporal
+**Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/(dashboard)/attendance/page.tsx:549-577` busca todas as sessões alguma vez criadas (sem filtro de data) e depois um fetch por sessão via `Promise.all`. Cresce a cada época, recarrega sem cache a cada troca de tab. Já existe a versão correcta (uma query só) em `src/app/api/reports/attendance/route.ts`, não usada aqui.
+**Impacto:** degrada progressivamente com uso real; não é um problema hoje com dados de teste, será com uma época inteira de treinos.
+
+### [UX-004] Assiduidade só permite 1 horário por escalão — confirmar se é intencional
+**Encontrado:** 2026-07-17 (auditoria dashboard). `attendance/page.tsx:140-142,1047,1297-1300` — restrição só de frontend (sem constraint no schema nem validação no servidor) que esconde "Novo Horário" assim que cada escalão tem um horário. `docs/MODULES.md:683` documenta como intencional, mas a generalidade dos clubes treina cada escalão 2-3×/semana em dias diferentes.
+**Decisão pendente:** confirmar com o dono do produto antes de mais clubes fazerem o setup inicial — se não for intencional, bloqueia onboarding real logo no primeiro dia.
 
 ---
 
