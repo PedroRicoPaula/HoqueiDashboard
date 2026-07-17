@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
       environment: 'node',
       globals: true,
       env,
+      include: ['src/**/*.test.ts'],
+      exclude: ['e2e/**', 'node_modules/**'],
       coverage: {
         reporter: ['text', 'lcov'],
         include: ['src/lib/**', 'src/app/api/**'],

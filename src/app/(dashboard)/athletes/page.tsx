@@ -508,8 +508,7 @@ export default function AthletesPage() {
                 <Input {...register('school')} />
               </div>
             )}
-            {ageGroupValue !== 'SENIORS' && (
-              <div className="pt-2 border-t space-y-3">
+            <div className="pt-2 border-t space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Mensalidade</p>
                 {seasonDefaultFee != null ? (
                   <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
@@ -546,7 +545,6 @@ export default function AthletesPage() {
                   </p>
                 )}
               </div>
-            )}
             {ageGroupValue !== 'SENIORS' && (
               <div className="pt-2 border-t">
                 <p className="text-sm font-medium text-muted-foreground mb-3">Encarregado de Educação</p>
