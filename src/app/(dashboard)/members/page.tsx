@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -498,7 +499,7 @@ export default function MembersPage() {
                 ) : (
                   <p className="text-xs text-amber-600">
                     Sem quota de época definida. Configurar em{' '}
-                    <a href="/settings" className="underline">Definições</a>.
+                    <Link href="/settings" className="underline">Definições</Link>.
                   </p>
                 )}
               </div>

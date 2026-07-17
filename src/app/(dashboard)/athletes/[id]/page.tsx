@@ -471,7 +471,7 @@ export default function AthleteProfilePage() {
                   ) : (
                     <p className="text-xs text-muted-foreground italic">
                       Sem mensalidade de época definida. Configurar em{' '}
-                      <a href="/settings" className="text-primary underline">Definições</a>.
+                      <Link href="/settings" className="text-primary underline">Definições</Link>.
                     </p>
                   )}
                   <div className="flex items-center justify-between">

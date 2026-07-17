@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
-import { Plus, Search, Pencil, Trash2, Loader2, Euro, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle, Percent } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Loader2, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle, Percent } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AGE_GROUPS, AGE_GROUP_LABELS } from '@/lib/constants'
@@ -519,7 +519,7 @@ export default function AthletesPage() {
                   </div>
                 ) : (
                   <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
-                    Sem mensalidade de época definida. Configurar em <a href="/settings" className="underline font-medium">Definições</a>.
+                    Sem mensalidade de época definida. Configurar em <Link href="/settings" className="underline font-medium">Definições</Link>.
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

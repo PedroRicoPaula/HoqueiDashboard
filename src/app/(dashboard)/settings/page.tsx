@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -49,7 +50,7 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const t = useDashT()
   const { user, setAuth, permissions } = useAuthStore()
-  const { selectedSeasonId, getSelectedSeason, seasons } = useSeasonStore()
+  const { selectedSeasonId } = useSeasonStore()
   const [loading, setLoading]           = useState(false)
   const [fetching, setFetching]         = useState(true)
   const [logoUrl, setLogoUrl]           = useState<string | null>(null)
@@ -298,7 +299,7 @@ export default function SettingsPage() {
           ) : allSeasons.length === 0 ? (
             <p className="text-sm text-gray-400 italic">
               Sem épocas criadas. Cria uma época em{' '}
-              <a href="/seasons" className="text-primary underline">Épocas</a> primeiro.
+              <Link href="/seasons" className="text-primary underline">Épocas</Link> primeiro.
             </p>
           ) : (
             <>
