@@ -34,6 +34,12 @@ Club {
   stripeCurrentPeriodEnd DateTime?
   isFreeClub             Boolean    @default(false)  ← criado pelo super admin sem pagamento
   statusChangedAt        DateTime?                   ← timestamp da última mudança de estado manual ou por webhook
+  registerCompletedAt    DateTime?  ← migration 20260718090100. Claim atómico (`updateMany` com o próprio
+                                       campo NULL no `where`) gravado por `POST /api/register/complete` antes
+                                       de emitir qualquer token — fecha replay do `session_id` do Stripe
+                                       Checkout (sem isto, reabrir o mesmo link de sucesso gerava sessões novas
+                                       indefinidamente). O webhook `checkout.session.completed` é o mesmo helper
+                                       (`clubActivation.ts`), backstop idempotente caso o browser nunca volte.
   // relações inversas para todos os modelos tenanted
   indexes: slug, status
 }
@@ -126,9 +132,14 @@ Athlete {
   monthlyFee    Float   @default(0)   ← campo legado; não exposto em formulários (mantido por backward compat)
   feeExempt     Boolean @default(false)
   discountPercent Float?              ← desconto individual 0-100% sobre Season.defaultAthleteMonthlyFee (adicionado migration 20260716000002)
+  joinedAt DateTime?  ← membership por época (migration 20260718090000); NULL = sempre foi membro
+  leftAt   DateTime?  ← NULL = ainda é membro. Ver `src/lib/athleteMembership.ts` (athleteMembershipWhere) —
+                         atleta aparece numa época se `joinedAt` for NULL ou ≤ fim da época E `leftAt` for
+                         NULL ou ≥ início da época. Sem seasonId por atleta — janela temporal, não FK por
+                         época (evita duplicar o atleta e partir o histórico de pagamentos/assiduidade/materiais).
   materials Material[], payments AthletePayment[]
   directionRole DirectionMember? (1-to-1 opcional)
-  indexes: name, ageGroup
+  indexes: name, ageGroup, (clubId, leftAt)
 }
 enum AgeGroup { SUB11 SUB13 SUB15 SUB17 SUB19 SENIORS }
 ```
@@ -138,7 +149,10 @@ enum AgeGroup { SUB11 SUB13 SUB15 SUB17 SUB19 SENIORS }
 AthletePayment {
   clubId    (FK Club, onDelete: Cascade)    ← TENANTED (adicionado migration 20260626000001)
   athleteId (FK Athlete, onDelete: Cascade)
-  seasonId  String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = pagamento sem época
+  seasonId  String?  FK → Season (onDelete: SetNull)  ← opcional; NULL = pagamento sem época.
+             Gravado a partir de 2026-07-18 (`POST /api/athletes/[id]/payments` — antes lia o
+             `seasonId` da query string só para calcular o valor efectivo e nunca o persistia;
+             pagamentos criados antes dessa data continuam com seasonId NULL, sem backfill).
   month (1-12), year, paid Boolean, amount Float?, paidAt?, notes?
   unique: (athleteId, month, year)
   indexes: clubId, (athleteId, year), (year, month), seasonId
@@ -225,6 +239,9 @@ Travel {
 ```prisma
 DirectionMember {
   name, roles String[], phone?, email?, salary Float?
+  numFpp String?  ← migration 20260718090200. Número de sócio da federação, extraído do CSV FPP.
+                    Import prefere match por numFpp a match por nome (nomes repetem-se entre clubes/épocas);
+                    backfilla numFpp em registos antigos só-por-nome quando o CSV traz o número.
   trainerAgeGroups String[], sectionistAgeGroups String[]
   athleteId? (unique, FK Athlete, onDelete: SetNull)
   salaryPayments DirectionSalaryPayment[]
@@ -399,6 +416,11 @@ RateLimit {
 | `20260716000001_season_feature` | Jul 2026 | Modelo `Season` (CREATE TABLE + FK + indexes); `seasonId TEXT?` + FK `SetNull` em `Member`, `Sponsor`, `AthletePayment`, `Quota`; `Member.unique` alterado de `(clubId,number)` para `(clubId,number,seasonId)` (DROP + CREATE UNIQUE INDEX); indexes `seasonId_idx` nas 4 tabelas. | ✅ aplicada |
 | `20260716000002_season_fees` | Jul 2026 | `Season.defaultAthleteMonthlyFee DOUBLE PRECISION?` + `Season.defaultMemberMonthlyQuota DOUBLE PRECISION?`; `Athlete.discountPercent DOUBLE PRECISION?`; `Material.seasonId TEXT?` + FK `SetNull` + index; `TextileItem.seasonId TEXT?` + FK `SetNull` + index (named relation "TextileItemSeason" — necessário porque `TextileItem` já tem campo texto `season`). | ✅ aplicada |
 | `20260717121034_club_free_status_columns` | Jul 2026 | `ALTER TABLE "Club" ADD COLUMN IF NOT EXISTS "isFreeClub"...` / `"statusChangedAt"...` — migration retroactiva para o gap documentado abaixo (INFRA-003). `IF NOT EXISTS` = segura em qualquer estado da BD (Neon já tinha via `db push`, BD nova não tinha nada) | ✅ aplicada |
+| `20260718090000_athlete_season_membership` | Jul 2026 | `Athlete.joinedAt TIMESTAMP?` + `Athlete.leftAt TIMESTAMP?` + index `(clubId, leftAt)` — janela de membership por época, ver secção `Athlete` acima | ✅ aplicada (local via `db push`; ver nota `migrate deploy` abaixo) |
+| `20260718090100_club_register_completed_at` | Jul 2026 | `Club.registerCompletedAt TIMESTAMP?` — claim atómico anti-replay do registo, ver secção `Club` acima | ✅ aplicada (idem) |
+| `20260718090200_direction_member_num_fpp` | Jul 2026 | `DirectionMember.numFpp TEXT?` — número de sócio da federação, ver secção `DirectionMember` acima | ✅ aplicada (idem) |
+
+**Nota sobre INFRA-001 (workaround `db push`)**: as 3 migrations acima foram aplicadas localmente com `db push` (workaround já documentado para o histórico de shadow-DB partido), mas também testadas com `npx prisma migrate resolve` + `migrate deploy` (o pipeline real do `npm run build`) numa BD à parte — as 3 aplicaram-se de forma limpa, sem erro. Isto sugere que o problema original do INFRA-001 pode já não se aplicar ao histórico actual de migrations, mas não foi confirmado com um `git clone` + BD 100% de raiz — manter o workaround `db push` documentado até essa confirmação.
 
 ### ~~`isFreeClub`/`statusChangedAt` em falta em BD criada de raiz~~ ✅ RESOLVIDO 2026-07-17 (INFRA-003)
 **Encontrado:** 2026-07-17, ao correr `prisma migrate deploy` pela primeira vez contra uma BD local completamente nova. `prisma.club.create()` falha com `The column isFreeClub of relation Club does not exist in the current database` — e por arrasto, `src/tests/tenant-isolation.test.ts` (que cria clubes de teste directamente via Prisma) deixa de passar.  

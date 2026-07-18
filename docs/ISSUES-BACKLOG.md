@@ -13,6 +13,38 @@
 
 ---
 
+## ✅ Resolvido — Membership de época + 2ª ronda de backlog (2026-07-18)
+
+> Pedido do utilizador: corrigir todo o backlog pendente por ordem lógica e desenhar a lógica de "atleta que deixa o clube entre épocas". Resumo completo (feature de membership, BLOCKERs, segurança, ~30 correcções menores) em `CLAUDE.md` → secção "Membership de época para Atletas + correção de 42 problemas do backlog (2026-07-18)" — não duplicado aqui para evitar dessincronização entre os dois documentos. Os 4 achados abaixo são os únicos **novos** desta ronda que só apareceram em teste ao vivo (mesmo padrão de BUG-031/DEBT-026 na ronda anterior: bugs de estado/timing invisíveis à leitura estática do código).
+
+### ~~[BUG-034] Pager "Histórico de Pagamentos" com ano mínimo hardcoded — trancava épocas anteriores a 2025~~ ✅ RESOLVIDO 2026-07-18
+**Encontrado:** 2026-07-18, ao testar o cenário exacto pedido pelo utilizador (atleta com histórico numa época anterior). `athletes/[id]/page.tsx:862` e `fees/page.tsx:531` (pager visível só em "Todas as épocas") tinham `disabled={season <= 2025}`/`MIN_SEASON = 2025` — uma constante absoluta sem qualquer relação com as épocas reais do clube. Um clube de teste com época "2024/2025" ficava com o botão "‹" permanentemente desactivado ao chegar a essa época, mesmo tendo dados reais lá.
+**Impacto:** contradiz directamente o pedido do utilizador — "nos perfis de cada atleta, dê para se ver e perceber todos os anos anteriores". Qualquer clube com épocas anteriores a 2025 (ou, no limite, o próprio ano em que este código foi escrito envelhecendo) ficaria preso.
+**Fix:** floor calculado a partir de `Math.min(...seasons.map(s => ano de início))` sobre as épocas reais carregadas da `useSeasonStore` (fallback: um ano antes da época corrente, se o clube ainda não tiver nenhuma época criada). Aplicado aos dois sítios. Testado ao vivo: criada época "2023/2024", pager deixou de estar bloqueado e navegou correctamente até lá.
+
+---
+
+### ~~[BUG-035] `AthletePayment.seasonId` nunca gravado — guard de eliminação de época sempre inerte~~ ✅ RESOLVIDO 2026-07-18
+**Encontrado:** 2026-07-18, durante o teste do guard de eliminação de épocas — consegui eliminar ao vivo, sem qualquer aviso, uma época de teste com pagamentos de 8 atletas. `POST /api/athletes/[id]/payments` lia `seasonId` da query string só para calcular o valor efectivo (`defaultAthleteMonthlyFee` da época), mas nunca o incluía no `upsert` — todo o histórico de pagamentos criado através do fluxo normal de Mensalidades ficava com `seasonId = NULL` para sempre. Como consequência, `season._count.athletePayments` (o guard em `DELETE /api/seasons/[id]`) via sempre zero, independentemente de quantos pagamentos reais existissem no intervalo de datas dessa época.
+**Impacto:** o mais sério dos 4 — perda de dados silenciosa e irreversível. A própria caixa de confirmação da UI garante "só é possível eliminar épocas sem registos associados", uma promessa que estava a ser quebrada.
+**Fix:** `create`/`update` do upsert em `payments/route.ts` passam a gravar `seasonId`. Os 4 pontos de escrita em `fees/page.tsx` (registo individual, confirmação em lote, marcar coluna inteira, editar pago) passam a enviar `?seasonId=` quando existe uma época seleccionada. Pagamentos anteriores a esta data mantêm `seasonId = NULL` — sem backfill (mesma política já usada nesta sessão para os outros campos novos). Testado ponta-a-ponta: registar pagamento numa época não-activa → confirmado `seasonId` correcto na BD → tentativa de eliminar essa época bloqueada com "tem 1 registos associados" → após remover o pagamento, eliminação permitida.
+
+---
+
+### ~~[BUG-036] Corrida entre pedidos ao trocar de época rapidamente — dados de uma época a aparecer sobrepostos noutra~~ ✅ RESOLVIDO 2026-07-18
+**Encontrado:** 2026-07-18. Depois de criar uma época nova e trocar de selector algumas vezes em sucessão rápida, a página de Mensalidades mostrou os totais/lista de "Todas as épocas" com o selector já a indicar uma época específica — confirmado com `fetch()` directo na consola do browser que o servidor devolvia sempre a resposta correcta para o `seasonId` actual; o problema era só do lado do cliente. `fetchData`/`fetchAthletes`/`loadStats` (Mensalidades, Atletas, Dashboard) disparavam um novo pedido a cada mudança de `selectedSeasonId` sem cancelar nem ignorar respostas antigas — se o pedido mais lento (ex: "Todas as épocas", sem filtro de membership, mais linhas) resolvesse depois do pedido mais rápido e mais recente, sobrepunha o estado correcto com dados da selecção anterior.
+**Impacto:** o mesmo widget que confirma visualmente o cenário central desta ronda (atleta presente/ausente por época) podia mostrar dados errados só por trocar de época depressa — mina a confiança em toda a funcionalidade de época se acontecer à frente de um utilizador real.
+**Fix:** guarda de sequência (`useRef` incrementado a cada chamada, comparado antes de cada `setState`) nas 3 funções — só a resposta do pedido mais recente é aplicada; respostas de pedidos já ultrapassados são descartadas em silêncio.
+
+---
+
+### ~~[BUG-037] `PUT /api/materials/[id]` apagava estado e valor de material atribuído ao clube em qualquer edição~~ ✅ RESOLVIDO 2026-07-18
+**Encontrado:** 2026-07-18, ao editar um material só para lhe mudar a época (campo não relacionado) — o Estado mudou de "Atribuído" para "Livre" e o valor de 200€ desapareceu. `materials/[id]/route.ts:49-52` forçava `state = 'FREE'` sempre que `athleteId` estava vazio e `state === 'ASSIGNED'` era enviado — mas o formulário (e os dados de exemplo do clube) suportam explicitamente "Atribuído" sem atleta (equipamento do próprio clube em uso partilhado, ex: máscara de guarda-redes), confirmado pela própria UI de criação (`materials/page.tsx:836`, botão de limpar atleta que não mexe no estado).
+**Impacto:** qualquer edição — mesmo a um campo totalmente não relacionado — de um material atribuído ao clube (não a um atleta) apagava silenciosamente o seu estado e valor. Descoberto só porque este teste ao vivo mexeu num material desse tipo; o código nunca tinha sido exercitado com esta combinação antes.
+**Fix:** removida a reconciliação na direcção "sem atleta → força Livre"; mantida apenas a direcção seguramente correcta (atleta presente → força `state = 'ASSIGNED'`). Limpeza de `paidByAthlete`/`paidAmount` passa a só disparar quando o estado está de facto a mudar para algo diferente de `ASSIGNED` no próprio pedido, não sempre que `athleteId` está ausente. Aproveitado para corrigir também o typo "materialais" → "materiais" no contador da página. Testado ao vivo: editar época de um material "Atribuído (clube, 200€)" sem tocar em mais nada — estado e valor mantidos.
+
+---
+
 ### ~~[BUG-029] Perfil do atleta mostra mensalidades pagas como não pagas (Jan–Jun)~~ ✅ RESOLVIDO 2026-07-17
 **Encontrado:** 2026-07-17 (auditoria dashboard). `src/app/api/athletes/[id]/payments/route.ts:30-38` filtra por `year` escalar único; a época atravessa dois anos civis e o cliente (`athletes/[id]/page.tsx:132-136,193`) só pede o ano de início. Os 6 meses Jan-Jun apareciam sempre "por pagar" no perfil mesmo já pagos e correctos na grelha de Mensalidades (`fees/route.ts`, que usa `OR` sobre pares ano/mês correctamente).
 **Impacto:** dados financeiros inconsistentes entre duas páginas do mesmo produto — gerava reclamações de encarregados de educação.
