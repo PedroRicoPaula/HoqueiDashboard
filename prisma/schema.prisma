@@ -26,6 +26,7 @@ model Club {
   stripeCurrentPeriodEnd DateTime?
   isFreeClub             Boolean           @default(false)
   statusChangedAt        DateTime?
+  registerCompletedAt    DateTime?         // trava de uso único de POST /api/register/complete — ver ficheiro da rota
   users                  User[]
   athletes               Athlete[]
   seasons                Season[]
@@ -207,6 +208,8 @@ model Athlete {
   monthlyFee        Float              @default(0)  // legacy fallback; use Season.defaultAthleteMonthlyFee
   discountPercent   Float?                          // individual discount %, 0-100
   feeExempt         Boolean            @default(false)
+  joinedAt          DateTime?                       // null = sempre foi membro (pré-existe ao tracking de épocas)
+  leftAt            DateTime?                       // null = ainda é membro activo
   materials         Material[]
   payments          AthletePayment[]
   directionRole     DirectionMember?
@@ -219,6 +222,7 @@ model Athlete {
   @@index([clubId])
   @@index([clubId, name])
   @@index([clubId, ageGroup])
+  @@index([clubId, leftAt])
 }
 
 // ─────────────────────────────────────────
@@ -415,6 +419,7 @@ model DirectionMember {
   clubId              String
   club                Club                     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   name                String
+  numFpp              String?                  // Num FPP do CSV da federação — chave estável para reimport, evita fundir duas pessoas com o mesmo nome
   roles               String[]
   phone               String?
   email               String?
