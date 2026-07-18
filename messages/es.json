@@ -112,7 +112,7 @@
     "items": [
       {
         "q": "¿Puedo cancelar en cualquier momento?",
-        "a": "Sí. No hay contratos. Puedes cancelar tu suscripción en cualquier momento y el acceso se mantiene hasta el final del período pagado."
+        "a": "Sí. No hay contratos. Puedes cancelar tu suscripción en cualquier momento desde los Ajustes — el acceso se suspende de inmediato y dejas de pagar. Los datos se conservan y puedes reactivar cuando quieras."
       },
       {
         "q": "¿Los datos están seguros?",
@@ -140,7 +140,7 @@
       },
       {
         "q": "¿Cómo funciona el pago?",
-        "a": "La suscripción se activa inmediatamente después del pago vía Stripe. Puedes cancelar en cualquier momento — el acceso se mantiene hasta el final del período pagado, sin cobros adicionales."
+        "a": "La suscripción se activa inmediatamente después del pago vía Stripe. Puedes cancelar en cualquier momento — el acceso se suspende de inmediato, sin cobros adicionales."
       }
     ]
   },

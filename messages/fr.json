@@ -112,7 +112,7 @@
     "items": [
       {
         "q": "Puis-je annuler à tout moment ?",
-        "a": "Oui. Pas de contrat. Vous pouvez annuler votre abonnement à tout moment et l'accès est maintenu jusqu'à la fin de la période payée."
+        "a": "Oui. Pas de contrat. Vous pouvez annuler votre abonnement à tout moment depuis les Paramètres — l'accès est suspendu immédiatement et la facturation s'arrête. Vos données sont conservées et vous pouvez réactiver quand vous voulez."
       },
       {
         "q": "Les données sont-elles sécurisées ?",
@@ -140,7 +140,7 @@
       },
       {
         "q": "Comment fonctionne le paiement ?",
-        "a": "Votre abonnement est activé immédiatement après le paiement via Stripe. Vous pouvez annuler à tout moment — l'accès continue jusqu'à la fin de la période payée, sans frais supplémentaires."
+        "a": "Votre abonnement est activé immédiatement après le paiement via Stripe. Vous pouvez annuler à tout moment — l'accès est suspendu immédiatement, sans frais supplémentaires."
       }
     ]
   },

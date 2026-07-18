@@ -112,7 +112,7 @@
     "items": [
       {
         "q": "Can I cancel at any time?",
-        "a": "Yes. No contracts. You can cancel your subscription at any time and access remains until the end of the paid period."
+        "a": "Yes. No contracts. You can cancel your subscription at any time from Settings — access is suspended immediately and billing stops. Your data is kept and you can reactivate whenever you want."
       },
       {
         "q": "Is my data secure?",
@@ -140,7 +140,7 @@
       },
       {
         "q": "How does payment work?",
-        "a": "Your subscription is activated immediately after payment via Stripe. You can cancel at any time — access continues until the end of the paid period, with no further charges."
+        "a": "Your subscription is activated immediately after payment via Stripe. You can cancel at any time — access is suspended immediately, with no further charges."
       }
     ]
   },

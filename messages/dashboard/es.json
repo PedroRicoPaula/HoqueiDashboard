@@ -87,8 +87,36 @@
     "all": "Todas las categorías"
   },
   "months": {
-    "short": ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
-    "full": ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    "short": [
+      "",
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic"
+    ],
+    "full": [
+      "",
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre"
+    ]
   },
   "materialStates": {
     "FREE": "Disponible",
@@ -191,7 +219,6 @@
     "seeInFees": "→ ver en Cuotas",
     "seeInMembers": "→ ver en Socios",
     "monthlyFees": "Cuotas Mensuales",
-    "sponsors": "Patrocinadores",
     "textiles": "Textiles",
     "accumulated": "acumulado",
     "club": "club",
@@ -484,7 +511,18 @@
     "logoHint": "PNG o JPG, máx. 2MB. Recomendado: 200×200px.",
     "logoRemoved": "Logo eliminado",
     "colorTheme": "Color del club",
-    "colorThemeNote": "Elige el color principal de tu panel. Se aplica a la barra lateral, botones y elementos destacados."
+    "colorThemeNote": "Elige el color principal de tu panel. Se aplica a la barra lateral, botones y elementos destacados.",
+    "subscription": {
+      "title": "Suscripción",
+      "description": "Cancelar la suscripción suspende el acceso de todos los usuarios de este club de inmediato. Los datos no se eliminan — puede reactivar en cualquier momento volviendo a pagar la mensualidad.",
+      "cancelButton": "Cancelar suscripción",
+      "dialogTitle": "Cancelar suscripción",
+      "dialogDescription1": "El acceso de todos los usuarios de este club se suspende de inmediato. Dejas de pagar a partir de ahora.",
+      "dialogDescription2": "Los datos se conservan — no se eliminan. Para volver a acceder basta con reactivar la suscripción desde la pantalla de inicio de sesión, cuando quieras.",
+      "exportWarning": "Recomendamos exportar los datos antes de cancelar (no es obligatorio).",
+      "exportLink": "Ir a Informes",
+      "back": "Volver"
+    }
   },
   "admin": {
     "permissionsTitle": "Permisos",

@@ -112,7 +112,7 @@
     "items": [
       {
         "q": "Posso cancellare in qualsiasi momento?",
-        "a": "Sì. Nessun contratto. Puoi cancellare l'abbonamento in qualsiasi momento e l'accesso rimane fino alla fine del periodo pagato."
+        "a": "Sì. Nessun contratto. Puoi cancellare l'abbonamento in qualsiasi momento dalle Impostazioni — l'accesso viene sospeso immediatamente e smetti di pagare. I dati restano salvati e puoi riattivare quando vuoi."
       },
       {
         "q": "I dati sono al sicuro?",
@@ -140,7 +140,7 @@
       },
       {
         "q": "Come funziona il pagamento?",
-        "a": "L'abbonamento viene attivato immediatamente dopo il pagamento tramite Stripe. Puoi annullare in qualsiasi momento — l'accesso continua fino alla fine del periodo pagato, senza ulteriori addebiti."
+        "a": "L'abbonamento viene attivato immediatamente dopo il pagamento tramite Stripe. Puoi annullare in qualsiasi momento — l'accesso viene sospeso immediatamente, senza ulteriori addebiti."
       }
     ]
   },

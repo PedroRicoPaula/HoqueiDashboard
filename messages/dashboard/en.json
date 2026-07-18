@@ -87,8 +87,36 @@
     "all": "All age groups"
   },
   "months": {
-    "short": ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-    "full": ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    "short": [
+      "",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    "full": [
+      "",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
   },
   "materialStates": {
     "FREE": "Available",
@@ -191,7 +219,6 @@
     "seeInFees": "→ see in Fees",
     "seeInMembers": "→ see in Members",
     "monthlyFees": "Monthly Fees",
-    "sponsors": "Sponsors",
     "textiles": "Textiles",
     "accumulated": "accumulated",
     "club": "club",
@@ -484,7 +511,18 @@
     "logoHint": "PNG or JPG, max 2MB. Recommended: 200×200px.",
     "logoRemoved": "Logo removed",
     "colorTheme": "Club color",
-    "colorThemeNote": "Choose the main color for your dashboard. Applied to sidebar, buttons and highlighted elements."
+    "colorThemeNote": "Choose the main color for your dashboard. Applied to sidebar, buttons and highlighted elements.",
+    "subscription": {
+      "title": "Subscription",
+      "description": "Cancelling the subscription immediately suspends access for every user of this club. Data is not deleted — you can reactivate at any time by paying again.",
+      "cancelButton": "Cancel subscription",
+      "dialogTitle": "Cancel subscription",
+      "dialogDescription1": "Access for every user of this club is suspended immediately. You stop being charged from now on.",
+      "dialogDescription2": "Your data stays saved — nothing is deleted. To get access back, just reactivate the subscription from the login screen whenever you want.",
+      "exportWarning": "We recommend exporting your data before cancelling (not required).",
+      "exportLink": "Go to Reports",
+      "back": "Back"
+    }
   },
   "admin": {
     "permissionsTitle": "Permissions",

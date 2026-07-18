@@ -67,7 +67,6 @@
     "none": "Nenhum",
     "optional": "opcional",
     "required": "obrigatório",
-    "saving": "A guardar...",
     "deleting": "A eliminar...",
     "errorSave": "Erro ao guardar",
     "errorDelete": "Erro ao eliminar",
@@ -88,8 +87,36 @@
     "all": "Todos os escalões"
   },
   "months": {
-    "short": ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
-    "full": ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+    "short": [
+      "",
+      "Jan",
+      "Fev",
+      "Mar",
+      "Abr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Set",
+      "Out",
+      "Nov",
+      "Dez"
+    ],
+    "full": [
+      "",
+      "Janeiro",
+      "Fevereiro",
+      "Março",
+      "Abril",
+      "Maio",
+      "Junho",
+      "Julho",
+      "Agosto",
+      "Setembro",
+      "Outubro",
+      "Novembro",
+      "Dezembro"
+    ]
   },
   "materialStates": {
     "FREE": "Livre",
@@ -192,7 +219,6 @@
     "seeInFees": "→ ver em Mensalidades",
     "seeInMembers": "→ ver em Sócios",
     "monthlyFees": "Mensalidades",
-    "sponsors": "Patrocinadores",
     "textiles": "Têxteis",
     "accumulated": "acumulado",
     "club": "clube",
@@ -485,7 +511,18 @@
     "logoHint": "PNG ou JPG, máximo 2MB. Recomendado: 200×200px.",
     "logoRemoved": "Logo removido",
     "colorTheme": "Cor do clube",
-    "colorThemeNote": "Escolhe a cor principal do teu dashboard. Aplica-se à sidebar, botões e elementos de destaque."
+    "colorThemeNote": "Escolhe a cor principal do teu dashboard. Aplica-se à sidebar, botões e elementos de destaque.",
+    "subscription": {
+      "title": "Subscrição",
+      "description": "Cancelar a subscrição suspende o acesso de todos os utilizadores deste clube de imediato. Os dados não são eliminados — pode reativar a qualquer momento voltando a pagar a mensalidade.",
+      "cancelButton": "Cancelar subscrição",
+      "dialogTitle": "Cancelar subscrição",
+      "dialogDescription1": "O acesso de todos os utilizadores deste clube é suspenso de imediato. Deixa de ser cobrado a partir de agora.",
+      "dialogDescription2": "Os dados ficam guardados — não são eliminados. Para voltar a aceder basta reativar a subscrição a partir do ecrã de login, quando quiser.",
+      "exportWarning": "Recomendamos exportar os dados antes de cancelar (não é obrigatório).",
+      "exportLink": "Ir para Relatórios",
+      "back": "Voltar"
+    }
   },
   "admin": {
     "permissionsTitle": "Permissões",

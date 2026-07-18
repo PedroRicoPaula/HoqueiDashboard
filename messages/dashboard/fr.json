@@ -87,8 +87,36 @@
     "all": "Toutes les catégories"
   },
   "months": {
-    "short": ["", "Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"],
-    "full": ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+    "short": [
+      "",
+      "Jan",
+      "Fév",
+      "Mar",
+      "Avr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Aoû",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Déc"
+    ],
+    "full": [
+      "",
+      "Janvier",
+      "Février",
+      "Mars",
+      "Avril",
+      "Mai",
+      "Juin",
+      "Juillet",
+      "Août",
+      "Septembre",
+      "Octobre",
+      "Novembre",
+      "Décembre"
+    ]
   },
   "materialStates": {
     "FREE": "Disponible",
@@ -191,7 +219,6 @@
     "seeInFees": "→ voir dans Cotisations",
     "seeInMembers": "→ voir dans Adhérents",
     "monthlyFees": "Cotisations Mensuelles",
-    "sponsors": "Sponsors",
     "textiles": "Textiles",
     "accumulated": "cumulé",
     "club": "club",
@@ -484,7 +511,18 @@
     "logoHint": "PNG ou JPG, max. 2 Mo. Recommandé : 200×200px.",
     "logoRemoved": "Logo supprimé",
     "colorTheme": "Couleur du club",
-    "colorThemeNote": "Choisissez la couleur principale de votre tableau de bord. Appliquée à la barre latérale, boutons et éléments en évidence."
+    "colorThemeNote": "Choisissez la couleur principale de votre tableau de bord. Appliquée à la barre latérale, boutons et éléments en évidence.",
+    "subscription": {
+      "title": "Abonnement",
+      "description": "Annuler l'abonnement suspend immédiatement l'accès de tous les utilisateurs de ce club. Les données ne sont pas supprimées — vous pouvez réactiver à tout moment en payant de nouveau.",
+      "cancelButton": "Annuler l'abonnement",
+      "dialogTitle": "Annuler l'abonnement",
+      "dialogDescription1": "L'accès de tous les utilisateurs de ce club est suspendu immédiatement. Vous ne serez plus facturé à partir de maintenant.",
+      "dialogDescription2": "Vos données restent enregistrées — rien n'est supprimé. Pour retrouver l'accès, il suffit de réactiver l'abonnement depuis l'écran de connexion, quand vous voulez.",
+      "exportWarning": "Nous recommandons d'exporter vos données avant d'annuler (non obligatoire).",
+      "exportLink": "Aller aux Rapports",
+      "back": "Retour"
+    }
   },
   "admin": {
     "permissionsTitle": "Permissions",

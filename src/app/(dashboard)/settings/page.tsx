@@ -503,16 +503,15 @@ export default function SettingsPage() {
       {clubMeta && !clubMeta.isFreeClub && (
         <Card className="border-red-100">
           <CardHeader>
-            <CardTitle className="text-red-700">Subscrição</CardTitle>
+            <CardTitle className="text-red-700">{t('settings.subscription.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-gray-500">
-              Cancelar a subscrição suspende o acesso de todos os utilizadores deste clube de imediato.
-              Os dados não são eliminados — pode reativar a qualquer momento voltando a pagar a mensalidade.
+              {t('settings.subscription.description')}
             </p>
             <Button type="button" variant="outline" size="sm" onClick={() => setCancelOpen(true)}
               className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-700">
-              Cancelar subscrição
+              {t('settings.subscription.cancelButton')}
             </Button>
           </CardContent>
         </Card>
@@ -522,31 +521,25 @@ export default function SettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-700">
-              <ShieldAlert className="h-5 w-5" /> Cancelar subscrição
+              <ShieldAlert className="h-5 w-5" /> {t('settings.subscription.dialogTitle')}
             </DialogTitle>
             <DialogDescription className="space-y-2 pt-2">
-              <span className="block">
-                O acesso de <strong>todos os utilizadores</strong> deste clube é suspenso de imediato.
-                Deixa de ser cobrado a partir de agora.
-              </span>
-              <span className="block">
-                Os dados ficam guardados — não são eliminados. Para voltar a aceder basta reativar
-                a subscrição a partir do ecrã de login, quando quiser.
-              </span>
+              <span className="block">{t('settings.subscription.dialogDescription1')}</span>
+              <span className="block">{t('settings.subscription.dialogDescription2')}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2 text-sm text-amber-800">
             <FileDown className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>
-              Recomendamos exportar os dados antes de cancelar (não é obrigatório).{' '}
-              <Link href="/reports" className="underline font-medium">Ir para Relatórios</Link>
+              {t('settings.subscription.exportWarning')}{' '}
+              <Link href="/reports" className="underline font-medium">{t('settings.subscription.exportLink')}</Link>
             </span>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>Voltar</Button>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>{t('settings.subscription.back')}</Button>
             <Button variant="destructive" onClick={handleCancelSubscription} disabled={cancelling}>
               {cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Cancelar subscrição
+              {t('settings.subscription.cancelButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

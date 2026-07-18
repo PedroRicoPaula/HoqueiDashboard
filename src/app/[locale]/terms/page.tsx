@@ -22,7 +22,7 @@ export default async function TermsPage({
         </Link>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Termos de Utilização</h1>
-        <p className="text-sm text-gray-400 mb-10">Última atualização: 19 de junho de 2026</p>
+        <p className="text-sm text-gray-400 mb-10">Última atualização: 18 de julho de 2026</p>
 
         <div className="prose prose-gray max-w-none space-y-8 text-gray-700 leading-relaxed">
 
@@ -57,8 +57,9 @@ export default async function TermsPage({
             <ul className="list-disc pl-6 space-y-1">
               <li>Os pagamentos são processados pela Stripe de forma segura</li>
               <li>A subscrição renova automaticamente no fim de cada período</li>
-              <li>O cancelamento pode ser efetuado a qualquer momento; o acesso mantém-se até ao fim do período pago</li>
-              <li>Não há reembolsos proporcionais por cancelamento antecipado, exceto durante os 14 dias de garantia</li>
+              <li>O cancelamento pode ser efetuado a qualquer momento, diretamente nas Definições do clube; o acesso é suspenso de imediato e a cobrança termina nesse momento</li>
+              <li>Não há reembolsos proporcionais pelo tempo já pago não utilizado, exceto durante os 14 dias de garantia</li>
+              <li>Cancelar não elimina os dados do clube — ficam guardados e o acesso pode ser reativado a qualquer momento, voltando a pagar a mensalidade</li>
             </ul>
           </section>
 

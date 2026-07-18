@@ -87,8 +87,36 @@
     "all": "Tutte le categorie"
   },
   "months": {
-    "short": ["", "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"],
-    "full": ["", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+    "short": [
+      "",
+      "Gen",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mag",
+      "Giu",
+      "Lug",
+      "Ago",
+      "Set",
+      "Ott",
+      "Nov",
+      "Dic"
+    ],
+    "full": [
+      "",
+      "Gennaio",
+      "Febbraio",
+      "Marzo",
+      "Aprile",
+      "Maggio",
+      "Giugno",
+      "Luglio",
+      "Agosto",
+      "Settembre",
+      "Ottobre",
+      "Novembre",
+      "Dicembre"
+    ]
   },
   "materialStates": {
     "FREE": "Disponibile",
@@ -191,7 +219,6 @@
     "seeInFees": "→ vedi in Quote mensili",
     "seeInMembers": "→ vedi in Soci",
     "monthlyFees": "Quote Mensili",
-    "sponsors": "Sponsor",
     "textiles": "Tessili",
     "accumulated": "cumulato",
     "club": "club",
@@ -484,7 +511,18 @@
     "logoHint": "PNG o JPG, max 2MB. Consigliato: 200×200px.",
     "logoRemoved": "Logo rimosso",
     "colorTheme": "Colore del club",
-    "colorThemeNote": "Scegli il colore principale del tuo dashboard. Si applica alla barra laterale, pulsanti ed elementi in evidenza."
+    "colorThemeNote": "Scegli il colore principale del tuo dashboard. Si applica alla barra laterale, pulsanti ed elementi in evidenza.",
+    "subscription": {
+      "title": "Abbonamento",
+      "description": "Annullare l'abbonamento sospende immediatamente l'accesso di tutti gli utenti di questo club. I dati non vengono eliminati — puoi riattivare in qualsiasi momento pagando di nuovo.",
+      "cancelButton": "Annulla abbonamento",
+      "dialogTitle": "Annulla abbonamento",
+      "dialogDescription1": "L'accesso di tutti gli utenti di questo club viene sospeso immediatamente. Da questo momento non ti verrà più addebitato nulla.",
+      "dialogDescription2": "I dati restano salvati — non vengono eliminati. Per tornare ad accedere basta riattivare l'abbonamento dalla schermata di login, quando vuoi.",
+      "exportWarning": "Ti consigliamo di esportare i dati prima di annullare (non obbligatorio).",
+      "exportLink": "Vai ai Report",
+      "back": "Indietro"
+    }
   },
   "admin": {
     "permissionsTitle": "Permessi",
