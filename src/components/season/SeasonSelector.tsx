@@ -34,7 +34,7 @@ export function SeasonSelector() {
   }, [])
 
   const selected = getSelectedSeason()
-  const label = selected ? selected.name : (seasons.length === 0 ? 'Sem épocas' : 'Selecionar época')
+  const label = selected ? selected.name : (seasons.length === 0 ? 'Sem épocas' : 'Todas as épocas')
 
   if (seasons.length === 0) {
     return (
@@ -67,6 +67,19 @@ export function SeasonSelector() {
       {open && (
         <div className="absolute left-3 right-3 top-full mt-1 z-50 rounded-lg overflow-hidden shadow-xl border border-white/10 bg-[hsl(var(--sidebar-bg))]">
           <div className="max-h-48 overflow-y-auto py-1">
+            <button
+              onClick={() => { setSelectedSeason(null); setOpen(false) }}
+              className={cn(
+                'w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors text-left',
+                selectedSeasonId === null
+                  ? 'bg-[hsl(var(--club-primary))] text-[hsl(var(--club-primary-fg))]'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'
+              )}
+            >
+              <span className="flex-1 truncate">Todas as épocas</span>
+              {selectedSeasonId === null && <Check className="h-3 w-3 flex-shrink-0" />}
+            </button>
+            <div className="border-t border-white/10 my-1" />
             {seasons.map((s) => (
               <button
                 key={s.id}
