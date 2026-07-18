@@ -19,6 +19,7 @@ const PROTECTED_ROUTES = [
   { pattern: /^\/direction/, flag: 'viewDirection' },
   { pattern: /^\/reports/, flag: 'viewAthletes' },
   { pattern: /^\/admin/, flag: 'isAdmin' },
+  { pattern: /^\/settings/, flag: 'isAdmin' },
 ]
 
 function isCsrfValid(req: NextRequest): boolean {

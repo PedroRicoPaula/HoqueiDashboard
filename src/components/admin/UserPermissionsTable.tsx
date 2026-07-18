@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { ShieldCheck, Shield, KeyRound } from 'lucide-react'
+import { useAuthStore } from '@/store/authStore'
 
 interface UserWithPermissions {
   id: string
@@ -65,6 +66,7 @@ function formatLoginDate(dt?: string | null) {
 }
 
 export function UserPermissionsTable({ users, onEditPermissions, onResetPassword }: UserPermissionsTableProps) {
+  const currentUserId = useAuthStore((s) => s.user?.id)
   return (
     <div className="rounded-md border bg-white overflow-x-auto">
       <Table>
@@ -148,7 +150,8 @@ export function UserPermissionsTable({ users, onEditPermissions, onResetPassword
                     <Button
                       size="sm"
                       variant="ghost"
-                      title="Redefinir password"
+                      title={u.id === currentUserId ? 'Usa "Mudar palavra-passe" no teu perfil' : 'Redefinir password'}
+                      disabled={u.id === currentUserId}
                       onClick={() => onResetPassword(u)}
                     >
                       <KeyRound className="h-4 w-4" />

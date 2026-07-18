@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getUserFromRequest } from '@/lib/auth'
+import { getDbForRequest } from '@/lib/db'
+import { hasPermission } from '@/lib/permissions'
 import { logAudit } from '@/lib/audit'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
@@ -12,29 +12,45 @@ const updateSchema = z.object({
   primaryColor: z.string().regex(/^\d{1,3} \d{1,3}% \d{1,3}%$/).optional(),
 })
 
-export async function GET(req: Request) {
-  const user = await getUserFromRequest(req)
-  if (!user || !user.clubId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+// Campos visíveis nas Definições — deliberadamente exclui stripeCustomerId/
+// stripeSubscriptionId/stripePriceId e outros internos de faturação, que não são
+// necessários no cliente e não devem ser lidos por um utilizador não-admin (ver PATCH).
+const CLUB_SELECT = {
+  id: true, name: true, slug: true, email: true, country: true, language: true,
+  logoUrl: true, primaryColor: true, status: true, createdAt: true, updatedAt: true,
+}
 
-  const club = await prisma.club.findUnique({ where: { id: user.clubId } })
+export async function GET(req: Request) {
+  const ctx = await getDbForRequest(req)
+  if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  const { user, db, clubId } = ctx
+  if (!hasPermission(user.permissions, 'isAdmin')) {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
+
+  const club = await db.club.findUnique({ where: { id: clubId }, select: CLUB_SELECT })
   if (!club) return NextResponse.json({ error: 'Clube não encontrado' }, { status: 404 })
 
   return NextResponse.json(club)
 }
 
 export async function PATCH(req: Request) {
-  const user = await getUserFromRequest(req)
-  if (!user || !user.clubId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-  if (!user.permissions?.isAdmin) return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  const ctx = await getDbForRequest(req)
+  if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  const { user, db, clubId } = ctx
+  if (!hasPermission(user.permissions, 'isAdmin')) {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+  }
 
   try {
     const body = await req.json()
     const parsed = updateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
 
-    const club = await prisma.club.update({
-      where: { id: user.clubId },
+    const club = await db.club.update({
+      where: { id: clubId },
       data: parsed.data,
+      select: CLUB_SELECT,
     })
 
     await logAudit(req, user.id, user.email, 'UPDATE', 'Club', club.id, parsed.data)

@@ -20,6 +20,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!hasPermission(admin.permissions, 'isAdmin')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
+    // Este reset não pede a password actual (ao contrário de /api/auth/change-password)
+    // — é para o admin repor a de OUTRO utilizador. Se pudesse alvejar-se a si próprio,
+    // uma sessão comprometida (XSS, etc.) conseguia trocar a password do admin em
+    // silêncio, sem nunca precisar de saber a password actual.
+    if (id === admin.id) {
+      return NextResponse.json({ error: 'Usa "Mudar palavra-passe" no teu perfil para a tua própria conta' }, { status: 400 })
+    }
 
     const body = await req.json()
     const parsed = resetPasswordSchema.safeParse(body)

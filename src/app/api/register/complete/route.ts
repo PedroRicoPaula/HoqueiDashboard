@@ -48,11 +48,30 @@ export async function POST(req: Request) {
     }
 
     const userId = session.metadata?.userId
-    if (!session.metadata?.clubId || !userId) {
+    const clubId = session.metadata?.clubId
+    if (!clubId || !userId) {
       return NextResponse.json({ error: 'Sessão de pagamento inválida' }, { status: 400 })
     }
 
     await activateClubFromSession(session)
+
+    // Trava de uso único: o session_id da Stripe é recuperável indefinidamente (a
+    // Stripe documenta este ID como só para exibição na página de sucesso, não como
+    // credencial), por isso este endpoint não pode ser chamado mais que uma vez por
+    // clube — caso contrário qualquer pessoa que alguma vez veja este URL (histórico do
+    // browser, clipboard partilhado) consegue emitir um novo login válido para sempre,
+    // mesmo depois do admin mudar a password. `updateMany` com o WHERE a exigir
+    // `registerCompletedAt: null` é atómico — só um pedido concorrente consegue "ganhar".
+    const claim = await prisma.club.updateMany({
+      where: { id: clubId, registerCompletedAt: null },
+      data: { registerCompletedAt: new Date() },
+    })
+    if (claim.count === 0) {
+      return NextResponse.json(
+        { error: 'Esta ligação de acesso automático já foi utilizada. Inicia sessão normalmente.' },
+        { status: 403 }
+      )
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
