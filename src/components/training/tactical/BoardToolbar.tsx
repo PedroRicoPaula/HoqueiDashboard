@@ -10,17 +10,21 @@ import type { ElementType } from '@/types/training.types'
 import { canvasDrawField, canvasDrawElements, ELEMENT_COLORS } from './HockeyField'
 import { cn } from '@/lib/utils'
 
+// Mesmos limites do schema em api/training/[id]/playbook/route.ts — sem isto, um
+// ficheiro importado passava a validação aqui, carregava bem no quadro, e só falhava
+// (400) na hora de Guardar — beco sem saída de UX para quem já tinha construído a
+// jogada. Agora o erro aparece logo no Importar.
 const playbookSchema = z.object({
-  name: z.string().optional(),
+  name: z.string().max(100).optional(),
   elements: z.array(z.object({
-    id: z.string(),
+    id: z.string().max(64),
     type: z.enum(['player', 'opponent', 'ball', 'cone']),
-    label: z.string().optional(),
-  })),
+    label: z.string().max(20).optional(),
+  })).max(50),
   frames: z.array(z.object({
-    frameIndex: z.number().int().min(0),
-    positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() })),
-  })),
+    frameIndex: z.number().int().min(0).max(99),
+    positions: z.record(z.string().max(64), z.object({ x: z.number(), y: z.number() })),
+  })).max(100),
 })
 
 interface BoardToolbarProps {
@@ -179,7 +183,7 @@ export function BoardToolbar({ onSave, saving, canEdit }: BoardToolbarProps) {
     for (let i = 0; i < frames.length; i++) await waitFrame(i)
     await new Promise(r => setTimeout(r, 1000))
     recorder.stop()
-  }, [frames, elements, tacticName])
+  }, [frames, elements, tacticName, toast])
 
   return (
     <>

@@ -42,15 +42,22 @@ export async function POST(req: Request) {
         if (!parsed.success) { errors.push({ name: item.name ?? 'unknown', error: parsed.error.flatten() }); continue }
         try {
           // Reimportar o mesmo CSV (ex: federação actualizou o plantel) não pode duplicar
-          // pessoas — junta aos cargos já existentes em vez de criar outra linha.
-          const existing = await db.directionMember.findFirst({
-            where: { name: { equals: parsed.data.name, mode: 'insensitive' } },
-          })
+          // pessoas — junta aos cargos já existentes em vez de criar outra linha. Corres-
+          // ponde por Num FPP quando disponível (chave estável da federação) — o nome
+          // sozinho funde pessoas diferentes com o mesmo nome (pai/filho, nomes comuns).
+          const existing = parsed.data.numFpp
+            ? await db.directionMember.findFirst({ where: { numFpp: parsed.data.numFpp } })
+            : await db.directionMember.findFirst({
+                where: { name: { equals: parsed.data.name, mode: 'insensitive' } },
+              })
           if (existing) {
             const mergedRoles = Array.from(new Set([...(existing as { roles: string[] }).roles, ...parsed.data.roles]))
             const member = await db.directionMember.update({
               where: { id: (existing as { id: string }).id },
-              data: { roles: mergedRoles },
+              // Backfill do numFpp em registos antigos (criados antes deste campo existir)
+              // assim que voltam a ser correspondidos por nome — próximo reimport já os
+              // encontra pela chave estável.
+              data: { roles: mergedRoles, ...(parsed.data.numFpp ? { numFpp: parsed.data.numFpp } : {}) },
             })
             await logAudit(req, user.id, user.email, 'UPDATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name, roles: mergedRoles, import: true })
             updated++
@@ -69,6 +76,14 @@ export async function POST(req: Request) {
     const parsed = createDirectionSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    // O Prisma Extension tenant-scoped só reescreve o `where` de topo / injecta clubId
+    // em `data` — não valida FKs DENTRO de `data`. Sem isto, um athleteId de outro clube
+    // ligava-se com sucesso a este DirectionMember.
+    if (parsed.data.athleteId) {
+      const athlete = await db.athlete.findUnique({ where: { id: parsed.data.athleteId }, select: { id: true } })
+      if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 400 })
     }
 
     const member = await db.directionMember.create({ data: { ...parsed.data, clubId: ctx.clubId } })

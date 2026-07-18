@@ -55,10 +55,16 @@ export default function TrainingPage() {
 
   const fetchTrainings = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/training')
-    if (res.ok) setTrainings(await res.json())
-    setLoading(false)
-  }, [])
+    try {
+      const res = await fetch('/api/training')
+      if (res.ok) setTrainings(await res.json())
+      else toast({ title: tr('common.errorLoad'), variant: 'destructive' })
+    } catch {
+      toast({ title: tr('common.errorLoad'), variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast, tr])
 
   useEffect(() => { fetchTrainings() }, [fetchTrainings])
 

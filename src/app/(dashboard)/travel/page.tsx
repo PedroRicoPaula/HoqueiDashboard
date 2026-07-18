@@ -208,19 +208,26 @@ export default function TravelPage() {
   useEffect(() => { fetchTravels() }, [fetchTravels])
 
   const fetchFormData = useCallback(async () => {
-    const [dRes, aRes] = await Promise.all([
-      fetch('/api/direction'),
-      fetch('/api/athletes?all=true'),
-    ])
-    if (dRes.ok) {
-      const data = await dRes.json()
-      setDirectionMembers(data.members ?? data ?? [])
+    try {
+      const [dRes, aRes] = await Promise.all([
+        fetch('/api/direction'),
+        fetch('/api/athletes?all=true'),
+      ])
+      if (dRes.ok) {
+        const data = await dRes.json()
+        setDirectionMembers(data.members ?? data ?? [])
+      }
+      if (aRes.ok) {
+        const data = await aRes.json()
+        setAthletes(data.athletes ?? [])
+      }
+      if (!dRes.ok || !aRes.ok) {
+        toast({ title: 'Falha ao carregar condutores/atletas', description: 'Os seletores podem estar incompletos.', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar condutores/atletas', variant: 'destructive' })
     }
-    if (aRes.ok) {
-      const data = await aRes.json()
-      setAthletes(data.athletes ?? [])
-    }
-  }, [])
+  }, [toast])
 
   const openCreate = () => {
     setEditingTravel(null)

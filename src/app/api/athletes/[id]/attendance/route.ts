@@ -59,17 +59,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     // Specific training stats
     const specificRecords = records.filter((r) => r.session.sessionType === 'SPECIFIC' && !r.session.cancelled)
+    // Pagamento é independente de presença (pagar antecipado e depois faltar por
+    // doença é um caso real, não reembolsável) — exigir r.present aqui escondia
+    // pagamentos genuínos do histórico do atleta sempre que ele tivesse faltado.
     const specificStats = {
       total: specificRecords.length,
       attended: specificRecords.filter((r) => r.present).length,
-      paid: specificRecords.filter((r) => r.present && r.paidByAthlete).length,
+      paid: specificRecords.filter((r) => r.paidByAthlete).length,
       totalPaid: specificRecords
-        .filter((r) => r.present && r.paidByAthlete)
+        .filter((r) => r.paidByAthlete)
         .reduce((sum: number, r) => sum + (r.paidAmount ?? 0), 0),
-      sessions: specificRecords.filter((r) => r.present).map((r) => ({
+      sessions: specificRecords.filter((r) => r.present || r.paidByAthlete).map((r) => ({
         sessionId: r.sessionId,
         date: r.session.date,
         title: r.session.title,
+        present: r.present,
         paidByAthlete: r.paidByAthlete,
         paidAmount: r.paidAmount,
       })).slice(0, 10),

@@ -30,7 +30,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { Plus, Pencil, Trash2, Loader2, ExternalLink, Upload, X, CalendarDays } from 'lucide-react'
-import { format, differenceInDays } from 'date-fns'
+import { format } from 'date-fns'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
@@ -77,8 +77,22 @@ interface Sponsor {
   seasonId?: string | null
 }
 
+// Compara só calendário, não o instante preciso — contractEnd é uma data-só (meia-noite
+// UTC de quando foi gravada); comparar contra `new Date()` directamente fazia a
+// transição "expira em N dias"/"expirado" desviar até um dia consoante a hora local do
+// utilizador face à meia-noite UTC no dia-fronteira. Lê contractEnd pelos componentes
+// UTC (a data de calendário que representa) e "hoje" pelos componentes locais (o dia
+// de calendário em que o utilizador está agora) — sem isso mistura os dois relógios.
+function daysUntilDateOnly(dateStr: string): number {
+  const target = new Date(dateStr)
+  const targetUTC = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate())
+  const now = new Date()
+  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.round((targetUTC - todayUTC) / 86400000)
+}
+
 function ContractBadge({ contractEnd, tr }: { contractEnd: string; tr: (k: string, v?: Record<string,string>) => string }) {
-  const days = differenceInDays(new Date(contractEnd), new Date())
+  const days = daysUntilDateOnly(contractEnd)
   if (days < 0) return <Badge variant="destructive">{tr('sponsors.expired')}</Badge>
   if (days <= 30) return <Badge className="bg-orange-100 text-orange-800">{tr('sponsors.expiresIn', { days: String(days) })}</Badge>
   if (days <= 90) return <Badge className="bg-yellow-100 text-yellow-800">{tr('sponsors.expiresIn', { days: String(days) })}</Badge>
@@ -93,7 +107,7 @@ function SponsorTypeBadge({ type, label }: { type: string; label: string }) {
 type StatusFilter = 'all' | 'active' | 'expiring' | 'expired'
 
 function getSponsorStatus(contractEnd: string): 'active' | 'expiring' | 'expired' {
-  const days = differenceInDays(new Date(contractEnd), new Date())
+  const days = daysUntilDateOnly(contractEnd)
   if (days < 0) return 'expired'
   if (days <= 30) return 'expiring'
   return 'active'

@@ -81,7 +81,7 @@ function parseFederationRole(escalao: string): string {
   return 'DIRECTOR'
 }
 
-function parseDirectionCsv(text: string): { name: string; roles: string[] }[] {
+function parseDirectionCsv(text: string): { name: string; numFpp?: string; roles: string[] }[] {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((l) => l.trim())
   if (lines.length < 2) return []
   const sep = lines[0].includes(';') ? ';' : ','
@@ -95,16 +95,17 @@ function parseDirectionCsv(text: string): { name: string; roles: string[] }[] {
   })
 
   // Group by Num FPP (or name) to merge duplicate entries with different roles
-  const byKey = new Map<string, { name: string; roles: Set<string> }>()
+  const byKey = new Map<string, { name: string; numFpp?: string; roles: Set<string> }>()
   for (const row of rows) {
-    const key = row['num_fpp'] || row['nome'] || row['name'] || ''
+    const numFpp = row['num_fpp'] || undefined
+    const key = numFpp || row['nome'] || row['name'] || ''
     if (!key) continue
     const name = row['nome'] || row['name'] || ''
     // "Escalão" header → 'escal_o' after ã→_ normalisation
     const escalao = row['escal_o'] || row['escalao'] || ''
     const role = parseFederationRole(escalao)
     if (!byKey.has(key)) {
-      byKey.set(key, { name, roles: new Set([role]) })
+      byKey.set(key, { name, numFpp, roles: new Set([role]) })
     } else {
       byKey.get(key)!.roles.add(role)
     }
@@ -112,6 +113,7 @@ function parseDirectionCsv(text: string): { name: string; roles: string[] }[] {
 
   return Array.from(byKey.values()).filter((m) => m.name).map((m) => ({
     name: m.name,
+    numFpp: m.numFpp,
     roles: Array.from(m.roles),
   }))
 }
@@ -138,10 +140,16 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
 
   const fetchPayments = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/direction/${memberId}/salary?year=${year}`)
-    if (res.ok) setPayments(await res.json())
-    setLoading(false)
-  }, [memberId, year])
+    try {
+      const res = await fetch(`/api/direction/${memberId}/salary?year=${year}`)
+      if (res.ok) setPayments(await res.json())
+      else toast({ title: 'Erro ao carregar salários', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar salários', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [memberId, year, toast])
 
   useEffect(() => { fetchPayments() }, [fetchPayments])
 
@@ -154,13 +162,17 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
     if (!can('editDirection')) return
     const existing = getPayment(month)
     const paid = !existing?.paid
-    const res = await fetch(`/api/direction/${memberId}/salary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ month, year, paid, amount: salary }),
-    })
-    if (res.ok) fetchPayments()
-    else toast({ title: 'Erro ao registar salário', variant: 'destructive' })
+    try {
+      const res = await fetch(`/api/direction/${memberId}/salary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month, year, paid, amount: salary }),
+      })
+      if (res.ok) fetchPayments()
+      else toast({ title: 'Erro ao registar salário', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao registar salário', variant: 'destructive' })
+    }
   }
 
   const totalPaid = payments.filter((p) => p.paid).reduce((s, p) => s + (p.amount ?? salary ?? 0), 0)
@@ -279,7 +291,7 @@ export default function DirectionPage() {
 
   // CSV import state
   const [importOpen, setImportOpen] = useState(false)
-  const [importRows, setImportRows] = useState<{ name: string; roles: string[] }[]>([])
+  const [importRows, setImportRows] = useState<{ name: string; numFpp?: string; roles: string[] }[]>([])
   const [importError, setImportError] = useState('')
   const [importing, setImporting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -304,10 +316,16 @@ export default function DirectionPage() {
 
   const fetchMembers = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/direction')
-    if (res.ok) setMembers(await res.json())
-    setLoading(false)
-  }, [])
+    try {
+      const res = await fetch('/api/direction')
+      if (res.ok) setMembers(await res.json())
+      else toast({ title: 'Erro ao carregar direção', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar direção', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
 
   useEffect(() => { fetchMembers() }, [fetchMembers])
 
@@ -452,10 +470,15 @@ export default function DirectionPage() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.member) return
-    const res = await fetch(`/api/direction/${deleteDialog.member.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Membro eliminado' }); fetchMembers() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
-    setDeleteDialog({ open: false, member: null })
+    try {
+      const res = await fetch(`/api/direction/${deleteDialog.member.id}`, { method: 'DELETE' })
+      if (res.ok) { toast({ title: 'Membro eliminado' }); fetchMembers() }
+      else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao eliminar', variant: 'destructive' })
+    } finally {
+      setDeleteDialog({ open: false, member: null })
+    }
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────

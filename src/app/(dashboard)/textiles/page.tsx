@@ -245,8 +245,13 @@ export default function TextilesPage() {
             })
           )
         )
-        const ok = results.filter((r) => r.status === 'fulfilled').length
-        toast({ title: `Kit criado: ${ok}/${kitItems.length} peças` })
+        // fetch() só rejeita em falha de rede — uma peça que falhe validação no servidor
+        // (400/500) continua "fulfilled" e tinha de ser contada à parte via res.ok.
+        const ok = results.filter((r) => r.status === 'fulfilled' && r.value.ok).length
+        toast({
+          title: `Kit criado: ${ok}/${kitItems.length} peças`,
+          variant: ok < kitItems.length ? 'destructive' : undefined,
+        })
         setSheetOpen(false)
         fetchItems()
         return

@@ -44,6 +44,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (data.roles && !data.roles.includes('TRAINER')) data.trainerAgeGroups = []
     if (data.roles && !data.roles.includes('SECCIONISTA')) data.sectionistAgeGroups = []
 
+    if (data.athleteId) {
+      const athlete = await db.athlete.findUnique({ where: { id: data.athleteId }, select: { id: true } })
+      if (!athlete) return NextResponse.json({ error: 'Atleta não encontrado' }, { status: 400 })
+    }
+
     const member = await db.directionMember.update({ where: { id }, data })
 
     await logAudit(req, user.id, user.email, 'UPDATE', 'DirectionMember', (member as { id: string }).id, { name: (member as { name: string }).name })

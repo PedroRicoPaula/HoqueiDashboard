@@ -380,11 +380,14 @@ export default function AttendancePage() {
       // Pre-populate athletes of the primary age group
       const ageAthletes = allAthletes.filter((a) => a.ageGroup === schedule.ageGroup)
       if (ageAthletes.length > 0) {
-        await fetch(`/api/attendance/${session!.id}/records`, {
+        const prePopRes = await fetch(`/api/attendance/${session!.id}/records`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ records: ageAthletes.map((a) => ({ athleteId: a.id, present: false })) }),
         })
+        if (!prePopRes.ok) {
+          toast({ title: 'Sessão criada, mas falhou o pré-preenchimento dos atletas', description: 'Adiciona-os manualmente.', variant: 'destructive' })
+        }
       }
       await fetchSessions()
     }

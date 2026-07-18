@@ -46,25 +46,32 @@ export default function TrainingDetailPage() {
 
   const fetchTraining = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/training/${id}`)
-    if (res.ok) {
-      const data: Training = await res.json()
-      setTraining(data)
-      if (data.playbook?.frames) {
-        const pbData = data.playbook.frames as unknown as PlaybookData
-        if (pbData.elements && pbData.frames) {
-          loadPlaybook(pbData)
+    try {
+      const res = await fetch(`/api/training/${id}`)
+      if (res.ok) {
+        const data: Training = await res.json()
+        setTraining(data)
+        if (data.playbook?.frames) {
+          const pbData = data.playbook.frames as unknown as PlaybookData
+          if (pbData.elements && pbData.frames) {
+            loadPlaybook(pbData)
+          } else {
+            reset()
+            setTacticName(data.title)
+          }
         } else {
           reset()
           setTacticName(data.title)
         }
       } else {
-        reset()
-        setTacticName(data.title)
+        toast({ title: tr('common.errorLoad'), variant: 'destructive' })
       }
+    } catch {
+      toast({ title: tr('common.errorLoad'), variant: 'destructive' })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [id, loadPlaybook, reset, setTacticName])
+  }, [id, loadPlaybook, reset, setTacticName, toast, tr])
 
   useEffect(() => {
     fetchTraining()
@@ -91,6 +98,11 @@ export default function TrainingDetailPage() {
         const detail = fieldErrors ? Object.values(fieldErrors).flat().join(' ') : undefined
         toast({ title: json.error ?? tr('common.errorSave'), description: detail, variant: 'destructive' })
       }
+    } catch {
+      // Falha de rede (offline, ligação perdida — plausível num pavilhão) engolia isto
+      // em silêncio: o botão voltava ao normal via finally, sem toast nenhum, dando a
+      // entender que a jogada tinha sido guardada quando não foi.
+      toast({ title: tr('common.errorSave'), description: 'Falha de ligação — a jogada não foi guardada.', variant: 'destructive' })
     } finally {
       setSaving(false)
     }

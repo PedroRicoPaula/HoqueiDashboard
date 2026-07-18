@@ -66,7 +66,11 @@ export async function POST(req: Request) {
     }
 
     const data = parsed.data
-    if (data.athleteId) data.state = 'ASSIGNED'
+    // Reconciliação nas duas direções (espelha materials/route.ts) — faltava a direcção
+    // "Atribuído sem atleta -> volta a Stock", alcançável ao mudar o Estado para
+    // Atribuído sem chegar a escolher o atleta no picker (BUG-032 equivalente em Têxteis).
+    if (data.athleteId && data.state !== 'ASSIGNED') data.state = 'ASSIGNED'
+    if (!data.athleteId && data.state === 'ASSIGNED') data.state = 'STOCK'
     if (data.state !== 'ASSIGNED') {
       data.athleteId = null
       data.paidByAthlete = false
