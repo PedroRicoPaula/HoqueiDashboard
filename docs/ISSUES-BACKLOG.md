@@ -13,6 +13,71 @@
 
 ---
 
+> **Auditoria completa 2026-07-18** (4 agentes `general-purpose` em paralelo, um por cluster de módulos, leitura completa dos ficheiros + verificação ao vivo dos achados mais graves) — apenas achados, **nada foi corrigido ainda** (padrão pedido: "analisa... dá-me o teu feedback" — ver metodologia acima). Relatório completo com todos os achados, incluindo o que ficou confirmado sólido em cada módulo: [artifact publicado na sessão]. Resumo dos 17 novos itens abaixo, por módulo.
+
+### [BUG-040] `Quota` (sócios) nunca grava `seasonId` — mesma classe do já resolvido BUG-035 (AthletePayment)
+**Encontrado:** 2026-07-18, auditoria (cluster Financeiro). `src/app/api/members/[id]/quotas/route.ts:44-70` — o upsert de quota nunca inclui `seasonId`, ao contrário do equivalente em `AthletePayment` (corrigido nesta mesma sessão de trabalho anterior, ver BUG-035 abaixo).
+**Impacto:** com uma época seleccionada, o dashboard mostra sempre €0 / 0 sócios em atraso na secção de quotas — mesmo havendo atrasos reais — e o guard que devia impedir eliminar uma época com quotas associadas fica sempre inerte. Mesma classe de perda de dados silenciosa que BUG-035, ainda por corrigir aqui.
+
+### [BUG-041] Histórico de Pagamentos no perfil do atleta ignora isenção de mensalidade
+**Encontrado:** 2026-07-18, auditoria. `src/app/(dashboard)/athletes/[id]/page.tsx:874-900` — o cálculo `isLate` não verifica `athlete.feeExempt` nem ausência de mensalidade de época configurada, ao contrário da grelha equivalente em `fees/page.tsx`.
+**Impacto:** um atleta marcado "Isento" (badge visível na mesma página) aparece com "✗ Em falta" a vermelho em todos os meses passados — contradição visível na mesma página.
+
+### [DEBT-028] Sócios ficou fora da ronda de correções de 2026-07-17
+**Encontrado:** 2026-07-18, auditoria. `src/app/(dashboard)/members/page.tsx` — `fetchMembers`/`QuotaCalendar.fetchQuotas` sem try/catch (falha de rede fica silenciosa), sem guarda de sequência ao trocar de época depressa (já corrigido em Atletas/Mensalidades/Dashboard via BUG-036), e `quotaYear <= 2020` hardcoded no pager de quotas (mesma classe de BUG-034/BUG-038, aqui com um ano mais permissivo).
+
+### [BUG-042] Breakdown de Materiais por estado no dashboard não filtra por época
+**Encontrado:** 2026-07-18, auditoria. `src/app/api/dashboard/stats/route.ts:89` — `materialsByState` (`groupBy`) não aplica `seasonFilter`, ao contrário de `materialCount` (mesma query, linha 87, com filtro). Com época seleccionada, o card mostra a contagem certa mas o gráfico ao lado soma todas as épocas.
+
+### [BUG-043] Export CSV de Sócios ignora a época seleccionada
+**Encontrado:** 2026-07-18, auditoria. `src/app/api/reports/members/route.ts:22-23` — não lê `seasonId` da query string, ao contrário de `reports/athletes`, `reports/financial` e `reports/materials`. A lista em ecrã filtra por época; o export não — podem divergir.
+
+### [DEBT-029] Cálculo de mensalidade (`isMonthPast`) duplicado inline em vez de `feeCalc.ts`
+**Encontrado:** 2026-07-18, auditoria. `fees/page.tsx:188-189` e `athletes/[id]/page.tsx:879-880` reimplementam a mesma lógica já centralizada em `src/lib/feeCalc.ts` (código puro, seguro de importar em componentes cliente). Mesmo resultado hoje; risco de divergência se um dos três for editado sem os outros.
+
+### [DEBT-030] Materiais/Patrocinadores/Têxteis/Épocas sem guarda de sequência ao trocar de época
+**Encontrado:** 2026-07-18, auditoria (cluster Inventário). `materials/page.tsx`, `sponsors/page.tsx`, `textiles/page.tsx`, `seasons/page.tsx` — ao contrário de Atletas/Mensalidades/Dashboard (corrigidos via BUG-036), trocar de época duas vezes seguidas nestas 4 páginas pode sobrepor a lista com dados da época errada, sem aviso.
+
+### [DEBT-031] Fetch principal sem try/catch/finally em Materiais e Têxteis
+**Encontrado:** 2026-07-18, auditoria. `materials/page.tsx:161-171`, `textiles/page.tsx:136-147` — falha de rede a meio do carregamento deixa o spinner preso indefinidamente (fora da ronda DEBT-027 de 2026-07-17, que cobriu Atletas/Mensalidades/Viagens/Táctico).
+
+### [DEBT-032] Diálogo de eliminação sem try/catch em 4 módulos de inventário
+**Encontrado:** 2026-07-18, auditoria. `confirmDelete()` em `materials/page.tsx`, `sponsors/page.tsx`, `textiles/page.tsx`, `travel/page.tsx` — falha de rede no DELETE deixa o diálogo preso sem toast de erro.
+
+### [BUG-044] Assiduidade — comparação de dia ignora fuso horário, mesma classe do já resolvido BUG-033 (Viagens)
+**Encontrado:** 2026-07-18, auditoria (cluster Gestão). `attendance/page.tsx:248-255,919-990` — `isSameDay(new Date(s.date), date)` usa getters locais, mas `s.date` vem meia-noite UTC do servidor (mesmo padrão já corrigido em Viagens com `getUTCFullYear/Month/Date`).
+**Impacto:** clube num fuso UTC negativo (ex: Açores) vê o treino no dia errado no calendário — pode levar a sessões duplicadas ou a não encontrar a sessão certa ao clicar.
+
+### [DEBT-033] Assiduidade ficou fora da ronda de tratamento de erro de 2026-07-17
+**Encontrado:** 2026-07-18, auditoria. `attendance/page.tsx` — `fetchSessions` e mais 4 funções (`fetchSchedules`, `handleOpenAttendance`, `openSpecificSession`, `handleCancelSession`) sem try/catch; falha de rede deixa o calendário "a carregar" para sempre.
+
+### [BUG-045] Regra "1 horário por escalão/época" só existe no cliente
+**Encontrado:** 2026-07-18, auditoria. `POST /api/attendance/schedules` — sem `@@unique` no schema nem validação server-side. Dois administradores em abas diferentes (ou duplo-clique antes da resposta) podem criar 2 horários para o mesmo escalão; o fallback `!s.scheduleId` de sessões legadas pode então misturar registos entre os dois cartões.
+
+### [SEC-035] `LOGIN` (sucesso) e `REGISTER` ficam sempre com `clubId: null` no audit log
+**Encontrado:** 2026-07-18, auditoria (cluster Core). `src/lib/audit.ts:20-24` — `logAudit()` resolve o clube a partir do cookie do **pedido actual**; em login/registo esse pedido é a própria criação da sessão, o cookie ainda não existe nesse momento. `GET /api/admin/audit` é tenant-scoped (`db.auditLog.findMany`), pelo que entradas com `clubId: null` são invisíveis por definição.
+**Impacto:** nenhum admin de clube consegue hoje ver os seus próprios logins bem-sucedidos nem o `REGISTER` no Audit Log do clube, apesar de a regra 6 do CLAUDE.md exigir explicitamente "logins (sucesso e falha)". Não é fuga de dados entre clubes — é perda de visibilidade de um controlo de segurança documentado. A nota em `docs/AUTH-SECURITY.md` ("clubId em logAudit") descrevia isto como intencional só para eventos não-autenticados (LOGIN_FAIL/PASSWORD_RESET_REQUEST) — desactualizada, corrigida nesta ronda para reflectir também o caso de LOGIN/REGISTER.
+
+### [DEBT-034] Fetch de atletas sem `.catch()` em Assiduidade e Direção
+**Encontrado:** 2026-07-18, auditoria. `attendance/page.tsx:209-211`, `direction/page.tsx:343-348` — lista de atletas para adicionar fica vazia silenciosamente em falha de rede.
+
+### [BUG-046] `forgot-password` não distingue rate-limit/erro real de sucesso
+**Encontrado:** 2026-07-18, auditoria. `src/app/forgot-password/page.tsx:26-31` — fetch não verifica `res.ok`; um 429 ou 500 real mostra sempre "recebeu instruções em breve". Parcialmente intencional (evita enumeração de emails), mas devia distinguir falha real de sucesso.
+
+### [SEC-036] `PATCH`/`DELETE /api/platform/clubs/[id]` sem rate limit
+**Encontrado:** 2026-07-18, auditoria. Ao contrário de `POST /api/platform/clubs` (20/hora). Impacto limitado — ambas já exigem `isSuperAdmin`.
+
+---
+
+## ✅ Resolvido — Ciclo de vida de subscrição (2026-07-18)
+
+### ~~[BUG-039] Tabela de clubes em `/platform` não actualizava depois de criar um clube~~ ✅ RESOLVIDO 2026-07-18
+**Encontrado:** 2026-07-18, a testar ao vivo o botão novo "Enviar link de pagamento" (feature de cancelamento/reactivação de subscrição, ver `CLAUDE.md` → "Ciclo de vida de subscrição"). Criei um clube grátis para testar e não apareceu na tabela, apesar dos cards de estatística (total de clubes, grátis) terem actualizado correctamente.
+**Impacto:** `PlatformClubs.tsx` fazia `useState(initialClubs)` uma única vez — `router.refresh()` (chamado após criar clube) re-executa o server component e passa um `initialClubs` novo, mas o `useState` do componente cliente só lê o valor inicial, nunca re-sincroniza com o prop. Super admin podia pensar que a criação falhou e tentar de novo.
+**Fix:** `useEffect(() => setClubs(initialClubs), [initialClubs])` a sincronizar sempre que o prop muda. Testado ao vivo: clube criado passou a aparecer imediatamente na tabela.
+
+---
+
 ## ✅ Resolvido — Membership de época + 2ª ronda de backlog (2026-07-18)
 
 > Pedido do utilizador: corrigir todo o backlog pendente por ordem lógica e desenhar a lógica de "atleta que deixa o clube entre épocas". Resumo completo (feature de membership, BLOCKERs, segurança, ~30 correcções menores) em `CLAUDE.md` → secção "Membership de época para Atletas + correção de 42 problemas do backlog (2026-07-18)" — não duplicado aqui para evitar dessincronização entre os dois documentos. Os 5 achados abaixo são os únicos **novos** desta ronda que só apareceram em teste ao vivo ou na revisão da própria documentação (mesmo padrão de BUG-031/DEBT-026 na ronda anterior: bugs de estado/timing invisíveis à leitura estática do código).

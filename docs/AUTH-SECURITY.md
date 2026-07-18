@@ -359,6 +359,26 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 ---
 
+## Ciclo de Vida de Subscrição — Cancelamento, Suspensão, Reactivação (2026-07-18)
+
+`SUSPENDED` é o único estado operacional "sem acesso, sem eliminar dados" — cancelamento self-serve e falha de pagamento definitiva convergem nele. `CANCELLED` continua no enum `ClubStatus` por compatibilidade histórica mas deixou de ser atribuído por qualquer fluxo novo.
+
+- **`POST /api/billing/cancel`** (autenticado, exige `isAdmin` via `getDbForRequest` + `hasPermission`) — cancela a subscrição no Stripe **imediatamente** (`stripe.subscriptions.cancel`, sem esperar pelo fim do período já pago), marca o clube `SUSPENDED` + `statusChangedAt`, invalida a sessão de **todos** os utilizadores do clube numa só operação (`prisma.user.updateMany({ where: { clubId }, data: { tokenVersion: { increment: 1 } } })` — não só o `tokenVersion` de quem clicou), limpa o cookie `hm_token` da resposta. Se `club.stripeSubscriptionId` já não existir no Stripe (ex: cancelado por fora), o erro é apanhado e ignorado — a suspensão local acontece sempre.
+- **`POST /api/billing/reactivate`** (público — chamado a partir do próprio ecrã de login bloqueado, onde por definição ainda não há sessão) — rate limited 10/hora/IP. Só aceita clubes **não-grátis** em `SUSPENDED`/`PAST_DUE` com `stripeCustomerId` definido; devolve erro claro ("contacte o suporte") nos outros casos, sem crashar. Reabre Stripe Checkout com o `stripeCustomerId` existente — `success_url`/`cancel_url` apontam sempre para `/login` (nunca faz login automático, ao contrário do fluxo de registo).
+- **`POST /api/platform/clubs/[id]/send-payment-link`** (super admin apenas) — só para clubes `isFreeClub`. Cria/reutiliza `stripeCustomerId`, gera Stripe Checkout (plano `monthly`/`STRIPE_PRICE_MONTHLY` ou `test`/`STRIPE_PRICE_TEST`) e envia por email — **o clube paga com o próprio cartão**, não o do super admin. A activação (`ACTIVE` + `isFreeClub: false`) é feita pelo webhook `checkout.session.completed` via `clubActivation.ts`, exactamente como no registo normal — a rota em si só cria a sessão e envia o email, não activa nada directamente.
+- **`POST /api/auth/login`** devolve `{error, status, canReactivate}` em 403 quando o clube não está `ACTIVE`. `canReactivate` só é `true` para clubes pagos em `SUSPENDED`/`PAST_DUE` — nunca para clubes grátis (que não têm `stripeCustomerId` utilizável para reactivação self-serve).
+- Nenhuma das 3 rotas novas chama `validateCsrf` manualmente — cobertas automaticamente pelo middleware (`/api/*` não excluído do matcher). `/api/billing/reactivate` é a única rota pública deste grupo; a proteção contra abuso é o rate limit por IP, não autenticação.
+- `src/lib/stripe.ts` (novo) centraliza `getStripe()` — antes duplicado (`new Stripe(...)` inline) em `register/route.ts`, `stripe/webhook/route.ts` e `platform/page.tsx`.
+
+### Achados de segurança — Auditoria 2026-07-18 (ainda por corrigir, ver `docs/ISSUES-BACKLOG.md`)
+
+| ID | Severidade | Resumo | Estado |
+|----|-----------|--------|--------|
+| SEC-035 | ALTO | `LOGIN` (sucesso) e `REGISTER` ficam sempre com `clubId: null` no audit log — nenhum admin de clube vê os seus próprios logins | 🔴 Activo — ver secção "clubId em logAudit" acima |
+| SEC-036 | BAIXO | `PATCH`/`DELETE /api/platform/clubs/[id]` sem rate limit (ao contrário do `POST` irmão) — impacto limitado, já exige `isSuperAdmin` | 🔴 Activo |
+
+---
+
 ## Fluxo de Registo (password definida no formulário)
 
 **Reescrito 2026-07-17** — o fluxo anterior (tempPassword + email de boas-vindas com link de definição de password) foi substituído:
@@ -386,14 +406,16 @@ export type AuditAction =
   | 'UPDATE_CLUB_LOGO' | 'REMOVE_CLUB_LOGO'
   | 'REGISTER'
   | 'SUBSCRIPTION_ACTIVATED' | 'PAYMENT_SUCCEEDED' | 'PAYMENT_FAILED' | 'SUBSCRIPTION_CANCELLED'
-  | 'CREATE_FREE_CLUB' | 'CHANGE_CLUB_STATUS' | 'DELETE_CLUB'
+  | 'CREATE_FREE_CLUB' | 'CHANGE_CLUB_STATUS' | 'DELETE_CLUB' | 'PAYMENT_LINK_SENT'
 ```
 
 Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.
 
-### clubId em logAudit (fix 2026-06-29)
+### clubId em logAudit (fix 2026-06-29; gap encontrado 2026-07-18, ver SEC-035)
 
-`logAudit()` em `src/lib/audit.ts` extrai automaticamente o `clubId` do JWT via `getUserFromRequest(req)`. Não é necessário passar `clubId` como argumento — a função resolve-o internamente. Eventos de rotas não autenticadas (LOGIN_FAIL, PASSWORD_RESET_REQUEST) ficam com `clubId = null` na BD, o que é correto: não pertencem a nenhum clube específico e são invisíveis nos audit logs por clube (o filtro tenant exclui-os). Se for necessário ver eventos de sistema, consultar diretamente via Prisma Studio ou export da super admin.
+`logAudit()` em `src/lib/audit.ts` extrai automaticamente o `clubId` do JWT via `getUserFromRequest(req)`, lendo o cookie do **pedido actual**. Não é necessário passar `clubId` como argumento — a função resolve-o internamente. Isto é correcto para eventos genuinamente não autenticados (`LOGIN_FAIL`, `PASSWORD_RESET_REQUEST`) — `clubId = null` é o resultado certo, não pertencem a nenhum clube.
+
+**Gap não corrigido (SEC-035, ver `docs/ISSUES-BACKLOG.md`):** `LOGIN` (sucesso) e `REGISTER` também ficam com `clubId = null`, mas por acidente, não por design — no momento em que `logAudit()` corre, o cookie `hm_token` ainda não foi emitido (é a própria criação da sessão), por isso `getUserFromRequest` não encontra nada. Resultado: nenhum admin de clube consegue ver os seus próprios logins bem-sucedidos no Audit Log do clube (rota tenant-scoped exclui `clubId: null`), o que viola a regra 6 do CLAUDE.md ("audit log em toda operação de escrita... inclui logins"). Fix ainda por implementar — precisa de passar `clubId` explicitamente a `logAudit()` nesses dois call sites, não confiar na resolução automática via cookie.
 
 ---
 
