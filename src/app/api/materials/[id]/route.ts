@@ -45,13 +45,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const data = parsed.data
+    // "Atribuído" sem atleta é um estado válido (material do clube em uso, ex: máscara
+    // de guarda-redes partilhada) — a UI permite explicitamente limpar o atleta mantendo
+    // o estado. Forçar 'FREE' nesse caso apagava silenciosamente estado+valor em qualquer
+    // edição do material (achado ao vivo 2026-07-18). Só a direcção inversa é segura:
+    // se vier um atleta, o estado tem de refletir isso.
     if (data.athleteId && data.state !== 'ASSIGNED') data.state = 'ASSIGNED'
-    if (!data.athleteId && data.state === 'ASSIGNED') {
-      data.state = 'FREE'
-      data.athleteId = null
-    }
-    // clear payment info when not assigned
-    if (data.state !== 'ASSIGNED') {
+    // clear payment info only when the state itself is explicitly changing away from ASSIGNED
+    if (data.state && data.state !== 'ASSIGNED') {
       data.paidByAthlete = false
       data.paidAmount = null
     }

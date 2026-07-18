@@ -79,6 +79,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
+    // seasonId vem da época seleccionada no cliente no momento do registo — gravado
+    // no pagamento para que o guard de eliminação de épocas (season._count.athletePayments
+    // em /api/seasons/[id]) o veja; sem isto o campo fica sempre null e a época é eliminável
+    // mesmo com pagamentos reais no seu intervalo de datas (achado ao vivo 2026-07-18).
     const payment = await db.athletePayment.upsert({
       where: { athleteId_month_year: { athleteId: id, month, year } },
       update: {
@@ -86,6 +90,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         amount: paid ? (amount ?? effectiveAmount) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
+        ...(seasonId ? { seasonId } : {}),
       },
       create: {
         clubId,
@@ -96,6 +101,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         amount: paid ? (amount ?? effectiveAmount) : null,
         paidAt: paid ? new Date() : null,
         notes: notes ?? null,
+        seasonId,
       },
     })
 

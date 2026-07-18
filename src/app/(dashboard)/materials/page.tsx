@@ -371,7 +371,7 @@ export default function MaterialsPage() {
         <div className="flex items-center gap-3">
           {!loading && (
             <p className="text-sm text-muted-foreground">
-              {materials.length} material{materials.length !== 1 ? 'is' : ''}
+              {materials.length} {materials.length !== 1 ? 'materiais' : 'material'}
             </p>
           )}
           {selectedSeason && (
@@ -637,7 +637,7 @@ export default function MaterialsPage() {
                 <div className="space-y-1">
                   <Label>Época</Label>
                   <select
-                    {...register('seasonId')}
+                    {...register('seasonId', { setValueAs: (v) => (v ? v : null) })}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
                     <option value="">Sem época</option>

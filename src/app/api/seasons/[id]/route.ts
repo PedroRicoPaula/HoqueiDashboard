@@ -76,11 +76,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     const season = await db.season.findUnique({
       where: { id },
-      include: { _count: { select: { members: true, sponsors: true, athletePayments: true, quotas: true } } },
+      include: { _count: { select: { members: true, sponsors: true, athletePayments: true, quotas: true, materials: true, textileItems: true } } },
     })
     if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
 
-    const total = season._count.members + season._count.sponsors + season._count.athletePayments + season._count.quotas
+    // "Não podes eliminar a época activa" só estava garantido no cliente (botão
+    // desactivado) — um pedido directo conseguia eliminar a época activa na mesma,
+    // deixando o clube sem nenhuma. E a contagem de "registos associados" esquecia-se
+    // de Material/TextileItem: uma época só com têxteis passava a verificação e era
+    // eliminada, perdendo a época desses itens em silêncio.
+    if (season.isActive) {
+      return NextResponse.json(
+        { error: `Não é possível eliminar a época "${season.name}" — é a época activa` },
+        { status: 422 }
+      )
+    }
+
+    const total = season._count.members + season._count.sponsors + season._count.athletePayments
+      + season._count.quotas + season._count.materials + season._count.textileItems
     if (total > 0) {
       return NextResponse.json(
         { error: `Não é possível eliminar a época "${season.name}" — tem ${total} registos associados` },
