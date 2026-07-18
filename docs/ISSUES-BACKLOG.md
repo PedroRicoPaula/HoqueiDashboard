@@ -69,6 +69,23 @@
 
 ---
 
+> **Ronda de landing page / marketing (2026-07-18)** — pedido do utilizador para analisar o que precisa de actualização na landing page depois da feature de cancelamento self-serve. Achados confirmados por leitura directa do código (não por agente).
+
+### [BUG-047] Termos de Utilização e FAQ (5 idiomas) contradizem o comportamento real do cancelamento — CRÍTICO, é conteúdo legal
+**Encontrado:** 2026-07-18. `src/app/[locale]/terms/page.tsx:60` ("O cancelamento pode ser efetuado a qualquer momento; o acesso mantém-se até ao fim do período pago") e `messages/{pt,es,en,fr,it}.json` → `faq.items` (2 entradas por idioma: "Posso cancelar a qualquer altura?"/"Como funciona o pagamento?") — mesma afirmação nos 5 idiomas.
+**Impacto:** `POST /api/billing/cancel` (construído na sessão anterior) cancela **imediatamente** — subscrição cancelada no Stripe já, clube passa a `SUSPENDED` na hora, sessão de todos os utilizadores cortada de imediato (decisão explícita do utilizador ao construir a feature). Isto está nos Termos de Utilização, documento legal — um clube que cancele a meio do mês e perca acesso imediato pode reclamar com base no que o próprio ToS promete. Precisa de correcção em ~11 strings (1 no ToS + 2×5 no FAQ).
+**Nota relacionada:** `terms/page.tsx` (e `privacy/page.tsx`) têm texto 100% hardcoded em português, independente do `locale` da URL — `/en/terms` mostra o mesmo texto PT que `/pt/terms`. Pode ser decisão de negócio (ToS num único idioma canónico), mas vale confirmar. Data "Última atualização: 19 de junho de 2026" já desactualizada.
+
+### [DEBT-036] Card "Subscrição" em `/settings` e ecrã de conta suspensa em `/login` com texto PT hardcoded, fora do sistema de traduções
+**Encontrado:** 2026-07-18, ao rever a landing (achado no dashboard, não na landing, mas descoberto na mesma ronda). `settings/page.tsx` usa `useDashT()` em todos os outros cards (Logo, Mensalidades, Cor, Geral) — o card "Subscrição" (construído na sessão anterior) é a única excepção, com strings PT directas no JSX. `login/page.tsx` já era 100% hardcoded PT antes desta sessão (gap pré-existente, não introduzido agora), mas o ecrã de conta suspensa/reativação segue o mesmo padrão não-traduzido.
+**Impacto:** um clube ES/EN/FR/IT que cancele ou seja suspenso vê texto em português misturado com o resto da interface traduzida — contradiz "5 idiomas", que é uma feature vendida na própria landing (`pricing.features`, `social.stats`).
+
+### [UX-005] Secção "Features" da landing só mostra 6 dos 12 módulos vendidos
+**Encontrado:** 2026-07-18. `src/app/[locale]/page.tsx:30` (`featureKeys`) mostra Atletas, Sócios, Materiais&Têxteis, Treinos&Tática, Viagens, Financeiro. Não aparecem: Patrocinadores, Direção (inclui folha salarial), Assiduidade, Admin/Permissões, Épocas. `pricing.features` já diz correctamente "Todos os 12 módulos" — só a vitrine visual undersells o produto. Patrocinadores e gestão salarial da Direção são pontos de venda fortes para um clube real que não aparecem em lado nenhum da landing. Screenshots (`public/screenshots/{fees,athletes}-preview.png`) também só mostram 2 dos 12 módulos, e estão datados de 20 de junho — anteriores à feature de Season Membership e ao redesign de Definições.
+**Decisão pendente:** produto ou design — não é bug, é oportunidade de marketing.
+
+---
+
 ## ✅ Resolvido — Ciclo de vida de subscrição (2026-07-18)
 
 ### ~~[BUG-039] Tabela de clubes em `/platform` não actualizava depois de criar um clube~~ ✅ RESOLVIDO 2026-07-18
