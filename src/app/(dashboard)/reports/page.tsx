@@ -78,7 +78,9 @@ export default function ReportsPage() {
   const handleMembers = async () => {
     setLoad('members', true)
     try {
-      await downloadFile(`/api/reports/members?year=${membersYear}`, `socios-${membersYear}.xlsx`, toast, tr('common.errorLoad'))
+      const params = seasonParams()
+      params.set('year', membersYear)
+      await downloadFile(`/api/reports/members?${params}`, `socios-${membersYear}.xlsx`, toast, tr('common.errorLoad'))
       toast({ title: tr('reports.membersExported') })
     } finally { setLoad('members', false) }
   }

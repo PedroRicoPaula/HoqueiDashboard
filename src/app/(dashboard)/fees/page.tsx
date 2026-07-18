@@ -22,6 +22,7 @@ import {
   Loader2, Euro, AlertTriangle, Users, CheckCircle2, MousePointerClick, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isMonthPast } from '@/lib/feeCalc'
 
 // Season: Sep-Jun (10 months) — built dynamically in the component using labels from useDashLabels
 const SEASON_MONTH_NUMS = [
@@ -184,9 +185,6 @@ export default function FeesPage() {
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
-
-  const isMonthPast = (month: number, year: number) =>
-    year < currentYear || (year === currentYear && month < currentMonth)
 
   const isMonthCurrent = (month: number, year: number) =>
     month === currentMonth && year === currentYear

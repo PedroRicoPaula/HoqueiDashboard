@@ -86,7 +86,7 @@ export async function GET(req: Request) {
       db.sponsor.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
       db.material.count({ where: Object.keys(seasonFilter).length ? seasonFilter : undefined }),
       db.athlete.groupBy({ by: ['ageGroup'], where: athleteMembershipWhere(seasonWindow), _count: { id: true } }),
-      db.material.groupBy({ by: ['state'], _count: { id: true } }),
+      db.material.groupBy({ by: ['state'], where: Object.keys(seasonFilter).length ? seasonFilter : undefined, _count: { id: true } }),
       db.travel.findMany({
         where: { departureDate: { gte: now } },
         orderBy: { departureDate: 'asc' },

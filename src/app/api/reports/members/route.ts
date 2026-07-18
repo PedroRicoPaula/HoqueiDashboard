@@ -18,8 +18,10 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const year = parseInt(searchParams.get('year') ?? String(new Date().getFullYear()))
+    const seasonId = searchParams.get('seasonId') || null
 
     const members = await db.member.findMany({
+      where: seasonId ? { seasonId } : {},
       orderBy: { number: 'asc' },
       include: {
         quotas: {

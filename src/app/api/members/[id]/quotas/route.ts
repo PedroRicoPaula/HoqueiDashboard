@@ -58,15 +58,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     const { month, year, paid, notes } = parsed.data
 
+    const { searchParams } = new URL(req.url)
+    const seasonId = searchParams.get('seasonId') || null
+
     const member = await db.member.findUnique({ where: { id } })
     if (!member) return NextResponse.json({ error: 'Sócio não encontrado' }, { status: 404 })
 
     const memberQuota = (member as { monthlyQuota: number }).monthlyQuota
 
+    // seasonId vem da época seleccionada no cliente no momento do registo — gravado para
+    // o guard de eliminação de épocas (season._count.quotas em /api/seasons/[id]) o ver;
+    // sem isto o campo fica sempre null (mesmo bug já corrigido em AthletePayment, BUG-035).
     const quota = await db.quota.upsert({
       where: { memberId_month_year: { memberId: id, month, year } },
-      update: { paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
-      create: { clubId, memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null },
+      update: { paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null, ...(seasonId ? { seasonId } : {}) },
+      create: { clubId, memberId: id, month, year, paid, paidAt: paid ? new Date() : null, amount: paid ? memberQuota : null, notes: notes ?? null, seasonId },
     })
 
     await logAudit(req, user.id, user.email, 'UPDATE', 'Quota', quota.id, { month, year, paid })

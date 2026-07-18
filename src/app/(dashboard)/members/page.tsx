@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -65,7 +65,7 @@ interface Quota {
   notes?: string | null
 }
 
-function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
+function QuotaCalendar({ memberId, year, seasonId }: { memberId: string; year: number; seasonId?: string | null }) {
   const [quotas, setQuotas] = useState<Quota[]>([])
   const [loading, setLoading] = useState(true)
   const [payAllSaving, setPayAllSaving] = useState(false)
@@ -82,10 +82,19 @@ function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
 
   const fetchQuotas = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/members/${memberId}/quotas?year=${year}`)
-    if (res.ok) setQuotas(await res.json())
-    setLoading(false)
-  }, [memberId, year])
+    try {
+      const res = await fetch(`/api/members/${memberId}/quotas?year=${year}`)
+      if (res.ok) {
+        setQuotas(await res.json())
+      } else {
+        toast({ title: 'Erro ao carregar quotas', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar quotas', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [memberId, year, toast])
 
   useEffect(() => { fetchQuotas() }, [fetchQuotas])
 
@@ -95,7 +104,8 @@ function QuotaCalendar({ memberId, year }: { memberId: string; year: number }) {
     year < currentYear || (year === currentYear && month < currentMonth)
 
   const doToggle = async (month: number, paid: boolean, notes?: string) => {
-    const res = await fetch(`/api/members/${memberId}/quotas`, {
+    const qs = seasonId ? `?seasonId=${seasonId}` : ''
+    const res = await fetch(`/api/members/${memberId}/quotas${qs}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ month, year, paid, notes: notes || null }),
@@ -253,27 +263,46 @@ export default function MembersPage() {
   const activeSeason = mounted ? getActiveSeason() : null
   const currentSeason = selectedSeason ?? activeSeason
   const seasonDefaultQuota = currentSeason?.defaultMemberMonthlyQuota ?? null
+  // Pager de quotas deixa recuar até à época mais antiga do clube (nunca hardcoded — mesmo
+  // padrão de BUG-034/038, aqui com quotaYear <= 2020, achado 2026-07-18).
+  const earliestQuotaYear = seasons.length > 0
+    ? Math.min(...seasons.map((s) => new Date(s.startDate).getFullYear()))
+    : new Date().getFullYear() - 1
 
   const {
     register, handleSubmit, reset, formState: { errors },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<MemberForm>({ resolver: zodResolver(memberSchema) as any })
 
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesmo padrão
+  // já aplicado em athletes/fees/dashboard — este módulo tinha ficado de fora, DEBT-028).
+  const fetchSeq = useRef(0)
   const fetchMembers = useCallback(async (p = 1) => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     const params = new URLSearchParams({ page: String(p) })
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
-    const res = await fetch(`/api/members?${params}`)
-    if (res.ok) {
-      const data = await res.json()
-      setMembers(data.members)
-      setTotal(data.total ?? 0)
-      setPages(data.pages ?? 1)
-      setPage(p)
+    try {
+      const res = await fetch(`/api/members?${params}`)
+      if (seq !== fetchSeq.current) return
+      if (res.ok) {
+        const data = await res.json()
+        if (seq !== fetchSeq.current) return
+        setMembers(data.members)
+        setTotal(data.total ?? 0)
+        setPages(data.pages ?? 1)
+        setPage(p)
+      } else {
+        toast({ title: 'Erro ao carregar sócios', description: res.status === 401 ? 'Sessão expirada — inicie sessão novamente.' : undefined, variant: 'destructive' })
+      }
+    } catch {
+      if (seq !== fetchSeq.current) return
+      toast({ title: 'Erro de ligação ao carregar sócios', variant: 'destructive' })
+    } finally {
+      if (seq === fetchSeq.current) setLoading(false)
     }
-    setLoading(false)
-  }, [debouncedSearch, selectedSeasonId])
+  }, [debouncedSearch, selectedSeasonId, toast])
 
   useEffect(() => { fetchMembers(1) }, [debouncedSearch, selectedSeasonId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -524,12 +553,12 @@ export default function MembersPage() {
             <DialogTitle>Quotas - {quotaModal.member?.name}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center gap-3 mb-4">
-            <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y - 1)} disabled={quotaYear <= 2020}>{'<'}</Button>
+            <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y - 1)} disabled={quotaYear <= earliestQuotaYear}>{'<'}</Button>
             <span className="font-semibold">{quotaYear}</span>
             <Button variant="outline" size="sm" onClick={() => setQuotaYear((y) => y + 1)} disabled={quotaYear >= new Date().getFullYear() + 1}>{'>'}</Button>
           </div>
           {quotaModal.member && (
-            <QuotaCalendar memberId={quotaModal.member.id} year={quotaYear} />
+            <QuotaCalendar memberId={quotaModal.member.id} year={quotaYear} seasonId={quotaModal.member.season?.id ?? quotaModal.member.seasonId ?? null} />
           )}
         </DialogContent>
       </Dialog>

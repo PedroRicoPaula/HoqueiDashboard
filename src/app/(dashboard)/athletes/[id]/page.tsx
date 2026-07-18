@@ -38,6 +38,7 @@ import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
 import { useMounted } from '@/hooks/useMounted'
 import { wasAthleteActiveInSeason } from '@/lib/athleteMembership'
+import { isMonthPast } from '@/lib/feeCalc'
 
 const athleteSchema = z.object({
   number: z.coerce.number().int().positive('Número deve ser positivo'),
@@ -876,8 +877,7 @@ export default function AthleteProfilePage() {
                 const payment = getPayment(m)
                 const year = m >= 9 ? season : season + 1
                 const isPaid = payment?.paid
-                const now = new Date()
-                const isLate = !isPaid && (year < now.getFullYear() || (year === now.getFullYear() && m < now.getMonth() + 1))
+                const isLate = !isPaid && !athlete.feeExempt && isMonthPast(m, year)
                 return (
                   <div
                     key={m}
