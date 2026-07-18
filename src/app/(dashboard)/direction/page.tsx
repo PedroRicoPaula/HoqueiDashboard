@@ -28,6 +28,8 @@ import { AGE_GROUPS, DIRECTION_ROLES, DIRECTION_ROLE_LABELS, DIRECTION_ROLE_COLO
 import { cn } from '@/lib/utils'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useAuthStore } from '@/store/authStore'
+import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 import { getNumberLocale } from '@/lib/date-locale'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -137,6 +139,15 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
+  const mounted = useMounted()
+  const { seasons: storeSeasons } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
+  // Mesmo bug encontrado ao vivo em athletes/[id] e fees (2026-07-18): ano mínimo
+  // hardcoded trancava clubes com dados anteriores a esse ano. Floor dinâmico a
+  // partir das épocas reais do clube.
+  const earliestYear = seasons.length > 0
+    ? Math.min(...seasons.map((s) => new Date(s.startDate).getFullYear()))
+    : currentYear - 1
 
   const fetchPayments = useCallback(async () => {
     setLoading(true)
@@ -182,7 +193,7 @@ function SalaryCalendar({ memberId, salary }: { memberId: string; salary: number
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setYear((y) => y - 1)} disabled={year <= 2025}>
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setYear((y) => y - 1)} disabled={year <= earliestYear}>
           <ChevronLeft className="h-3.5 w-3.5" />
         </Button>
         <span className="font-semibold text-sm w-10 text-center">{year}</span>
