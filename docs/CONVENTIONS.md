@@ -59,11 +59,26 @@ CREATE UNIQUE INDEX "Member_clubId_number_seasonId_key" ON "Member"("clubId", "n
 - `@@index([a, b])` → `TableName_a_b_idx` (regular index)
 - `@unique` em campo único → `TableName_field_key`
 
+**Como tornar um modelo novo "sensível à época" — duas famílias de padrão, escolher pela forma da entidade:**
+
+1. **`seasonId` nullable + FK** (Member, Sponsor, Material, TextileItem, AthletePayment, Quota) — a entidade nasce e morre dentro de uma época (um sócio pode ter uma linha por época; um material pode ser reatribuído a outra época). `seasonId String?` + `season Season? @relation(onDelete: SetNull)`. Filtrar por `where: { seasonId }` quando definido.
+2. **Janela temporal `joinedAt`/`leftAt`** (Athlete, desde 2026-07-18) — a entidade é **persistente** através de épocas e tem histórico rico ligado ao mesmo id (pagamentos, assiduidade, materiais, cargos de direção). Duplicar por época partiria esse histórico. Dois campos `DateTime?` nullable, sem defaults, sem backfill: `NULL` em `joinedAt` = sempre foi membro; `NULL` em `leftAt` = ainda é membro. Filtrar com o helper partilhado, nunca reimplementar a lógica de janela caso a caso:
+   ```typescript
+   // src/lib/athleteMembership.ts
+   athleteMembershipWhere(season: {startDate,endDate} | null)  // Prisma where
+   wasAthleteActiveInSeason(entity, season)                    // boolean, em memória
+   ```
+   Escolher este padrão quando a resposta a "esta entidade pode ter registos de épocas diferentes ligados ao mesmo id, que não fazem sentido divididos por várias linhas?" for sim.
+
 ### 3. Validação Zod
 ```typescript
 // src/lib/validations.ts — adicionar schemas
-export const createNovoModeloSchema = z.object({ ... })
-export const updateNovoModeloSchema = createNovoModeloSchema.partial()
+// ⚠️ NUNCA derivar o update do create — .partial() não remove .default() dos
+// campos herdados (ver "Validação com Zod" mais abaixo). Schema base sem defaults
+// + create (extend com defaults) + update (partial do base):
+const novoModeloBaseSchema = z.object({ name: z.string() /* ... sem defaults */ })
+export const createNovoModeloSchema = novoModeloBaseSchema.extend({ /* campos com .default() aqui */ })
+export const updateNovoModeloSchema = novoModeloBaseSchema.partial()
 ```
 
 ### 4. API Routes
@@ -261,6 +276,19 @@ positions: z.record(z.object({ x: z.number(), y: z.number() }))
 positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() }))
 ```
 
+**⚠️ `.partial()` NÃO remove `.default()` dos campos herdados** — achado sistémico 2026-07-18, corrigido em 8 módulos. Um `updateSchema` derivado de `createSchema.partial()` continua a ter `.default()` nos campos que o create definiu com default — omitir esse campo num PATCH não o deixa intacto, **reescreve-o silenciosamente para o valor por omissão**:
+```typescript
+// ❌ perigoso: PATCH que omite `state` reescreve-o para 'FREE' mesmo que o registo tivesse 'ASSIGNED'
+const createSchema = z.object({ name: z.string(), state: z.enum([...]).default('FREE') })
+const updateSchema = createSchema.partial()   // state continua com .default('FREE')!
+
+// ✅ padrão correto: schema base SEM defaults + create (extend com defaults) + update (partial do base)
+const baseSchema = z.object({ name: z.string(), state: z.enum([...]) })          // sem defaults
+const createSchema = baseSchema.extend({ state: z.enum([...]).default('FREE') }) // defaults só aqui
+const updateSchema = baseSchema.partial()                                        // nunca derivado do create
+```
+Ver `src/lib/validations.ts` para os 8 módulos já convertidos a este padrão (Athlete, Member, Material, Sponsor, Travel, Direction, TrainingSession, Textile) — usar como referência ao criar um novo módulo.
+
 ### Client Components — Fetch Pattern
 ```typescript
 const fetchData = useCallback(async () => {
@@ -276,6 +304,27 @@ const fetchData = useCallback(async () => {
 
 useEffect(() => { fetchData() }, [fetchData])
 ```
+
+**⚠️ Guarda de sequência quando o fetch é accionado por um filtro que muda depressa** (ex: selector de época, dropdown de escalão) — sem isto, um pedido antigo e mais lento pode resolver **depois** de um mais recente e sobrepor dados correctos com os do filtro anterior. Achado ao vivo 2026-07-18 (troca rápida de época em Mensalidades/Atletas/Dashboard). Padrão: `useRef` incrementado a cada pedido, comparado antes de cada `setState`:
+```typescript
+const fetchSeq = useRef(0)
+const fetchData = useCallback(async () => {
+  const seq = ++fetchSeq.current
+  setLoading(true)
+  try {
+    const res = await fetch('/api/...')
+    if (seq !== fetchSeq.current) return   // já há um pedido mais recente — descarta esta resposta
+    if (res.ok) {
+      const data = await res.json()
+      if (seq !== fetchSeq.current) return  // repetir o check após o segundo `await`
+      setData(data)
+    }
+  } finally {
+    if (seq === fetchSeq.current) setLoading(false)  // não desligar o loading de um pedido já ultrapassado
+  }
+}, [deps])
+```
+Aplicar sempre que um `fetchX` estiver na dependency array de um `useEffect` que reage a um filtro/selector (não é preciso em fetches que só correm uma vez ao montar). Ver `fees/page.tsx`, `athletes/page.tsx`, `page.tsx` (dashboard) para exemplos reais.
 
 ### Toast Feedback
 ```typescript
@@ -445,7 +494,9 @@ const selectedSeason = mounted ? getSelectedSeason() : null
 
 **Continuar a usar `skipHydration: true` no `persist()` da store** (evita que o *módulo* já traga dados no primeiro render de qualquer consumidor) **e** o `rehydrate()` num efeito ancestral (`HtmlLang.tsx` para `authStore`, `(dashboard)/layout.tsx` para `seasonStore`) — isto mantém a store correta o mais cedo possível para consumidores que só leem *texto* (menor risco). O `useMounted()` é a camada extra só para JSX que muda de **estrutura** (tipo de tag, presença/ausência de blocos inteiros).
 
-**Onde já aplicado:** `textiles/page.tsx`, `members/page.tsx`, `sponsors/page.tsx`, `SeasonSelector.tsx`. Ao adicionar novo JSX condicionado por `seasons.length`/`selectedSeason`/`user`/`permissions` fora destes ficheiros, aplicar o mesmo padrão.
+**Onde já aplicado:** `textiles/page.tsx`, `members/page.tsx`, `sponsors/page.tsx`, `materials/page.tsx`, `fees/page.tsx`, `athletes/page.tsx`, `athletes/[id]/page.tsx`, `direction/page.tsx` (componente `SalaryCalendar`), `SeasonSelector.tsx`. Ao adicionar novo JSX condicionado por `seasons.length`/`selectedSeason`/`user`/`permissions` fora destes ficheiros, aplicar o mesmo padrão — inclui componentes internos de uma página que leem a store directamente (não basta o componente de topo da página estar coberto).
+
+**`hasUserSelected` em `seasonStore` (2026-07-18)** — distingue "nunca escolhi" de "escolhi propositadamente Todas as épocas" (`selectedSeasonId: null` serve para os dois). Sem este flag, `setSeasons()` não conseguia saber se devia respeitar uma escolha explícita do utilizador ou recalcular o default — e recalculava sempre para a primeira época da lista (nem sempre a activa), causando o bug em que sócios/patrocinadores/materiais desapareciam ao criar a primeira época do clube. Ver `src/store/seasonStore.ts`.
 
 ---
 

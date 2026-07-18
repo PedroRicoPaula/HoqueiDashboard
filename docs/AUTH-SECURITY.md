@@ -88,6 +88,7 @@ PROTECTED_ROUTES = [
   { pattern: /^\/direction/,  flag: 'viewDirection' },
   { pattern: /^\/reports/,    flag: 'viewAthletes' },
   { pattern: /^\/admin/,      flag: 'isAdmin' },
+  { pattern: /^\/settings/,   flag: 'isAdmin' },  // adicionado 2026-07-18, ver SEC-032
 ]
 // isAdmin bypassa qualquer flag
 ```
@@ -348,16 +349,28 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 ---
 
-## Fluxo de Registo (sem tempPassword)
+## Vulnerabilidades 2026-07-18
 
-O fluxo seguro de onboarding (implementado 2026-06-25) evita expor credenciais:
+| ID | Severidade | Resumo | Estado |
+|----|-----------|--------|--------|
+| SEC-032 | ~~ALTO~~ | `GET`/`PATCH /api/settings` não verificavam `isAdmin` nem usavam `getDbForRequest` correctamente — qualquer utilizador autenticado (não só admin) conseguia ler e alterar as definições do clube (nome, idioma, país, cor). Rota também não estava em `PROTECTED_ROUTES` do middleware | ✅ Resolvido 2026-07-18 (`getDbForRequest` + `isAdmin` check nos dois handlers; `CLUB_SELECT` allowlist explícita no GET; rota adicionada a `PROTECTED_ROUTES`) |
+| SEC-033 | ~~MÉDIO~~ | `POST /api/register/complete` — reabrir o mesmo `success_url` do Stripe Checkout (link antigo, refresh do browser) emitia um token de sessão novo de cada vez; nada impedia reusar o mesmo `session_id` indefinidamente | ✅ Resolvido 2026-07-18 (`Club.registerCompletedAt` gravado atomicamente via `updateMany` com o próprio campo `null` no `where` — funciona como claim de utilização única; se `count === 0`, pedido rejeitado sem emitir token. Claim acontece antes de qualquer token ser emitido) |
+| SEC-034 | ~~BAIXO~~ | `PUT /api/admin/users/[id]` (redefinir password) não impedia um admin de redefinir a própria password através do painel de administração — via cliente conseguia auto-destrancar-se sem passar pelo fluxo normal de "Mudar palavra-passe" | ✅ Resolvido 2026-07-18 (botão desactivado no cliente para a própria conta; servidor rejeita o pedido quando `id === utilizador autenticado`, independentemente do payload) |
 
-1. `POST /api/register` → cria `Club` + `User` com password placeholder (32 bytes aleatórios, ninguém sabe)
-2. Stripe Checkout → pagamento
-3. `checkout.session.completed` webhook → incrementa `tokenVersion`, cria `PasswordResetToken` (24h), envia email "Definir Palavra-passe" com link para `/reset-password?token=...`
-4. Utilizador clica no link → define a sua própria password → sessão iniciada
+---
 
-**Sem** `tempPassword` em metadata Stripe. **Sem** credenciais em texto claro em email. `RESEND_API_KEY` é **obrigatório** para este fluxo funcionar — sem ele, o utilizador recebe o Stripe Checkout mas não recebe o email de boas-vindas.
+## Fluxo de Registo (password definida no formulário)
+
+**Reescrito 2026-07-17** — o fluxo anterior (tempPassword + email de boas-vindas com link de definição de password) foi substituído:
+
+1. `POST /api/register` → recebe `password`+`confirmPassword` no próprio formulário de registo (`min(8)` + `refine` de igualdade) → cria `Club` (`PENDING_PAYMENT`) + `User` admin já com a hash da password definida (sem placeholder). Rate limited (5/hora/IP). Audit log `REGISTER`
+2. Stripe Checkout → pagamento → `success_url` aponta para `/register/complete?session_id={CHECKOUT_SESSION_ID}`
+3. `POST /api/register/complete` confirma `payment_status === 'paid'` **directo no Stripe** (não espera pelo webhook), activa o clube via `src/lib/clubActivation.ts`, e devolve o mesmo contrato JSON de `/api/auth/login` (`{user, permissions, redirectTo}` + cookie `hm_token`) — login automático, sem passar pelo ecrã de login
+4. Webhook `checkout.session.completed` chama o mesmo `activateClubFromSession()` como backstop idempotente, para o caso de o browser nunca voltar ao `success_url`
+
+**Sem** `tempPassword` em metadata Stripe — a password já existe desde o passo 1. **Sem** email de boas-vindas (`welcomeEmailHtml` removido de `src/lib/email.ts` — código morto). `RESEND_API_KEY` **já não é crítico** para o onboarding — só é usado por `/forgot-password`.
+
+**Anti-replay (2026-07-18, SEC-033):** ver tabela acima — `Club.registerCompletedAt` fecha a possibilidade de reabrir `success_url` para gerar sessões novas indefinidamente.
 
 ---
 

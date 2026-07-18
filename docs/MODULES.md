@@ -25,6 +25,7 @@
 - Registo 2 passos: (1) dados do clube **+ password/confirmar password**, (2) seleção de plano; mensagens de validação i18n
 - `POST /api/register` → rate limited (5/hora/IP) → valida `password`/`confirmPassword` (`min(8)` + iguais) → cria `Club` (PENDING_PAYMENT) + `User` admin com a hash da password já definida (sem placeholder) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
 - **Login automático pós-pagamento (2026-07-17):** `success_url` do Checkout aponta para `/register/complete?session_id={CHECKOUT_SESSION_ID}` — página fora de `[locale]`/`(dashboard)`. `POST /api/register/complete` confirma `payment_status === 'paid'` **directo no Stripe** (não espera pelo webhook — evita a corrida entre o browser voltar e o webhook assíncrono chegar), activa o clube via `src/lib/clubActivation.ts` e devolve o mesmo contrato JSON de `/api/auth/login` (`{user, permissions, redirectTo}` + cookie `hm_token`). A página cliente chama `setAuth()` e entra logo no dashboard — sem passar pelo login. Em cancelamento redireciona para `NEXT_PUBLIC_LANDING_URL/{locale}/register?cancelled=1` (fallback: `hoqueimanager.com`)
+- **Fecho de replay (2026-07-18, segurança):** reabrir o mesmo `success_url` (link antigo, refresh, etc.) emitia um token novo de cada vez — nada impedia reusar o mesmo `session_id`. `Club.registerCompletedAt` é gravado atomicamente via `db.club.updateMany({ where: { id, registerCompletedAt: null }, data: { registerCompletedAt: new Date() } })` — o próprio campo `null` no `where` funciona como claim; se `count === 0`, alguém já activou este clube e o pedido é rejeitado, sem emitir token. O claim acontece **antes** de qualquer token ser emitido.
 - **Webhook como backstop:** `checkout.session.completed` chama o mesmo `activateClubFromSession()` (idempotente — não importa qual dos dois activa primeiro) só para o caso de o browser nunca voltar ao `success_url`. Já não cria `PasswordResetToken` nem envia email — a password já existe desde o registo. `RESEND_API_KEY` deixou de ser necessário para o onboarding, só para `/forgot-password`.
 - Stripe webhook (`/api/stripe/webhook`) muda status `Club` em resposta a eventos de pagamento e regista `logAudit` em todos os eventos
 - **Cookie consent banner** (`CookieBanner.tsx`): aparece na 1ª visita, persiste aceitação em `localStorage` chave `hm_cookie_consent`
@@ -104,6 +105,8 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 **Permissão:** `isAdmin`  
 **APIs:** `GET /api/settings`, `PATCH /api/settings`, `PATCH /api/seasons/[id]` (para guardar tarifas da época)
 
+> **Segurança (2026-07-18):** `GET`/`PATCH /api/settings` reescritos para usar `getDbForRequest` + verificação explícita de `isAdmin` — antes qualquer utilizador autenticado (não só admin) conseguia ler e alterar as definições do clube. Rota adicionada a `PROTECTED_ROUTES` em `src/middleware.ts`. `CLUB_SELECT` allowlist explícita no `GET` (nunca expõe `stripeCustomerId`/`stripeSubscriptionId`/etc.).
+
 ### Funcionalidades
 - Página reorganizada em 4 cards: **Logo do clube**, **Mensalidades e Quotas por Época**, **Cor do clube**, **Informações gerais**
 - Atualizar nome do clube, país, idioma do dashboard
@@ -127,13 +130,13 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 | GET | `/api/seasons` | Lista épocas do clube (com `_count.members` + `_count.sponsors`) |
 | POST | `/api/seasons` | Criar época (`name`, `startDate`, `endDate`); `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` inicializados a `5` (não `null`) para Definições nunca mostrar valores vazios — clube ajusta depois se quiser |
 | PATCH | `/api/seasons/[id]` | Atualizar campos ou ativar época (`{ isActive: true }` → desativa todas as outras) |
-| DELETE | `/api/seasons/[id]` | Eliminar época (rejeita se tiver members/sponsors/athletePayments/quotas associados) |
+| DELETE | `/api/seasons/[id]` | Eliminar época (rejeita se tiver members/sponsors/athletePayments/quotas/**materials/textileItems** associados — os dois últimos em falta até 2026-07-18) |
 
 ### Funcionalidades
 - **CRUD completo**: criar, editar, ativar e eliminar épocas desportivas
 - **Épocas por clube**: cada clube tem as suas próprias épocas (TENANTED — `clubId` auto-injectado)
 - **Ativar época**: muda `isActive=true` nessa época e `isActive=false` em todas as outras; no máximo 1 ativa por clube
-- **Guarda de eliminação**: API rejeita DELETE se a época tiver sócios, patrocinadores, pagamentos ou quotas associados
+- **Guarda de eliminação (reforçada 2026-07-18)**: API rejeita DELETE se a época tiver sócios, patrocinadores, pagamentos, quotas, materiais ou têxteis associados (`season._count` sobre as 6 relações); rejeita **sempre** eliminar a época activa, mesmo por pedido directo à API — antes só o botão do cliente estava desactivado. Nota: a contagem de `athletePayments` só é fiável para pagamentos registados a partir de 2026-07-18 (ver `docs/DATABASE.md`, campo `AthletePayment.seasonId`)
 - **SeasonSelector no Sidebar**: dropdown compacto que mostra as épocas e permite alternar; persiste em `seasonStore` (Zustand, key `hm-season`)
 - **Badge chip na toolbar**: quando uma época está selecionada, os módulos Members/Sponsors/Fees/Dashboard mostram um chip com o nome da época
 
@@ -151,6 +154,7 @@ interface SeasonOption {
 {
   seasons: SeasonOption[]
   selectedSeasonId: string | null
+  hasUserSelected: boolean   // ver nota 2026-07-18 abaixo
   setSeasons(seasons: SeasonOption[]): void
   setSelectedSeason(id: string | null): void
   getSelectedSeason(): SeasonOption | null
@@ -160,6 +164,7 @@ interface SeasonOption {
 - Persistido via `zustand/middleware/persist` com key `hm-season` em `localStorage`
 - Carregado por `SeasonSelector.tsx` (GET `/api/seasons`) ao montar o Sidebar
 - `defaultAthleteMonthlyFee`/`defaultMemberMonthlyQuota` disponíveis em todos os componentes via store
+- **`hasUserSelected` (2026-07-18)** — distingue "nunca escolhi" de "escolhi propositadamente Todas as épocas" (`selectedSeasonId: null` serve para os dois casos, por isso não chega sozinho). `setSeasons()` só recalcula o default (segue a época activa) se `hasUserSelected` for `false` **ou** se a época anteriormente seleccionada já não existir na lista fresca; nunca cai de volta para "a primeira época da lista". Este era o root cause do bug em que sócios/patrocinadores/materiais desapareciam ao criar a primeira época do clube (a store escolhia essa época, tipicamente `isActive:false`, sem o utilizador pedir) — ver `docs/ISSUES-BACKLOG.md`
 
 ### Componentes
 - `src/components/season/SeasonSelector.tsx` — dropdown no Sidebar com opção "Todas as épocas"
@@ -168,8 +173,9 @@ interface SeasonOption {
 ### Módulos que respondem ao seasonStore
 | Módulo | Comportamento |
 |--------|--------------|
-| Dashboard | `?seasonId` filtra contadores de sócios, patrocinadores e receitas de mensalidades |
-| Mensalidades | `?seasonId` usa meses dinâmicos da Season; `effectiveFee` calculado com `defaultAthleteMonthlyFee` e `discountPercent` |
+| Dashboard | `?seasonId` filtra contadores de atletas (via `athleteMembershipWhere`), sócios, patrocinadores e receitas de mensalidades; auto-recupera (limpa o filtro + toast) se o `seasonId` guardado já não existir (época apagada) |
+| Atletas | `?seasonId` aplica `athleteMembershipWhere` (`joinedAt`/`leftAt`) — ver secção 2 acima; perfil individual nunca filtra por época |
+| Mensalidades | `?seasonId` usa meses dinâmicos da Season + `athleteMembershipWhere`; `effectiveFee` calculado com `defaultAthleteMonthlyFee` e `discountPercent`; sem `seasonId`, mostra todos os atletas com `monthlyFee` bruto |
 | Sócios | `?seasonId` filtra lista; form pré-seleciona a época; QuotaCalendar usa `season.endDate.year`; quota auto-preenchida com `defaultMemberMonthlyQuota` |
 | Patrocinadores | `?seasonId` filtra lista; form pré-seleciona a época |
 | Equip. Hóquei | `?seasonId` filtra materiais por `Material.seasonId`; form usa picker de época |
@@ -228,30 +234,32 @@ updateSeasonSchema: { name?, startDate?, endDate?, isActive? }
 **Permissão leitura:** `viewAthletes`  
 **Permissão escrita:** `editAthletes`  
 **APIs:**
-- `GET /api/athletes?search=&ageGroup=` → lista filtrada, orderBy number asc
+- `GET /api/athletes?search=&ageGroup=&seasonId=` → lista filtrada, orderBy number asc. `seasonId` aplica `athleteMembershipWhere` (ver `src/lib/athleteMembership.ts`) — sem `seasonId` (Todas as épocas), sem filtro de membership
 - `POST /api/athletes` → criar (201)
-- `GET /api/athletes/[id]` → perfil com `include: { materials, directionRole }`
-- `PUT /api/athletes/[id]` → atualizar
+- `GET /api/athletes/[id]` → perfil com `include: { materials, directionRole }` — **nunca filtra por época**, sempre acessível independentemente da época seleccionada globalmente
+- `PUT /api/athletes/[id]` → atualizar; aceita `leftAt` (string ISO ou `null`)
 - `DELETE /api/athletes/[id]` → eliminar
 
 ### Funcionalidades — Lista (/athletes)
 - Tabela com número, nome, escalão, data nascimento, **idade** (calculada em runtime), telefone
-- Filtro por escalão (select) + pesquisa por nome/telefone (debounced)
+- Filtro por escalão (select) + pesquisa por nome/telefone (debounced) + respeita a época global seleccionada (`seasonStore`)
+- **Membership de época (2026-07-18)**: badge "Ex-atleta" para quem tem `leftAt` definido; botão "Marcar saída do clube"/"Reativar" por linha. Um atleta com `leftAt` anterior ao início da época seleccionada não aparece na lista dessa época, mas continua acessível directamente pelo perfil
 - Botão perfil (ExternalLink → `/athletes/[id]`)
 - Empty state com CTA "Adicionar primeiro atleta" quando sem filtros
 - Sheet lateral para criar/editar atleta
 - Dialog de confirmação de eliminação
 - Campos: número, nome, escalão, data nasc., telefone, email, NIF, CC/BI, morada
-- **Mensalidade** (todos os escalões incluindo SENIORS): info box com tarifa da época (`defaultAthleteMonthlyFee`), campo de desconto individual (0-100%), toggle isenção; preview do valor efetivo quando desconto > 0
+- **Mensalidade** (todos os escalões, **incluindo SENIORS desde 2026-07-18** — exclusão anterior era um bug bloqueante, ver Notas): info box com tarifa da época (`defaultAthleteMonthlyFee`), campo de desconto individual (0-100%), toggle isenção; preview do valor efetivo quando desconto > 0
 - Campos só para não-SENIORS: escola, encarregado de educação
 
 ### Funcionalidades — Perfil (/athletes/[id])
-- Header com número, nome, escalão, badge isento
+- Header com número, nome, escalão, badge isento, **badge "Ex-atleta desde DD/MM/AAAA"** + botão "Reativar"/"Marcar saída do clube"
 - **Dropdown de navegação**: filtrar por escalão → selecionar atleta → navega para perfil
 - Escalão pré-selecionado = escalão do atleta atual
-- Cards: info pessoal, contacto, **mensalidade** (breakdown: tarifa época → desconto% → valor efetivo), materiais atribuídos
+- **Card "Histórico de Épocas"** (2026-07-18): chips clicáveis, uma por cada época em que o atleta esteve activo (`wasAthleteActiveInSeason`) — é o único ponto da UI onde se vê de forma explícita todas as épocas passadas de um atleta
+- Cards: info pessoal, contacto, **mensalidade** (breakdown: tarifa época → desconto% → valor efetivo, disponível para todos os escalões), materiais atribuídos
 - Funções na Direção (se athlete.directionRole existe)
-- Histórico de pagamentos (só se `can('viewFees')` e não-SENIORS) com navegação por época (‹ ›)
+- **Histórico de Pagamentos** (só se `can('viewFees')`, todos os escalões) com navegação por ano (‹ ›). Limite inferior calculado a partir da época mais antiga real do clube (`Math.min` sobre `useSeasonStore().seasons`) — nunca hardcoded (bug corrigido 2026-07-18, ver `docs/ISSUES-BACKLOG.md` BUG-034)
 - Sheet de edição inline (inclui campo `discountPercent`)
 - Error handling: 401→"Sessão expirada", 404/500→"Atleta não encontrado"
 
@@ -273,8 +281,9 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 ```
 
 ### Notas
-- SENIORS excluídos do histórico de pagamentos na tab do perfil (design intencional), mas têm mensalidade configurável
-- `birthDate` guardado como `DateTime` no DB, sempre string ISO na API
+- **SENIORS já não são excluídos de nada** (lista, perfil, histórico de pagamentos, Mensalidades, Dashboard, Relatórios) — a exclusão anterior (`ageGroup: {not:'SENIORS'}` em vários endpoints) era um bug bloqueante corrigido em 2026-07-18, não um design intencional
+- `joinedAt`/`leftAt` (`DateTime?`, ambos nullable, sem defaults): janela de membership por época. `NULL` em `joinedAt` = sempre foi membro; `NULL` em `leftAt` = ainda é membro. Ver `src/lib/athleteMembership.ts` e `docs/CONVENTIONS.md` (padrão "janela temporal vs seasonId por registo")
+- `birthDate` guardado como `DateTime` no DB, sempre string ISO na API; validado no servidor para não estar no futuro
 - Número de atleta único (`@unique`)
 
 ---
@@ -285,22 +294,21 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 **Permissão leitura:** `viewFees`  
 **Permissão escrita:** `editFees`  
 **APIs:**
-- `GET /api/fees?season=&ageGroup=[&seasonId=<uuid>]` → grelha época com summary financeiro
+- `GET /api/fees?season=&ageGroup=[&seasonId=<uuid>]` → grelha época com summary financeiro. Com `seasonId`, aplica `athleteMembershipWhere` (atletas fora da janela `joinedAt`/`leftAt` da época não aparecem); sem `seasonId` ("Todas as épocas"), mostra todos os atletas sem filtro de membership e usa `athlete.monthlyFee` em vez da tarifa da época (não há uma época concreta de onde ler `defaultAthleteMonthlyFee`)
 - `GET /api/athletes/[id]/payments?year=` → pagamentos de atleta por ano (usa `db` — tenant-scoped)
-- `POST /api/athletes/[id]/payments` → upsert pagamento (usa `db.athletePayment.upsert`, clubId auto-injectado)
+- `POST /api/athletes/[id]/payments?seasonId=<uuid>` → upsert pagamento (usa `db.athletePayment.upsert`, clubId auto-injectado). **`seasonId` é gravado no registo desde 2026-07-18** (antes só era lido da query string para calcular o valor efetivo, nunca persistido — ver `docs/ISSUES-BACKLOG.md` BUG-035); pagamentos criados antes dessa data continuam com `seasonId = NULL`, sem backfill. É este campo que o guard de eliminação de época (`DELETE /api/seasons/[id]`) usa para saber se uma época tem pagamentos associados
 
 ### Funcionalidades
-- Grelha: linhas = atletas (não-SENIORS), colunas = meses da época (dinâmicos)
+- Grelha: linhas = atletas activos na época seleccionada (todos os escalões, incluindo SENIORS desde 2026-07-18), colunas = meses da época (dinâmicos)
 - **Paginação**: 25 atletas por página; controls ‹ › com indicador "Pág X / Y"
 - **Coluna "Total"** sticky à direita: verde = total pago na época, vermelho = total pendente; "—" se isento
 - **Célula não paga**: clique abre dialog de confirmação (valor editável, campo de notas) → regista pagamento
 - **Célula paga**: ponto azul se tiver nota; clique abre dialog para editar valor / remover pagamento
-- **Cabeçalho de mês clicável**: marca todos os atletas não pagos desse mês de uma vez (com confirmação + notas opcional)
+- **Cabeçalho de mês clicável**: marca todos os atletas não pagos desse mês de uma vez (com confirmação + notas opcional) — aviso no diálogo de que a acção é sempre à escala da página actual (25 atletas), não do total filtrado
 - **Seleção múltipla**: botão "Seleção múltipla" + barra inferior para registar vários pagamentos em batch
-- Filtro por escalão + navegação por época (sem limite superior quando sem seasonId)
+- Filtro por escalão + época global (`seasonStore`); pager local de fallback (visível só em "Todas as épocas") com limite inferior calculado a partir da época mais antiga real do clube, nunca hardcoded (mesmo bug/fix de `athletes/[id]`, ver BUG-034)
 - Summary: total cobrado, total em falta, atletas a dia, atletas com atrasos, isentos
-- Não inclui SENIORS (design intencional)
-- **Filtro por época**: quando `seasonStore.selectedSeasonId` está definido, o botão de navegação de época desaparece e os meses são calculados dinamicamente a partir do Season do DB
+- Todos os pedidos accionados por troca de época (`fetchData`) usam uma guarda de sequência (`useRef` incrementado por pedido) para descartar respostas antigas que resolvam depois de uma mais recente — ver `docs/CONVENTIONS.md` ("Guarda de sequência em fetches accionados por filtro")
 
 ### Lógica de época (dinâmica)
 - **Com `?seasonId`**: API busca Season, chama `computeSeasonMonths(startDate, endDate)` — gera array `[{year, month}]` para qualquer intervalo de datas. Filtro de pagamentos usa `OR: months.map(({year,month}) => ({year,month}))`. Resposta inclui campo `months` que o cliente armazena em `apiMonths` state.
@@ -309,8 +317,9 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 - `isMonthPast`: `year < currentYear || (year === currentYear && month < currentMonth)`
 
 ### Cálculo effectiveFee na API (/api/fees)
+- `computeEffectiveFee`/`isMonthPast`/`computeSeasonMonths` centralizados em `src/lib/feeCalc.ts` desde 2026-07-18 (antes havia 3 implementações divergentes: `/api/fees`, `/api/reports/financial`, `athletes/[id]/page.tsx` — fonte do BLOCKER do Relatório Financeiro, que ignorava a época seleccionada)
 - API busca a `Season` selecionada para obter `defaultAthleteMonthlyFee`
-- Para cada atleta: `effectiveFee = seasonDefault * (1 - discountPercent/100)` (ou `monthlyFee` como fallback legado)
+- Para cada atleta: `effectiveFee = seasonDefault * (1 - discountPercent/100)` (ou `monthlyFee` como fallback legado, usado sempre que não há `seasonId` — ver "Todas as épocas" acima)
 - `AthleteWithPayments` no cliente inclui `effectiveFee: number` — toda a lógica de pagamento usa este valor
 
 ### Notas
@@ -334,7 +343,7 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 ### Funcionalidades
 - Tabela com número (auto-increment por época), nome, quota mensal, telefone, email
 - **Paginação**: 50 sócios por página
-- **Coluna Estado**: badge verde "Em dia" / vermelho "X em atraso" com base nos meses passados do ano corrente
+- **Coluna Estado**: badge verde "Em dia" / vermelho "X em atraso" com base nos meses passados do ano corrente. `lateMonths` nunca era calculado em `toResult()` até 2026-07-18 (campo sempre `0`/`undefined` → Estado mostrava sempre "Em dia" independentemente de quotas reais em atraso) — BLOCKER corrigido, ver `docs/ISSUES-BACKLOG.md`
 - Pesquisa por nome, email ou número de sócio (debounced)
 - Email e telefone clicáveis: `mailto:` e `tel:` links diretos
 - Empty state com CTA "Adicionar primeiro sócio" quando sem pesquisa ativa
@@ -368,7 +377,7 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
 ### Funcionalidades
 - Tabela: tipo, marca/modelo, categoria, estado, atleta atribuído, **valor/quem pagou**
 - Filtros: pesquisa por tipo/nome, categoria, estado
-- **Filtro por época**: chip de badge quando `selectedSeason` ativo; lista filtra por `Material.seasonId`; form inclui picker de época (selector com épocas do store ou fallback input texto)
+- **Filtro por época**: chip de badge quando `selectedSeason` ativo; lista filtra por `Material.seasonId`; form inclui picker de época (selector com épocas do store ou fallback input texto). Picker usa `setValueAs: (v) => v ? v : null` desde 2026-07-18 — o `<select>` enviava string vazia em vez de `null` ao escolher "Sem época" de volta, ficando impossível reverter um material para "sem época" depois de lhe atribuir uma (mesmo fix em Sócios)
 - **Tipos predefinidos por categoria** (constante `MATERIAL_TYPES` em `src/lib/constants.ts`):
   - `ATHLETE`: Patins Completos, Botas, Chassis, Rodas, Travões, Rolamentos, Stick, Bola, Luvas, Joelheiras, Caneleiras, Coquilha, Capacete com Viseira
   - `GOALKEEPER`: Patins de Guarda-Redes, Stick de Guarda-Redes, Caneleiras GR, Peitilho, Luva de Raquete, Luva do Stick, Máscara com Grelha/Viseira, Calções Almofadados, Proteção de Pescoço
@@ -379,7 +388,7 @@ AgeGroup: SUB11 | SUB13 | SUB15 | SUB17 | SUB19 | SENIORS
   - `paidAmount Float?` — **custo do equipamento**, independente de quem pagou; sempre visível
   - `paidByAthlete Boolean` — se o atleta pagou (sim → clube poupou; não → clube gastou)
   - Tabela: badge **verde** `X€ (atleta)` se pago pelo atleta; badge **laranja** `X€ (clube)` se clube pagou; traço se sem valor
-  - Campos limpos automaticamente quando material é desatribuído
+  - Campos limpos automaticamente quando o **estado** deixa de ser `ASSIGNED` no próprio pedido de edição — **não** quando `athleteId` está ausente por si só. `ASSIGNED` sem atleta é uma combinação válida (material do clube em uso partilhado, ex: máscara de guarda-redes) — até 2026-07-18, `PUT /api/materials/[id]` interpretava incorretamente "sem atleta" como "estado devia ser FREE" e apagava `state`+`paidAmount` em qualquer edição desses itens, mesmo sem tocar nesses campos. Ver `docs/ISSUES-BACKLOG.md` BUG-037
 - **Modo batch**: criar múltiplos itens de uma vez com atleta partilhado + lista de cards
   - Submit usa `Promise.allSettled` (falha parcial não cancela os restantes)
 - Empty state com CTA quando sem materiais e sem filtros ativos
@@ -560,16 +569,17 @@ DIRECTION_ROLES: 'TRAINER' | 'ASSISTANT_TRAINER' | 'DIRECTOR' | 'SECCIONISTA' | 
 **Página:** `/reports`  
 **Permissão:** `viewAthletes` (atletas) · `viewMembers` (sócios) · `viewFees` (financeiro) · `viewMaterials` (materiais) · `viewAttendance` (assiduidade) · `viewTextiles` (têxteis)  
 **APIs:**
-- `GET /api/reports/athletes?ageGroup=` → XLSX atletas
+- `GET /api/reports/athletes?ageGroup=&seasonId=` → XLSX atletas. `seasonId` aplica `athleteMembershipWhere` desde 2026-07-18 (antes ignorava a época seleccionada na página)
 - `GET /api/reports/members?year=` → XLSX sócios com estado de quotas
-- `GET /api/reports/financial?season=` → XLSX financeiro (mensalidades por época)
-- `GET /api/reports/materials` → XLSX materiais
+- `GET /api/reports/financial?seasonId=` → XLSX financeiro (mensalidades por época). **Reescrito 2026-07-18** — período era hardcoded e ignorava a época seleccionada (BLOCKER); usa agora `src/lib/feeCalc.ts` (partilhado com `/api/fees`) + `athleteMembershipWhere`
+- `GET /api/reports/materials?seasonId=` → XLSX materiais. `seasonId` adicionado 2026-07-18 (antes não filtrava por época de todo)
 - `GET /api/reports/attendance?ageGroup=` → XLSX assiduidade
 - `GET /api/reports/textiles?season=` → XLSX têxteis
 
 ### Funcionalidades
 - Download **XLSX** (Excel nativo — encoding de caracteres especiais correto sem BOM hack)
 - Helper `src/lib/xlsx.ts` → `buildXlsx(sheetName, headers, rows)` (ExcelJS) com auto-width e cabeçalho negrito+fundo cinzento
+- Página ligada ao `seasonStore` global desde 2026-07-18 (antes tinha estado de época próprio, divergente do resto do dashboard) — cards de Atletas/Financeiro/Materiais mostram a época actualmente seleccionada em vez de um selector local
 - Relatório atletas: número, nome, escalão, data nasc., NIF, CC/BI, contacto, mensalidade
 - **Relatório sócios**: número, nome, contacto, quota mensal, Jan-Dez (valor pago), total pago, estado
 - Relatório financeiro: por época, colunas por mês, total pago, em falta
@@ -594,7 +604,8 @@ DIRECTION_ROLES: 'TRAINER' | 'ASSISTANT_TRAINER' | 'DIRECTOR' | 'SECCIONISTA' | 
 - Botão **"Redefinir Password"** (ícone chave) por utilizador → dialog com 2 campos + confirmação de match
 - Botão **"Permissões"** por utilizador → `PermissionsModal`
 - Botão **"Novo Utilizador"** → dialog criar utilizador
-- Proteção: admin não pode remover isAdmin de si próprio (verificado no cliente)
+- Proteção: admin não pode remover isAdmin de si próprio (verificado no cliente e no servidor — `data.isAdmin` forçado a `true` em `PUT /api/admin/permissions/[userId]` quando `userId === utilizador autenticado`, independentemente do payload; ver SEC-030)
+- **Proteção (2026-07-18)**: botão "Redefinir Password" desactivado para a própria conta (cliente) + `PUT /api/admin/users/[id]` rejeita o pedido quando `id === utilizador autenticado` (servidor) — obriga a passar pelo fluxo normal de "Mudar palavra-passe" do perfil em vez de um admin se conseguir auto-destrancar por aqui
 - **Enforced**: ativar permissão de edição ativa automaticamente a de leitura; desativar leitura desativa edição
 
 ### 20 Flags de Permissão
