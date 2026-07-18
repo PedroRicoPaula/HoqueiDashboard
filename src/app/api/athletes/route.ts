@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
 import { createAthleteSchema } from '@/lib/validations'
+import { athleteMembershipWhere } from '@/lib/athleteMembership'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
 import type { AgeGroup } from '@prisma/client'
@@ -20,10 +21,17 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') || ''
     const ageGroup = searchParams.get('ageGroup') || ''
+    const seasonId = searchParams.get('seasonId') || ''
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
     const all = searchParams.get('all') === 'true'
 
     const searchAsNumber = /^\d+$/.test(search) ? parseInt(search) : null
+
+    let season: { startDate: Date; endDate: Date } | null = null
+    if (seasonId) {
+      season = await db.season.findUnique({ where: { id: seasonId }, select: { startDate: true, endDate: true } })
+      if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
+    }
 
     const where = {
       AND: [
@@ -37,6 +45,7 @@ export async function GET(req: Request) {
             }
           : {},
         ageGroup ? { ageGroup: ageGroup as AgeGroup } : {},
+        athleteMembershipWhere(season),
       ],
     }
 

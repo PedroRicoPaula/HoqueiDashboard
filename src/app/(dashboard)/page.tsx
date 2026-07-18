@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,7 @@ import { useDashLabels } from '@/hooks/useDashLabels'
 import { useAuthStore } from '@/store/authStore'
 import { getDateLocale, getNumberLocale } from '@/lib/date-locale'
 import { useSeasonStore } from '@/store/seasonStore'
+import { useToast } from '@/hooks/use-toast'
 
 interface Revenue {
   seasonLabel: string
@@ -177,28 +178,41 @@ export default function DashboardPage() {
   const lang = useAuthStore((s) => s.clubLanguage)
   const dateLocale = getDateLocale(lang)
   const numLocale = getNumberLocale(lang)
-  const { selectedSeasonId } = useSeasonStore()
+  const { selectedSeasonId, setSelectedSeason } = useSeasonStore()
+  const { toast } = useToast()
 
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesma corrida
+  // encontrada ao vivo em fees/page.tsx, 2026-07-18) — só o pedido mais recente aplica.
+  const fetchSeq = useRef(0)
   const loadStats = useCallback(async (isRefresh = false) => {
+    const seq = ++fetchSeq.current
     if (isRefresh) setRefreshing(true)
     else setLoading(true)
     try {
       const params = selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''
       const res = await fetch(`/api/dashboard/stats${params}`)
+      if (seq !== fetchSeq.current) return
       if (res.ok) {
-        setStats(await res.json())
+        const data = await res.json()
+        if (seq !== fetchSeq.current) return
+        setStats(data)
         setLastUpdated(new Date())
+      } else if (res.status === 404 && selectedSeasonId) {
+        // Época seleccionada já não existe (ex: apagada noutra sessão) — a store ficou
+        // com um seasonId órfão. Limpar o filtro e tentar de novo sem ele, em vez de
+        // mostrar zeros falsos (incl. o card de onboarding, que usa counts.athletes===0).
+        toast({ title: 'A época seleccionada já não existe', description: 'A mostrar todos os dados.' })
+        setSelectedSeason(null)
       }
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (seq === fetchSeq.current) { setLoading(false); setRefreshing(false) }
     }
-  }, [selectedSeasonId])
+  }, [selectedSeasonId, setSelectedSeason, toast])
 
   useEffect(() => { loadStats() }, [loadStats])
 

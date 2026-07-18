@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
 import { useMounted } from '@/hooks/useMounted'
@@ -44,9 +44,8 @@ const AGE_GROUPS = [
   { value: 'SUB15', label: 'Sub-15' },
   { value: 'SUB17', label: 'Sub-17' },
   { value: 'SUB19', label: 'Sub-19' },
+  { value: 'SENIORS', label: 'Seniores' },
 ]
-
-const MIN_SEASON = 2025
 
 function getCurrentSeasonStart(): number {
   const now = new Date()
@@ -107,8 +106,15 @@ interface PaidCellDialog {
 export default function FeesPage() {
   const dashLabels = useDashLabels()
   const mounted = useMounted()
-  const { selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const { selectedSeasonId, getSelectedSeason, seasons: storeSeasons } = useSeasonStore()
   const selectedSeason = mounted ? getSelectedSeason() : null
+  const seasons = mounted ? storeSeasons : []
+  // Pager de "Todas as épocas" deixa recuar até à época mais antiga do clube — nunca
+  // hardcoded (mesmo bug encontrado ao vivo em athletes/[id]/page.tsx, 2026-07-18: um
+  // MIN_SEASON fixo tranca clubes com dados anteriores a esse ano).
+  const earliestSeasonStart = seasons.length > 0
+    ? Math.min(...seasons.map((s) => new Date(s.startDate).getFullYear()))
+    : getCurrentSeasonStart() - 1
 
   const [seasonStart, setSeasonStart] = useState(getCurrentSeasonStart())
   const [apiMonths, setApiMonths] = useState<Array<{ year: number; month: number }> | null>(null)
@@ -185,7 +191,13 @@ export default function FeesPage() {
   const isMonthCurrent = (month: number, year: number) =>
     month === currentMonth && year === currentYear
 
+  // Guarda contra respostas fora de ordem: trocar de época rapidamente pode fazer o
+  // pedido antigo (mais lento) resolver depois do novo e sobrepor dados corretos com
+  // os da época anterior — achado ao vivo 2026-07-18 (época activa a mostrar dados de
+  // "Todas as épocas" após troca rápida). Só o pedido mais recente aplica o resultado.
+  const fetchSeq = useRef(0)
   const fetchData = useCallback(async (p = page) => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     const params = new URLSearchParams({ page: String(p) })
     if (selectedSeasonId) {
@@ -196,8 +208,10 @@ export default function FeesPage() {
     if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
     try {
       const res = await fetch(`/api/fees?${params}`)
+      if (seq !== fetchSeq.current) return
       if (res.ok) {
         const data = await res.json()
+        if (seq !== fetchSeq.current) return
         setAthletes(data.athletes)
         setSummary(data.summary)
         setPages(data.pages ?? 1)
@@ -209,9 +223,10 @@ export default function FeesPage() {
         toast({ title: 'Erro ao carregar mensalidades', description: res.status === 401 ? 'Sessão expirada — inicie sessão novamente.' : undefined, variant: 'destructive' })
       }
     } catch {
+      if (seq !== fetchSeq.current) return
       toast({ title: 'Erro de ligação ao carregar mensalidades', variant: 'destructive' })
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
   }, [selectedSeasonId, seasonStart, ageGroupFilter, page, toast])
 
@@ -240,7 +255,7 @@ export default function FeesPage() {
       const results = await Promise.all(
         selectedCells.map(({ athleteId, month, year }) => {
           const athlete = athletes.find((a) => a.id === athleteId)
-          return fetch(`/api/athletes/${athleteId}/payments`, {
+          return fetch(`/api/athletes/${athleteId}/payments${selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ month, year, paid: true, amount: athlete?.effectiveFee ?? null, notes: batchNotes || null }),
@@ -290,7 +305,7 @@ export default function FeesPage() {
       const { month, year, unpaid } = columnBulkDialog
       const results = await Promise.all(
         unpaid.map((a) =>
-          fetch(`/api/athletes/${a.id}/payments`, {
+          fetch(`/api/athletes/${a.id}/payments${selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ month, year, paid: true, amount: a.effectiveFee, notes: columnBulkNotes || null }),
@@ -332,7 +347,7 @@ export default function FeesPage() {
     const cellKey = `${athlete.id}-${month}-${year}`
     setCellLoading((prev) => new Set(prev).add(cellKey))
     try {
-      const res = await fetch(`/api/athletes/${athlete.id}/payments`, {
+      const res = await fetch(`/api/athletes/${athlete.id}/payments${selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ month, year, paid: true, amount: athlete.effectiveFee, notes: confirmNotes || null }),
@@ -376,7 +391,7 @@ export default function FeesPage() {
     if (!paidDialog) return
     setDialogSaving(true)
     try {
-      const res = await fetch(`/api/athletes/${paidDialog.athleteId}/payments`, {
+      const res = await fetch(`/api/athletes/${paidDialog.athleteId}/payments${selectedSeasonId ? `?seasonId=${selectedSeasonId}` : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -527,7 +542,7 @@ export default function FeesPage() {
                 variant="outline"
                 size="icon"
                 onClick={() => setSeasonStart((s) => s - 1)}
-                disabled={seasonStart <= MIN_SEASON}
+                disabled={seasonStart <= earliestSeasonStart}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -929,8 +944,13 @@ export default function FeesPage() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              {columnBulkDialog?.unpaid.length} atleta{columnBulkDialog?.unpaid.length !== 1 ? 's' : ''} não pago{columnBulkDialog?.unpaid.length !== 1 ? 's' : ''} serão registados com o valor da mensalidade de cada um.
+              {columnBulkDialog?.unpaid.length} atleta{columnBulkDialog?.unpaid.length !== 1 ? 's' : ''} não pago{columnBulkDialog?.unpaid.length !== 1 ? 's' : ''} nesta página serão registados com o valor da mensalidade de cada um.
             </p>
+            {pages > 1 && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                Há {pages} páginas de atletas — isto só marca os desta página. Repete nas outras páginas para marcar todos.
+              </p>
+            )}
             <div className="space-y-1">
               <Label>Notas (opcional)</Label>
               <Input

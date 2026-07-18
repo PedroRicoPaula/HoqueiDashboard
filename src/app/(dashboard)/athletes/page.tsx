@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useToast } from '@/hooks/use-toast'
 import { useDebounce } from '@/hooks/useDebounce'
-import { Plus, Search, Pencil, Trash2, Loader2, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle, Percent } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Loader2, ExternalLink, Download, Upload, ChevronLeft, ChevronRight, AlertCircle, Percent, UserX, UserCheck } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { AGE_GROUPS, AGE_GROUP_LABELS } from '@/lib/constants'
@@ -77,6 +77,7 @@ interface Athlete {
   parentPhone?: string
   discountPercent?: number | null
   feeExempt: boolean
+  leftAt?: string | null
 }
 
 // ─── CSV Import helpers ───────────────────────────────────────────────────────
@@ -218,15 +219,25 @@ export default function AthletesPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<AthleteForm>({ resolver: zodResolver(athleteSchema) as any })
 
+  const selectedSeasonId = selectedSeason?.id ?? null
+
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesma corrida
+  // encontrada ao vivo em fees/page.tsx, 2026-07-18) — só o pedido mais recente aplica.
+  const fetchSeq = useRef(0)
   const fetchAthletes = useCallback(async (p = page) => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     const params = new URLSearchParams({ page: String(p) })
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (ageGroupFilter !== 'all') params.set('ageGroup', ageGroupFilter)
+    // Sem época seleccionada ("Todas as épocas") = sem filtro de pertença, mostra todos.
+    if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
     try {
       const res = await fetch(`/api/athletes?${params}`)
+      if (seq !== fetchSeq.current) return
       if (res.ok) {
         const data = await res.json()
+        if (seq !== fetchSeq.current) return
         setAthletes(data.athletes)
         setTotal(data.total)
         setPages(data.pages)
@@ -235,13 +246,14 @@ export default function AthletesPage() {
         toast({ title: 'Erro ao carregar atletas', description: res.status === 401 ? 'Sessão expirada — inicie sessão novamente.' : undefined, variant: 'destructive' })
       }
     } catch {
+      if (seq !== fetchSeq.current) return
       toast({ title: 'Erro de ligação ao carregar atletas', variant: 'destructive' })
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
-  }, [debouncedSearch, ageGroupFilter, page, toast])
+  }, [debouncedSearch, ageGroupFilter, selectedSeasonId, page, toast])
 
-  useEffect(() => { fetchAthletes(1) }, [debouncedSearch, ageGroupFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchAthletes(1) }, [debouncedSearch, ageGroupFilter, selectedSeasonId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openCreate = () => {
     setEditingAthlete(null)
@@ -296,6 +308,21 @@ export default function AthletesPage() {
     if (res.ok) { toast({ title: 'Atleta eliminado' }); fetchAthletes(1) }
     else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
     setDeleteDialog({ open: false, athlete: null })
+  }
+
+  const toggleLeftClub = async (athlete: Athlete) => {
+    const leavingNow = !athlete.leftAt
+    const res = await fetch(`/api/athletes/${athlete.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leftAt: leavingNow ? new Date().toISOString() : null }),
+    })
+    if (res.ok) {
+      toast({ title: leavingNow ? 'Atleta marcado como saído do clube' : 'Atleta reativado' })
+      fetchAthletes(page)
+    } else {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+    }
   }
 
   const handleExport = async () => {
@@ -434,17 +461,22 @@ export default function AthletesPage() {
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                   <div className="flex flex-col items-center gap-2">
-                    <p>{debouncedSearch || ageGroupFilter !== 'all' ? 'Nenhum atleta encontrado' : 'Ainda não há atletas registados'}</p>
-                    {can('editAthletes') && !debouncedSearch && ageGroupFilter === 'all' && (
+                    <p>{debouncedSearch || ageGroupFilter !== 'all' || selectedSeasonId ? 'Nenhum atleta encontrado' : 'Ainda não há atletas registados'}</p>
+                    {can('editAthletes') && !debouncedSearch && ageGroupFilter === 'all' && !selectedSeasonId && (
                       <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />Adicionar primeiro atleta</Button>
                     )}
                   </div>
                 </TableCell>
               </TableRow>
             ) : athletes.map((athlete) => (
-              <TableRow key={athlete.id}>
+              <TableRow key={athlete.id} className={athlete.leftAt ? 'opacity-60' : undefined}>
                 <TableCell className="font-mono font-medium">{athlete.number}</TableCell>
-                <TableCell className="font-medium">{athlete.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {athlete.name}
+                    {athlete.leftAt && <Badge variant="outline" className="text-muted-foreground font-normal">Ex-atleta</Badge>}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary">{dashLabels.ageGroups[athlete.ageGroup] ?? AGE_GROUP_LABELS[athlete.ageGroup] ?? athlete.ageGroup}</Badge>
                 </TableCell>
@@ -463,6 +495,14 @@ export default function AthletesPage() {
                     {can('editAthletes') && (
                       <>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(athlete)}><Pencil className="h-4 w-4" /></Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={athlete.leftAt ? 'Reativar atleta' : 'Marcar saída do clube'}
+                          onClick={() => toggleLeftClub(athlete)}
+                        >
+                          {athlete.leftAt ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                        </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteDialog({ open: true, athlete })}><Trash2 className="h-4 w-4" /></Button>
                       </>
                     )}
@@ -625,7 +665,7 @@ export default function AthletesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Eliminar Atleta</DialogTitle>
-            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.athlete?.name}? Esta ação elimina também todo o histórico de pagamentos e assiduidade deste atleta, e não pode ser desfeita.</DialogDescription>
+            <DialogDescription>Tem a certeza que quer eliminar {deleteDialog.athlete?.name}? Esta ação elimina também todo o histórico de pagamentos e assiduidade deste atleta, e não pode ser desfeita. Se o atleta só deixou o clube, usa antes &quot;Marcar saída do clube&quot; — mantém o histórico e o perfil continua acessível.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, athlete: null })}>Cancelar</Button>

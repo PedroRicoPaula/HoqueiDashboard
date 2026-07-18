@@ -11,7 +11,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import {
   ArrowLeft, Pencil, Phone, Mail, MapPin, GraduationCap, User, CreditCard,
   Package, Calendar, Shield, Euro, Loader2, Hash, Briefcase, ChevronRight,
-  ClipboardCheck, Shirt, Printer, ExternalLink, Percent,
+  ClipboardCheck, Shirt, Printer, ExternalLink, Percent, UserX, UserCheck, History,
 } from 'lucide-react'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -37,6 +37,7 @@ import {
 import { useDashLabels } from '@/hooks/useDashLabels'
 import { useSeasonStore } from '@/store/seasonStore'
 import { useMounted } from '@/hooks/useMounted'
+import { wasAthleteActiveInSeason } from '@/lib/athleteMembership'
 
 const athleteSchema = z.object({
   number: z.coerce.number().int().positive('Número deve ser positivo'),
@@ -74,6 +75,8 @@ interface Athlete {
   parentPhone?: string
   discountPercent?: number | null
   feeExempt: boolean
+  joinedAt?: string | null
+  leftAt?: string | null
   materials: {
     id: string
     name: string
@@ -114,7 +117,7 @@ interface AttendanceStats {
     attended: number
     paid: number
     totalPaid: number
-    sessions: { sessionId: string; date: string; title?: string | null; paidByAthlete: boolean; paidAmount?: number | null }[]
+    sessions: { sessionId: string; date: string; title?: string | null; present: boolean; paidByAthlete: boolean; paidAmount?: number | null }[]
   }
   recent: { sessionId: string; present: boolean; date: string; time?: string; sessionType: string; title?: string; primaryAgeGroup: string }[]
 }
@@ -141,10 +144,16 @@ function getCurrentSeason() {
 export default function AthleteProfilePage() {
   const dashLabels = useDashLabels()
   const mounted = useMounted()
-  const { getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const { seasons: storeSeasons, getSelectedSeason, getActiveSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
   const activeSeason = mounted ? getActiveSeason() : null
   const selectedSeason = mounted ? getSelectedSeason() : null
   const seasonDefaultFee = (selectedSeason ?? activeSeason)?.defaultAthleteMonthlyFee ?? null
+  // Histórico de Pagamentos deixa recuar até à época mais antiga do clube (nunca hardcoded —
+  // um clube com dados anteriores a 2025 ficava trancado no ano corrente, ver achado ao vivo 2026-07-18).
+  const earliestSeasonYear = seasons.length > 0
+    ? Math.min(...seasons.map((s) => new Date(s.startDate).getFullYear()))
+    : getCurrentSeason() - 1
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { can } = usePermissions()
@@ -282,6 +291,22 @@ export default function AthleteProfilePage() {
     }
   }
 
+  const toggleLeftClub = async () => {
+    if (!athlete) return
+    const leavingNow = !athlete.leftAt
+    const res = await fetch(`/api/athletes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leftAt: leavingNow ? new Date().toISOString() : null }),
+    })
+    if (res.ok) {
+      toast({ title: leavingNow ? 'Atleta marcado como saído do clube' : 'Atleta reativado' })
+      fetchAthlete()
+    } else {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' })
+    }
+  }
+
   const getPayment = (month: number) => {
     const year = month >= 9 ? season : season + 1
     return payments.find((p) => p.month === month && p.year === year)
@@ -329,6 +354,11 @@ export default function AthleteProfilePage() {
             <h1 className="text-xl font-bold truncate">{athlete.name}</h1>
             <Badge variant="secondary">{AGE_GROUP_LABELS[athlete.ageGroup] ?? athlete.ageGroup}</Badge>
             {athlete.feeExempt && <Badge className="bg-gray-100 text-gray-700">Isento</Badge>}
+            {athlete.leftAt && (
+              <Badge variant="outline" className="text-muted-foreground">
+                Ex-atleta desde {format(new Date(athlete.leftAt), 'dd/MM/yyyy')}
+              </Badge>
+            )}
           </div>
         </div>
         <Button size="sm" variant="outline" onClick={() => window.print()}>
@@ -336,10 +366,16 @@ export default function AthleteProfilePage() {
           <span className="hidden sm:inline ml-1">Imprimir</span>
         </Button>
         {can('editAthletes') && (
-          <Button size="sm" onClick={openEdit}>
-            <Pencil className="h-4 w-4 mr-1" />
-            <span className="hidden sm:inline">Editar</span>
-          </Button>
+          <>
+            <Button size="sm" variant="outline" onClick={toggleLeftClub}>
+              {athlete.leftAt ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+              <span className="hidden sm:inline ml-1">{athlete.leftAt ? 'Reativar' : 'Saiu do clube'}</span>
+            </Button>
+            <Button size="sm" onClick={openEdit}>
+              <Pencil className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Editar</span>
+            </Button>
+          </>
         )}
       </div>
 
@@ -383,6 +419,42 @@ export default function AthleteProfilePage() {
             </SelectContent>
           </Select>
         </div>
+      )}
+
+      {/* Histórico de Épocas */}
+      {seasons.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Histórico de Épocas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {[...seasons].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()).map((s) => {
+                const wasActive = wasAthleteActiveInSeason(
+                  { joinedAt: athlete.joinedAt ?? null, leftAt: athlete.leftAt ?? null },
+                  { startDate: new Date(s.startDate), endDate: new Date(s.endDate) }
+                )
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => can('viewFees') && setSeason(new Date(s.startDate).getFullYear())}
+                    className={`text-xs px-2.5 py-1.5 rounded-full border transition-colors ${
+                      wasActive
+                        ? 'bg-green-50 border-green-200 text-green-800 hover:bg-green-100'
+                        : 'bg-gray-50 border-gray-200 text-gray-400'
+                    }`}
+                    title={wasActive ? `Fazia parte do clube em ${s.name}` : `Não fazia parte do clube em ${s.name}`}
+                  >
+                    {s.name}
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,7 +518,7 @@ export default function AthleteProfilePage() {
         </Card>
 
         {/* Mensalidade */}
-        {can('viewFees') && !isSenior && (
+        {can('viewFees') && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -664,6 +736,7 @@ export default function AthleteProfilePage() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-muted-foreground">{format(new Date(s.date), 'dd/MM')}</span>
                               <span className="text-muted-foreground truncate max-w-[80px]">{s.title || 'Específico'}</span>
+                              {!s.present && <span className="text-red-500">· faltou</span>}
                             </div>
                             {s.paidByAthlete ? (
                               <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px]">
@@ -779,7 +852,7 @@ export default function AthleteProfilePage() {
       )}
 
       {/* Histórico de Pagamentos */}
-      {can('viewFees') && !isSenior && (
+      {can('viewFees') && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -791,7 +864,7 @@ export default function AthleteProfilePage() {
                 </Link>
               </CardTitle>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setSeason(s => s - 1)} disabled={season <= 2025}>‹</Button>
+                <Button variant="outline" size="sm" onClick={() => setSeason(s => s - 1)} disabled={season <= earliestSeasonYear}>‹</Button>
                 <span className="text-sm font-medium">{season}/{season + 1}</span>
                 <Button variant="outline" size="sm" onClick={() => setSeason(s => s + 1)} disabled={season >= getCurrentSeason()}>›</Button>
               </div>
@@ -881,8 +954,7 @@ export default function AthleteProfilePage() {
             {ageGroupValue !== 'SENIORS' && (
               <div className="space-y-1"><Label>Escola</Label><Input {...register('school')} /></div>
             )}
-            {ageGroupValue !== 'SENIORS' && (
-              <div className="pt-2 border-t space-y-3">
+            <div className="pt-2 border-t space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Mensalidade</p>
                 {seasonDefaultFee != null && (
                   <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-sm">
@@ -905,8 +977,7 @@ export default function AthleteProfilePage() {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
             {ageGroupValue !== 'SENIORS' && (
               <div className="pt-2 border-t space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Encarregado de Educação</p>

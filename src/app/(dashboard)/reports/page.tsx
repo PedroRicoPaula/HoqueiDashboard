@@ -12,16 +12,8 @@ import { useToast } from '@/hooks/use-toast'
 import { Download, Users, Euro, Package, UserCheck, Loader2, ClipboardCheck, Shirt } from 'lucide-react'
 import { useDashT } from '@/hooks/useDashT'
 import { useDashLabels } from '@/hooks/useDashLabels'
-
-function getCurrentSeason() {
-  const m = new Date().getMonth() + 1
-  return m >= 9 ? new Date().getFullYear() : new Date().getFullYear() - 1
-}
-
-function buildSeasons() {
-  const current = getCurrentSeason()
-  return Array.from({ length: 5 }, (_, i) => current - i)
-}
+import { useSeasonStore } from '@/store/seasonStore'
+import { useMounted } from '@/hooks/useMounted'
 
 async function downloadFile(url: string, filename: string, toast: ReturnType<typeof useToast>['toast'], errMsg: string) {
   const res = await fetch(url)
@@ -39,8 +31,11 @@ export default function ReportsPage() {
   const { toast } = useToast()
   const tr = useDashT()
   const { ageGroups } = useDashLabels()
+  const mounted = useMounted()
+  const { seasons: storeSeasons, selectedSeasonId, getSelectedSeason } = useSeasonStore()
+  const seasons = mounted ? storeSeasons : []
+  const selectedSeason = mounted ? getSelectedSeason() : null
   const [athleteAgeGroup, setAthleteAgeGroup] = useState('all')
-  const [financialSeason, setFinancialSeason] = useState(String(getCurrentSeason()))
   const [membersYear, setMembersYear] = useState(String(new Date().getFullYear()))
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [attendanceAgeGroup, setAttendanceAgeGroup] = useState('all')
@@ -51,10 +46,19 @@ export default function ReportsPage() {
 
   const setLoad = (key: string, v: boolean) => setLoading((p) => ({ ...p, [key]: v }))
 
+  // Atletas, Financeiro e Materiais seguem o seletor de época global (mesmo filtro do
+  // resto da app) em vez de cada card reinventar o seu próprio picker — era essa
+  // divergência que fazia estes exports mostrarem dados diferentes das páginas ao vivo.
+  const seasonParams = () => {
+    const p = new URLSearchParams()
+    if (selectedSeasonId) p.set('seasonId', selectedSeasonId)
+    return p
+  }
+
   const handleAthletes = async () => {
     setLoad('athletes', true)
     try {
-      const params = new URLSearchParams()
+      const params = seasonParams()
       if (athleteAgeGroup !== 'all') params.set('ageGroup', athleteAgeGroup)
       await downloadFile(`/api/reports/athletes?${params}`, `atletas-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
       toast({ title: tr('reports.athletesExported') })
@@ -64,7 +68,9 @@ export default function ReportsPage() {
   const handleFinancial = async () => {
     setLoad('financial', true)
     try {
-      await downloadFile(`/api/reports/financial?season=${financialSeason}`, `financeiro-${financialSeason}-${Number(financialSeason) + 1}.xlsx`, toast, tr('common.errorLoad'))
+      const params = seasonParams()
+      const label = selectedSeason ? selectedSeason.name.replace('/', '-') : 'todas-epocas'
+      await downloadFile(`/api/reports/financial?${params}`, `financeiro-${label}.xlsx`, toast, tr('common.errorLoad'))
       toast({ title: tr('reports.financialExported') })
     } finally { setLoad('financial', false) }
   }
@@ -80,7 +86,8 @@ export default function ReportsPage() {
   const handleMaterials = async () => {
     setLoad('materials', true)
     try {
-      await downloadFile('/api/reports/materials', `materiais-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
+      const params = seasonParams()
+      await downloadFile(`/api/reports/materials?${params}`, `materiais-${new Date().toISOString().split('T')[0]}.xlsx`, toast, tr('common.errorLoad'))
       toast({ title: tr('reports.materialsExported') })
     } finally { setLoad('materials', false) }
   }
@@ -104,8 +111,6 @@ export default function ReportsPage() {
       toast({ title: tr('reports.textilesExported') })
     } finally { setLoad('textiles', false) }
   }
-
-  const seasons = buildSeasons()
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -145,6 +150,9 @@ export default function ReportsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
+                Inclui só atletas que pertenciam ao clube na época selecionada na barra lateral ({selectedSeason ? selectedSeason.name : 'todas as épocas'}).
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Campos: N.º, Nome, Escalão, Data Nascimento, Idade, Telefone, Email, NIF, CC/BI, Morada, Escola, Encarregado, Mensalidade, Isento
               </p>
             </CardContent>
@@ -199,16 +207,9 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap items-center gap-3">
-                <Select value={financialSeason} onValueChange={setFinancialSeason}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {seasons.map((s) => (
-                      <SelectItem key={s} value={String(s)}>{s}/{s + 1}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <span className="text-sm text-muted-foreground bg-muted rounded-md px-3 py-2">
+                  {selectedSeason ? selectedSeason.name : 'Todas as épocas'}
+                </span>
                 <Button onClick={handleFinancial} disabled={loading.financial}>
                   {loading.financial
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -216,8 +217,11 @@ export default function ReportsPage() {
                   {tr('reports.exportXlsx')}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Campos: N.º, Nome, Escalão, Isento, Mensalidade, Set–Jun (valor pago por mês), Total Pago, Em Falta
+              <p className="text-xs text-muted-foreground mt-2">
+                Usa a época selecionada na barra lateral. {seasons.length === 0 && 'Sem épocas configuradas — usa o ano civil actual.'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Campos: N.º, Nome, Escalão, Isento, Mensalidade, meses da época (valor pago por mês), Total Pago, Em Falta
               </p>
             </CardContent>
           </Card>
@@ -243,6 +247,9 @@ export default function ReportsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
+                Época selecionada na barra lateral: {selectedSeason ? selectedSeason.name : 'todas as épocas'}.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
                 Campos: Nome, Categoria, Tipo, Estado, Atleta N.º, Atleta Nome, Notas
               </p>
             </CardContent>

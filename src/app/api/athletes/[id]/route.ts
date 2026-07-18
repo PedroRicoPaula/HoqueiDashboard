@@ -44,13 +44,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Dados inválidos', details: parsed.error.flatten() }, { status: 400 })
     }
 
-    const { birthDate, ...rest } = parsed.data
+    const { birthDate, leftAt, ...rest } = parsed.data
     const athlete = await db.athlete.update({
       where: { id },
-      data: { ...rest, ...(birthDate ? { birthDate: new Date(birthDate) } : {}) },
+      data: {
+        ...rest,
+        ...(birthDate ? { birthDate: new Date(birthDate) } : {}),
+        ...(leftAt !== undefined ? { leftAt: leftAt ? new Date(leftAt) : null } : {}),
+      },
     })
 
-    await logAudit(req, user.id, user.email, 'UPDATE', 'Athlete', (athlete as { id: string }).id, { name: (athlete as { name: string }).name })
+    await logAudit(req, user.id, user.email, 'UPDATE', 'Athlete', (athlete as { id: string }).id, {
+      name: (athlete as { name: string }).name,
+      ...(leftAt !== undefined ? { leftAt: leftAt ?? null } : {}),
+    })
     return NextResponse.json(athlete)
   } catch (error: unknown) {
     if ((error as { code?: string })?.code === 'P2025') {
