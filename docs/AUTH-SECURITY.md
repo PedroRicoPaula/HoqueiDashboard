@@ -374,8 +374,8 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 
 | ID | Severidade | Resumo | Estado |
 |----|-----------|--------|--------|
-| SEC-035 | ALTO | `LOGIN` (sucesso) e `REGISTER` ficam sempre com `clubId: null` no audit log — nenhum admin de clube vê os seus próprios logins | 🔴 Activo — ver secção "clubId em logAudit" acima |
-| SEC-036 | BAIXO | `PATCH`/`DELETE /api/platform/clubs/[id]` sem rate limit (ao contrário do `POST` irmão) — impacto limitado, já exige `isSuperAdmin` | 🔴 Activo |
+| SEC-035 | ~~ALTO~~ | `LOGIN` (sucesso) e `REGISTER` ficam sempre com `clubId: null` no audit log — nenhum admin de clube vê os seus próprios logins | ✅ Resolvido 2026-07-18 — ver secção "clubId em logAudit" acima |
+| SEC-036 | ~~BAIXO~~ | `PATCH`/`DELETE /api/platform/clubs/[id]` sem rate limit (ao contrário do `POST` irmão) — impacto limitado, já exige `isSuperAdmin` | ✅ Resolvido 2026-07-18 (mesmo limite do `POST`, 20/hora por super admin) |
 
 ---
 
@@ -411,11 +411,11 @@ export type AuditAction =
 
 Ao adicionar novas ações de audit, **sempre** adicionar ao union type acima primeiro — caso contrário o TypeScript rejeita a chamada a `logAudit()`.
 
-### clubId em logAudit (fix 2026-06-29; gap encontrado 2026-07-18, ver SEC-035)
+### clubId em logAudit (fix 2026-06-29; gap encontrado e corrigido 2026-07-18, ver SEC-035)
 
-`logAudit()` em `src/lib/audit.ts` extrai automaticamente o `clubId` do JWT via `getUserFromRequest(req)`, lendo o cookie do **pedido actual**. Não é necessário passar `clubId` como argumento — a função resolve-o internamente. Isto é correcto para eventos genuinamente não autenticados (`LOGIN_FAIL`, `PASSWORD_RESET_REQUEST`) — `clubId = null` é o resultado certo, não pertencem a nenhum clube.
+`logAudit()` em `src/lib/audit.ts` extrai automaticamente o `clubId` do JWT via `getUserFromRequest(req)`, lendo o cookie do **pedido actual**. Isto é correcto para eventos genuinamente não autenticados (`LOGIN_FAIL`, `PASSWORD_RESET_REQUEST`) — `clubId = null` é o resultado certo, não pertencem a nenhum clube.
 
-**Gap não corrigido (SEC-035, ver `docs/ISSUES-BACKLOG.md`):** `LOGIN` (sucesso) e `REGISTER` também ficam com `clubId = null`, mas por acidente, não por design — no momento em que `logAudit()` corre, o cookie `hm_token` ainda não foi emitido (é a própria criação da sessão), por isso `getUserFromRequest` não encontra nada. Resultado: nenhum admin de clube consegue ver os seus próprios logins bem-sucedidos no Audit Log do clube (rota tenant-scoped exclui `clubId: null`), o que viola a regra 6 do CLAUDE.md ("audit log em toda operação de escrita... inclui logins"). Fix ainda por implementar — precisa de passar `clubId` explicitamente a `logAudit()` nesses dois call sites, não confiar na resolução automática via cookie.
+**Fix SEC-035**: `LOGIN` (sucesso) e `REGISTER` ficavam com `clubId = null` por acidente, não por design — no momento em que `logAudit()` corria, o cookie `hm_token` ainda não tinha sido emitido (é a própria criação da sessão), por isso `getUserFromRequest` não encontrava nada. `logAudit()` ganhou um 8º parâmetro opcional `clubIdOverride` — quando presente, é usado directamente em vez da resolução automática via cookie. `login/route.ts`, `register/route.ts` e `register/complete/route.ts` passam agora `user.clubId`/`club.id` explicitamente nas chamadas de `LOGIN`/`REGISTER`, já que nesse momento já conhecem o clube (acabaram de autenticar/criar). Confirmado ao vivo: login novo → `AuditLog.clubId` preenchido corretamente (antes: sempre `null`).
 
 ---
 

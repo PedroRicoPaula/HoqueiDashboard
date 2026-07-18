@@ -295,10 +295,12 @@ TrainingSchedule {
   active Boolean @default(true)
   sessions TrainingSession[] (FK reversa)
   indexes: season, ageGroup
+  unique: [clubId, season, ageGroup, dayOfWeek, startTime]  ← BUG-045, migration 20260718100000
 }
 ```
 > Horário semanal recorrente. O calendário gera visualmente sessões esperadas a partir deste modelo.
 > Pré-populado para 2025/26 na migration `20260602000003_training_schedules`.
+> A unique constraint impede duplicar o mesmo dia+hora para o mesmo escalão/época (ex: dois administradores em abas diferentes a criar o mesmo horário) — não limita quantos horários diferentes um escalão pode ter na mesma época (essa é a questão em aberto em [UX-004]).
 
 ### TrainingSession + AttendanceRecord
 ```prisma
@@ -419,6 +421,7 @@ RateLimit {
 | `20260718090000_athlete_season_membership` | Jul 2026 | `Athlete.joinedAt TIMESTAMP?` + `Athlete.leftAt TIMESTAMP?` + index `(clubId, leftAt)` — janela de membership por época, ver secção `Athlete` acima | ✅ aplicada (local via `db push`; ver nota `migrate deploy` abaixo) |
 | `20260718090100_club_register_completed_at` | Jul 2026 | `Club.registerCompletedAt TIMESTAMP?` — claim atómico anti-replay do registo, ver secção `Club` acima | ✅ aplicada (idem) |
 | `20260718090200_direction_member_num_fpp` | Jul 2026 | `DirectionMember.numFpp TEXT?` — número de sócio da federação, ver secção `DirectionMember` acima | ✅ aplicada (idem) |
+| `20260718100000_training_schedule_unique_slot` | Jul 2026 | `@@unique([clubId, season, ageGroup, dayOfWeek, startTime])` em `TrainingSchedule` — impede duplicar o mesmo dia+hora para o mesmo escalão/época (BUG-045); não impede múltiplos horários por escalão em dias diferentes (decisão de produto separada, ver UX-004). Confirmado sem duplicados existentes antes de aplicar. | ✅ aplicada (via `db push`, ver nota abaixo) |
 
 **Nota sobre INFRA-001 (workaround `db push`)**: as 3 migrations acima foram aplicadas localmente com `db push` (workaround já documentado para o histórico de shadow-DB partido), mas também testadas com `npx prisma migrate resolve` + `migrate deploy` (o pipeline real do `npm run build`) numa BD à parte — as 3 aplicaram-se de forma limpa, sem erro. Isto sugere que o problema original do INFRA-001 pode já não se aplicar ao histórico actual de migrations, mas não foi confirmado com um `git clone` + BD 100% de raiz — manter o workaround `db push` documentado até essa confirmação.
 
