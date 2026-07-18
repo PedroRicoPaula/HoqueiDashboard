@@ -1,21 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
+import { athleteMembershipWhere } from '@/lib/athleteMembership'
+import { computeEffectiveFee } from '@/lib/feeCalc'
 import { logger } from '@/lib/logger'
 import { buildXlsx, XLSX_HEADERS } from '@/lib/xlsx'
-
-// Mesma fórmula de src/app/api/fees/route.ts — mantém o export alinhado com o
-// valor real mostrado em Mensalidades (época × desconto), não o campo legado.
-function computeEffectiveFee(
-  athleteMonthlyFee: number,
-  discountPercent: number | null | undefined,
-  seasonDefaultFee: number | null | undefined,
-): number {
-  const base = seasonDefaultFee != null ? seasonDefaultFee : athleteMonthlyFee
-  if (!base || base <= 0) return 0
-  const discount = discountPercent ?? 0
-  return parseFloat((base * (1 - discount / 100)).toFixed(2))
-}
 
 export async function GET(req: Request) {
   try {
@@ -33,9 +22,14 @@ export async function GET(req: Request) {
     const seasonId = searchParams.get('seasonId') ?? ''
 
     let seasonDefaultFee: number | null = null
-    if (canViewFees && seasonId) {
-      const season = await db.season.findUnique({ where: { id: seasonId }, select: { defaultAthleteMonthlyFee: true } })
-      seasonDefaultFee = (season as { defaultAthleteMonthlyFee: number | null } | null)?.defaultAthleteMonthlyFee ?? null
+    let seasonWindow: { startDate: Date; endDate: Date } | null = null
+    if (seasonId) {
+      const season = await db.season.findUnique({ where: { id: seasonId }, select: { startDate: true, endDate: true, defaultAthleteMonthlyFee: true } })
+      if (season) {
+        const s = season as { startDate: Date; endDate: Date; defaultAthleteMonthlyFee: number | null }
+        seasonWindow = { startDate: new Date(s.startDate), endDate: new Date(s.endDate) }
+        if (canViewFees) seasonDefaultFee = s.defaultAthleteMonthlyFee
+      }
     }
 
     const athletes = await db.athlete.findMany({
@@ -48,6 +42,7 @@ export async function GET(req: Request) {
                 { phone: { contains: search, mode: 'insensitive' as const } },
               ] }
             : {},
+          athleteMembershipWhere(seasonWindow),
         ],
       },
       orderBy: [{ ageGroup: 'asc' }, { number: 'asc' }],

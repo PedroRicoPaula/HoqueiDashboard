@@ -13,7 +13,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
 
+    const { searchParams } = new URL(req.url)
+    const seasonId = searchParams.get('seasonId') || null
+
     const materials = await db.material.findMany({
+      where: seasonId ? { seasonId } : {},
       include: { athlete: { select: { number: true, name: true } } },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     }) as unknown as Array<{

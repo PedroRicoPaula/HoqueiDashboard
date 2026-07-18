@@ -1,46 +1,18 @@
 import { NextResponse } from 'next/server'
 import { getDbForRequest } from '@/lib/db'
 import { hasPermission } from '@/lib/permissions'
+import { athleteMembershipWhere } from '@/lib/athleteMembership'
+import { computeSeasonMonths, computeEffectiveFee, isMonthPast, getCurrentSeasonStart } from '@/lib/feeCalc'
 import { logger } from '@/lib/logger'
 
 const SEASON_MONTHS_FIRST_HALF = [9, 10, 11, 12]
 const SEASON_MONTHS_SECOND_HALF = [1, 2, 3, 4, 5, 6]
 const PAGE_SIZE = 25
 
-function getCurrentSeasonStart(): number {
-  const now = new Date()
-  const month = now.getMonth() + 1
-  const year = now.getFullYear()
-  return month >= 9 ? year : year - 1
-}
-
-function computeSeasonMonths(startDate: Date, endDate: Date): Array<{ year: number; month: number }> {
-  const months: Array<{ year: number; month: number }> = []
-  const d = new Date(startDate)
-  d.setDate(1)
-  const end = new Date(endDate)
-  while (d <= end) {
-    months.push({ year: d.getFullYear(), month: d.getMonth() + 1 })
-    d.setMonth(d.getMonth() + 1)
-  }
-  return months
-}
-
 type AthleteWithPayments = {
   id: string; number: number; name: string; ageGroup: string;
   monthlyFee: number; discountPercent: number | null; feeExempt: boolean;
   payments: { year: number; month: number; paid: boolean; amount: number | null }[]
-}
-
-function computeEffectiveFee(
-  athleteMonthlyFee: number,
-  discountPercent: number | null | undefined,
-  seasonDefaultFee: number | null | undefined,
-): number {
-  const base = seasonDefaultFee != null ? seasonDefaultFee : athleteMonthlyFee
-  if (!base || base <= 0) return 0
-  const discount = discountPercent ?? 0
-  return parseFloat((base * (1 - discount / 100)).toFixed(2))
 }
 
 export async function GET(req: Request) {
@@ -62,14 +34,18 @@ export async function GET(req: Request) {
     let seasonStart: number
     let seasonLabel: string | undefined
     let seasonDefaultFee: number | null = null
+    let seasonWindow: { startDate: Date; endDate: Date } | null = null
 
     if (seasonId) {
       const season = await db.season.findUnique({ where: { id: seasonId } })
       if (!season) return NextResponse.json({ error: 'Época não encontrada' }, { status: 404 })
-      months = computeSeasonMonths(new Date((season as { startDate: Date }).startDate), new Date((season as { endDate: Date }).endDate))
-      seasonStart = new Date((season as { startDate: Date }).startDate).getFullYear()
+      const start = new Date((season as { startDate: Date }).startDate)
+      const end = new Date((season as { endDate: Date }).endDate)
+      months = computeSeasonMonths(start, end)
+      seasonStart = start.getFullYear()
       seasonLabel = (season as { name: string }).name
       seasonDefaultFee = (season as { defaultAthleteMonthlyFee: number | null }).defaultAthleteMonthlyFee
+      seasonWindow = { startDate: start, endDate: end }
     } else {
       const yearParam = searchParams.get('season')
       seasonStart = yearParam ? parseInt(yearParam) : getCurrentSeasonStart()
@@ -81,16 +57,11 @@ export async function GET(req: Request) {
     }
 
     const where = {
-      ageGroup: { not: 'SENIORS' as never },
-      ...(ageGroup ? { ageGroup: ageGroup as never } : {}),
+      AND: [
+        ageGroup ? { ageGroup: ageGroup as never } : {},
+        athleteMembershipWhere(seasonWindow),
+      ],
     }
-
-    const now = new Date()
-    const currentMonth = now.getMonth() + 1
-    const currentYear = now.getFullYear()
-
-    const isMonthPast = (month: number, year: number) =>
-      year < currentYear || (year === currentYear && month < currentMonth)
 
     // Payment filter: OR of all season month/year pairs
     const paymentWhere = {

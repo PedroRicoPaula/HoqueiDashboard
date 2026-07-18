@@ -47,10 +47,25 @@ export async function GET(req: Request) {
       quotas: { month: number; paid: boolean }[]
     }
 
+    // Mesmo cálculo de meses-em-atraso do export (api/reports/members) — quotaYear é
+    // sempre um ano civil (Jan-Dez), quotas de sócio não seguem o intervalo Set-Jun das
+    // mensalidades de atleta. Antes disto o campo enviado ao cliente (paidCount) não
+    // correspondia ao campo lido lá (lateMonths) — a coluna "Estado" mostrava sempre
+    // "Em dia" por engano.
+    const now = new Date()
+    const currentMonth = now.getMonth() + 1
+    const currentYear = now.getFullYear()
+    const pastMonths = quotaYear < currentYear ? 12 : quotaYear === currentYear ? currentMonth - 1 : 0
+
     const toResult = (members: MemberRow[]) =>
       members.map(({ quotas, ...rest }) => {
         const paidCount = quotas.filter((q) => q.paid).length
-        return { ...rest, paidCount }
+        const lateMonths = rest.monthlyQuota > 0
+          ? Array.from({ length: pastMonths }, (_, i) => i + 1).filter(
+              (month) => !quotas.find((q) => q.month === month)?.paid
+            ).length
+          : 0
+        return { ...rest, paidCount, lateMonths }
       })
 
     const [membersData, total] = await Promise.all([
