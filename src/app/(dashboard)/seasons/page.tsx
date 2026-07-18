@@ -64,11 +64,15 @@ export default function SeasonsPage() {
         const data = await r.json()
         setLocal(data)
         setSeasons(data)
+      } else {
+        toast({ title: 'Erro ao carregar épocas', variant: 'destructive' })
       }
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar épocas', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [setSeasons])
+  }, [setSeasons, toast])
 
   useEffect(() => { load() }, [load])
 

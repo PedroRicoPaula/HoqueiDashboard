@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -158,17 +158,34 @@ export default function MaterialsPage() {
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesmo padrão de
+  // athletes/fees/dashboard/members — este módulo tinha ficado de fora, DEBT-030/031).
+  const fetchSeq = useRef(0)
   const fetchMaterials = useCallback(async () => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     const params = new URLSearchParams()
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (stateFilter !== 'all') params.set('state', stateFilter)
     if (categoryFilter !== 'all') params.set('category', categoryFilter)
     if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
-    const res = await fetch(`/api/materials?${params}`)
-    if (res.ok) setMaterials(await res.json())
-    setLoading(false)
-  }, [debouncedSearch, stateFilter, categoryFilter, selectedSeasonId])
+    try {
+      const res = await fetch(`/api/materials?${params}`)
+      if (seq !== fetchSeq.current) return
+      if (res.ok) {
+        const data = await res.json()
+        if (seq !== fetchSeq.current) return
+        setMaterials(data)
+      } else {
+        toast({ title: 'Erro ao carregar materiais', variant: 'destructive' })
+      }
+    } catch {
+      if (seq !== fetchSeq.current) return
+      toast({ title: 'Erro de ligação ao carregar materiais', variant: 'destructive' })
+    } finally {
+      if (seq === fetchSeq.current) setLoading(false)
+    }
+  }, [debouncedSearch, stateFilter, categoryFilter, selectedSeasonId, toast])
 
   useEffect(() => { fetchMaterials() }, [fetchMaterials])
 
@@ -302,10 +319,15 @@ export default function MaterialsPage() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.material) return
-    const res = await fetch(`/api/materials/${deleteDialog.material.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Material eliminado' }); fetchMaterials() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
-    setDeleteDialog({ open: false, material: null })
+    try {
+      const res = await fetch(`/api/materials/${deleteDialog.material.id}`, { method: 'DELETE' })
+      if (res.ok) { toast({ title: 'Material eliminado' }); fetchMaterials() }
+      else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao eliminar', variant: 'destructive' })
+    } finally {
+      setDeleteDialog({ open: false, material: null })
+    }
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────

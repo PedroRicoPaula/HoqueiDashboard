@@ -161,15 +161,20 @@ export default function SponsorsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<SponsorForm>({ resolver: zodResolver(sponsorFormSchema) as any })
 
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesmo padrão de
+  // athletes/fees/dashboard — este módulo tinha ficado de fora, DEBT-030).
+  const fetchSeq = useRef(0)
   const fetchSponsors = useCallback(async () => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
       const res = await fetch(`/api/sponsors?${params}`)
+      if (seq !== fetchSeq.current) return
       if (res.ok) setSponsors(await res.json())
     } finally {
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
   }, [selectedSeasonId])
 
@@ -263,10 +268,15 @@ export default function SponsorsPage() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.sponsor) return
-    const res = await fetch(`/api/sponsors/${deleteDialog.sponsor.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: tr('sponsors.deleted') }); fetchSponsors() }
-    else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
-    setDeleteDialog({ open: false, sponsor: null })
+    try {
+      const res = await fetch(`/api/sponsors/${deleteDialog.sponsor.id}`, { method: 'DELETE' })
+      if (res.ok) { toast({ title: tr('sponsors.deleted') }); fetchSponsors() }
+      else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
+    } catch {
+      toast({ title: tr('common.errorDelete'), variant: 'destructive' })
+    } finally {
+      setDeleteDialog({ open: false, sponsor: null })
+    }
   }
 
   const activeSponsors = sponsors.filter((s) => getSponsorStatus(s.contractEnd) !== 'expired')

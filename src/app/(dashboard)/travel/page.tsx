@@ -310,10 +310,15 @@ export default function TravelPage() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.travel) return
-    const res = await fetch(`/api/travel/${deleteDialog.travel.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: tr('travel.deleted') }); fetchTravels() }
-    else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
-    setDeleteDialog({ open: false, travel: null })
+    try {
+      const res = await fetch(`/api/travel/${deleteDialog.travel.id}`, { method: 'DELETE' })
+      if (res.ok) { toast({ title: tr('travel.deleted') }); fetchTravels() }
+      else toast({ title: tr('common.errorDelete'), variant: 'destructive' })
+    } catch {
+      toast({ title: tr('common.errorDelete'), variant: 'destructive' })
+    } finally {
+      setDeleteDialog({ open: false, travel: null })
+    }
   }
 
   const toggleShowAllPast = () => {

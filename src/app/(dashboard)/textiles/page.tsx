@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -133,7 +133,11 @@ export default function TextilesPage() {
 
   // ── Fetchers ──────────────────────────────────────────────────────────────
 
+  // Guarda contra respostas fora de ordem ao trocar de época rapidamente (mesmo padrão de
+  // athletes/fees/dashboard — este módulo tinha ficado de fora, DEBT-030/031).
+  const fetchSeq = useRef(0)
   const fetchItems = useCallback(async () => {
+    const seq = ++fetchSeq.current
     setLoading(true)
     const params = new URLSearchParams()
     if (debouncedSearch) params.set('search', debouncedSearch)
@@ -141,10 +145,23 @@ export default function TextilesPage() {
     if (stateFilter !== 'all') params.set('state', stateFilter)
     if (seasonFilter !== 'all') params.set('season', seasonFilter)
     if (selectedSeasonId) params.set('seasonId', selectedSeasonId)
-    const res = await fetch(`/api/textiles?${params}`)
-    if (res.ok) setItems(await res.json())
-    setLoading(false)
-  }, [debouncedSearch, categoryFilter, stateFilter, seasonFilter, selectedSeasonId])
+    try {
+      const res = await fetch(`/api/textiles?${params}`)
+      if (seq !== fetchSeq.current) return
+      if (res.ok) {
+        const data = await res.json()
+        if (seq !== fetchSeq.current) return
+        setItems(data)
+      } else {
+        toast({ title: 'Erro ao carregar têxteis', variant: 'destructive' })
+      }
+    } catch {
+      if (seq !== fetchSeq.current) return
+      toast({ title: 'Erro de ligação ao carregar têxteis', variant: 'destructive' })
+    } finally {
+      if (seq === fetchSeq.current) setLoading(false)
+    }
+  }, [debouncedSearch, categoryFilter, stateFilter, seasonFilter, selectedSeasonId, toast])
 
   useEffect(() => { fetchItems() }, [fetchItems])
   useEffect(() => {
@@ -276,10 +293,15 @@ export default function TextilesPage() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.item) return
-    const res = await fetch(`/api/textiles/${deleteDialog.item.id}`, { method: 'DELETE' })
-    if (res.ok) { toast({ title: 'Item eliminado' }); fetchItems() }
-    else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
-    setDeleteDialog({ open: false, item: null })
+    try {
+      const res = await fetch(`/api/textiles/${deleteDialog.item.id}`, { method: 'DELETE' })
+      if (res.ok) { toast({ title: 'Item eliminado' }); fetchItems() }
+      else toast({ title: 'Erro ao eliminar', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao eliminar', variant: 'destructive' })
+    } finally {
+      setDeleteDialog({ open: false, item: null })
+    }
   }
 
   const filteredAssignAthletes = athletes.filter((a) =>
