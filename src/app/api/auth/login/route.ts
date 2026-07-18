@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     })
 
     await Promise.all([
-      logAudit(req, user.id, user.email, 'LOGIN', 'User', user.id, { ip: getClientIp(req) }),
+      logAudit(req, user.id, user.email, 'LOGIN', 'User', user.id, { ip: getClientIp(req) }, user.clubId),
       prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
     ])
 

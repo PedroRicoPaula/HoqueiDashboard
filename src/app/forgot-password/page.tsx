@@ -23,12 +23,19 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true)
     try {
-      await fetch('/api/auth/forgot-password', {
+      const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      setSent(true)
+      // A API devolve sempre 200 quando o email existe ou não existe (anti-enumeração) —
+      // só 429/500 são falhas reais, e essas não devem mostrar a mensagem de sucesso.
+      if (res.ok) {
+        setSent(true)
+      } else {
+        const json = await res.json().catch(() => ({}))
+        toast({ title: json.error ?? 'Erro ao pedir redefinição. Tente novamente.', variant: 'destructive' })
+      }
     } catch {
       toast({ title: 'Erro de ligação. Tente novamente.', variant: 'destructive' })
     } finally {

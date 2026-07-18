@@ -12,16 +12,23 @@ export async function logAudit(
   action: AuditAction,
   entity: string,
   entityId?: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
+  clubIdOverride?: string | null
 ) {
   try {
     // Resolve clubId from JWT so each entry is scoped to the right tenant.
     // Falls back to null for unauthenticated events (LOGIN_FAIL, PASSWORD_RESET_REQUEST).
-    let clubId: string | undefined
-    try {
-      const tokenUser = await getUserFromRequest(req)
-      clubId = tokenUser?.clubId ?? undefined
-    } catch { /* no valid token — unauthenticated event */ }
+    // SEC-035: em LOGIN (sucesso) e REGISTER, o pedido que dispara este log é a própria
+    // criação da sessão — o cookie hm_token ainda não existe nesse pedido, por isso a
+    // resolução automática abaixo fica sempre null. Callers que já sabem o clubId (porque
+    // acabaram de autenticar/criar o clube) devem passá-lo explicitamente via clubIdOverride.
+    let clubId: string | undefined = clubIdOverride ?? undefined
+    if (!clubId) {
+      try {
+        const tokenUser = await getUserFromRequest(req)
+        clubId = tokenUser?.clubId ?? undefined
+      } catch { /* no valid token — unauthenticated event */ }
+    }
 
     await prisma.auditLog.create({
       data: {

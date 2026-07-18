@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rateLimit'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -14,6 +15,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const user = await getUserFromRequest(req)
     if (!user?.isSuperAdmin) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+    }
+
+    // SEC-036: mesmo limite do endpoint irmão POST /api/platform/clubs — consistência,
+    // não que o risco seja alto (já exige isSuperAdmin).
+    const rl = await checkRateLimit(`platform:change-status:${user.id}`, { windowMs: 60 * 60 * 1000, max: 20 })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiados pedidos. Tente mais tarde.' }, { status: 429 })
     }
 
     const { id } = await params

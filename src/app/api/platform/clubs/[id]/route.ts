@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getUserFromRequest } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/rateLimit'
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
@@ -11,6 +12,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const user = await getUserFromRequest(req)
     if (!user?.isSuperAdmin) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
+    }
+
+    // SEC-036: mesmo limite do endpoint irmão POST /api/platform/clubs — eliminação é
+    // irreversível, faz sentido ter pelo menos o mesmo travão que a criação.
+    const rl = await checkRateLimit(`platform:delete-club:${user.id}`, { windowMs: 60 * 60 * 1000, max: 20 })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Demasiados pedidos. Tente mais tarde.' }, { status: 429 })
     }
 
     const { id } = await params

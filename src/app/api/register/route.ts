@@ -115,7 +115,7 @@ export async function POST(req: Request) {
       throw err
     })
 
-    await logAudit(req, user.id, user.email, 'REGISTER', 'Club', club.id, { name, email, country, language, plan })
+    await logAudit(req, user.id, user.email, 'REGISTER', 'Club', club.id, { name, email, country, language, plan }, club.id)
 
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
