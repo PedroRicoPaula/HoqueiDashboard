@@ -501,6 +501,7 @@ model TrainingSchedule {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
+  @@unique([clubId, season, ageGroup, dayOfWeek, startTime])
   @@index([clubId])
   @@index([clubId, season])
   @@index([clubId, ageGroup])

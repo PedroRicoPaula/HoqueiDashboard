@@ -32,6 +32,16 @@ import {
 } from '@/lib/constants'
 import { useDashLabels } from '@/hooks/useDashLabels'
 
+// isSameDay(new Date(s.date), date) sozinho compara errado: s.date vem como meia-noite UTC
+// do servidor, mas `date` (dia da célula do calendário) é construído em hora local
+// (new Date(year, month, d)). Num fuso UTC negativo (ex: Açores), new Date(s.date) em hora
+// local cai no dia anterior — mesmo padrão já corrigido em Viagens (getTravelDateTime).
+// Lê os componentes UTC e reconstrói como data local, para comparar sempre "dia contra dia".
+function sessionDateOnly(dateIso: string): Date {
+  const d = new Date(dateIso)
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
+
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface Schedule {
@@ -186,29 +196,43 @@ export default function AttendancePage() {
   // ── Fetch helpers ─────────────────────────────────────────────────────────
 
   const fetchSchedules = useCallback(async () => {
-    const res = await fetch(`/api/attendance/schedules?season=${encodeURIComponent(scheduleSeason)}`)
-    if (res.ok) setSchedules(await res.json())
-  }, [scheduleSeason])
+    try {
+      const res = await fetch(`/api/attendance/schedules?season=${encodeURIComponent(scheduleSeason)}`)
+      if (res.ok) setSchedules(await res.json())
+      else toast({ title: 'Erro ao carregar horários', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar horários', variant: 'destructive' })
+    }
+  }, [scheduleSeason, toast])
 
   const fetchSessions = useCallback(async () => {
     setCalendarLoading(true)
-    const y = calendarMonth.getFullYear()
-    const m = calendarMonth.getMonth() + 1
-    const from = `${y}-${String(m).padStart(2, '0')}-01`
-    const lastDay = getDaysInMonth(calendarMonth)
-    const to = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    const params = new URLSearchParams({ from, to })
-    if (calendarAgeGroup !== 'all') params.set('ageGroup', calendarAgeGroup)
-    const res = await fetch(`/api/attendance?${params}`)
-    if (res.ok) setSessions(await res.json())
-    setCalendarLoading(false)
-  }, [calendarMonth, calendarAgeGroup])
+    try {
+      const y = calendarMonth.getFullYear()
+      const m = calendarMonth.getMonth() + 1
+      const from = `${y}-${String(m).padStart(2, '0')}-01`
+      const lastDay = getDaysInMonth(calendarMonth)
+      const to = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+      const params = new URLSearchParams({ from, to })
+      if (calendarAgeGroup !== 'all') params.set('ageGroup', calendarAgeGroup)
+      const res = await fetch(`/api/attendance?${params}`)
+      if (res.ok) setSessions(await res.json())
+      else toast({ title: 'Erro ao carregar treinos', variant: 'destructive' })
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar treinos', variant: 'destructive' })
+    } finally {
+      setCalendarLoading(false)
+    }
+  }, [calendarMonth, calendarAgeGroup, toast])
 
   useEffect(() => { fetchSchedules() }, [fetchSchedules])
   useEffect(() => { fetchSessions() }, [fetchSessions])
   useEffect(() => {
-    fetch('/api/athletes?all=true').then((r) => r.json()).then((d) => { if (Array.isArray(d.athletes)) setAllAthletes(d.athletes) })
-  }, [])
+    fetch('/api/athletes?all=true')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d.athletes)) setAllAthletes(d.athletes) })
+      .catch(() => toast({ title: 'Erro ao carregar atletas', variant: 'destructive' }))
+  }, [toast])
 
   // ── Calendar generation ───────────────────────────────────────────────────
 
@@ -230,7 +254,7 @@ export default function AttendancePage() {
 
   // SPECIFIC sessions for a given date
   const getSpecificSessionsForDay = useCallback((date: Date): Session[] => {
-    return sessions.filter((s) => s.sessionType === 'SPECIFIC' && isSameDay(new Date(s.date), date))
+    return sessions.filter((s) => s.sessionType === 'SPECIFIC' && isSameDay(sessionDateOnly(s.date), date))
   }, [sessions])
 
   // For a given date, find all matching schedules (from the active season schedules)
@@ -247,7 +271,7 @@ export default function AttendancePage() {
   // Find existing session for a given date+schedule
   const getSessionForSlot = useCallback((date: Date, schedule: Schedule): Session | undefined => {
     return sessions.find((s) => {
-      const sDate = new Date(s.date)
+      const sDate = sessionDateOnly(s.date)
       return isSameDay(sDate, date) &&
         s.primaryAgeGroup === schedule.ageGroup &&
         (s.scheduleId === schedule.id || (!s.scheduleId && s.primaryAgeGroup === schedule.ageGroup))
@@ -360,73 +384,83 @@ export default function AttendancePage() {
     const { date, schedule, existingSession } = sessionModal
     if (!date || !schedule) return
 
-    let session = existingSession
-    if (!session) {
-      // Create the session
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: format(date, 'yyyy-MM-dd'),
-          time: schedule.startTime,
-          primaryAgeGroup: schedule.ageGroup,
-          sessionType: schedule.sessionType,
-          scheduleId: schedule.id,
-        }),
-      })
-      if (!res.ok) { toast({ title: 'Erro ao criar sessão', variant: 'destructive' }); return }
-      session = await res.json()
-
-      // Pre-populate athletes of the primary age group
-      const ageAthletes = allAthletes.filter((a) => a.ageGroup === schedule.ageGroup)
-      if (ageAthletes.length > 0) {
-        const prePopRes = await fetch(`/api/attendance/${session!.id}/records`, {
-          method: 'PUT',
+    try {
+      let session = existingSession
+      if (!session) {
+        // Create the session
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ records: ageAthletes.map((a) => ({ athleteId: a.id, present: false })) }),
+          body: JSON.stringify({
+            date: format(date, 'yyyy-MM-dd'),
+            time: schedule.startTime,
+            primaryAgeGroup: schedule.ageGroup,
+            sessionType: schedule.sessionType,
+            scheduleId: schedule.id,
+          }),
         })
-        if (!prePopRes.ok) {
-          toast({ title: 'Sessão criada, mas falhou o pré-preenchimento dos atletas', description: 'Adiciona-os manualmente.', variant: 'destructive' })
-        }
-      }
-      await fetchSessions()
-    }
+        if (!res.ok) { toast({ title: 'Erro ao criar sessão', variant: 'destructive' }); return }
+        session = await res.json()
 
-    // Open grid
-    setGridSession({ ...session!, totalRecords: session!.totalRecords ?? 0, presentCount: session!.presentCount ?? 0 })
-    const recRes = await fetch(`/api/attendance/${session!.id}/records`)
-    if (recRes.ok) {
-      const data: AthleteRecord[] = await recRes.json()
-      setRecords(data)
-      const initPresent: Record<string, boolean> = {}
-      const initPayment: Record<string, { paid: boolean; amount: string }> = {}
-      data.forEach((r) => {
-        initPresent[r.athleteId] = r.present
-        initPayment[r.athleteId] = { paid: r.paidByAthlete, amount: r.paidAmount ? String(r.paidAmount) : '' }
-      })
-      setPendingRecords(initPresent)
-      setPendingPayments(initPayment)
+        // Pre-populate athletes of the primary age group
+        const ageAthletes = allAthletes.filter((a) => a.ageGroup === schedule.ageGroup)
+        if (ageAthletes.length > 0) {
+          const prePopRes = await fetch(`/api/attendance/${session!.id}/records`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ records: ageAthletes.map((a) => ({ athleteId: a.id, present: false })) }),
+          })
+          if (!prePopRes.ok) {
+            toast({ title: 'Sessão criada, mas falhou o pré-preenchimento dos atletas', description: 'Adiciona-os manualmente.', variant: 'destructive' })
+          }
+        }
+        await fetchSessions()
+      }
+
+      // Open grid
+      setGridSession({ ...session!, totalRecords: session!.totalRecords ?? 0, presentCount: session!.presentCount ?? 0 })
+      const recRes = await fetch(`/api/attendance/${session!.id}/records`)
+      if (recRes.ok) {
+        const data: AthleteRecord[] = await recRes.json()
+        setRecords(data)
+        const initPresent: Record<string, boolean> = {}
+        const initPayment: Record<string, { paid: boolean; amount: string }> = {}
+        data.forEach((r) => {
+          initPresent[r.athleteId] = r.present
+          initPayment[r.athleteId] = { paid: r.paidByAthlete, amount: r.paidAmount ? String(r.paidAmount) : '' }
+        })
+        setPendingRecords(initPresent)
+        setPendingPayments(initPayment)
+      }
+      setSessionModal({ open: false, date: null, schedule: null, existingSession: null })
+      setGridView(true)
+    } catch {
+      toast({ title: 'Erro de ligação ao abrir assiduidade', variant: 'destructive' })
     }
-    setSessionModal({ open: false, date: null, schedule: null, existingSession: null })
-    setGridView(true)
   }
 
   const openSpecificSession = async (session: Session) => {
     setGridSession(session)
-    const recRes = await fetch(`/api/attendance/${session.id}/records`)
-    if (recRes.ok) {
-      const data: AthleteRecord[] = await recRes.json()
-      setRecords(data)
-      const initPresent: Record<string, boolean> = {}
-      const initPayment: Record<string, { paid: boolean; amount: string }> = {}
-      data.forEach((r) => {
-        initPresent[r.athleteId] = r.present
-        initPayment[r.athleteId] = { paid: r.paidByAthlete, amount: r.paidAmount ? String(r.paidAmount) : '' }
-      })
-      setPendingRecords(initPresent)
-      setPendingPayments(initPayment)
+    try {
+      const recRes = await fetch(`/api/attendance/${session.id}/records`)
+      if (recRes.ok) {
+        const data: AthleteRecord[] = await recRes.json()
+        setRecords(data)
+        const initPresent: Record<string, boolean> = {}
+        const initPayment: Record<string, { paid: boolean; amount: string }> = {}
+        data.forEach((r) => {
+          initPresent[r.athleteId] = r.present
+          initPayment[r.athleteId] = { paid: r.paidByAthlete, amount: r.paidAmount ? String(r.paidAmount) : '' }
+        })
+        setPendingRecords(initPresent)
+        setPendingPayments(initPayment)
+      } else {
+        toast({ title: 'Erro ao carregar presenças', variant: 'destructive' })
+      }
+      setGridView(true)
+    } catch {
+      toast({ title: 'Erro de ligação ao carregar presenças', variant: 'destructive' })
     }
-    setGridView(true)
   }
 
   const createSpecificSession = async () => {
@@ -450,6 +484,8 @@ export default function AttendancePage() {
       setSpecificDialog({ open: false, date: null })
       setSpecificForm({ time: '', title: '' })
       openSpecificSession(session)
+    } catch {
+      toast({ title: 'Erro de ligação ao criar sessão', variant: 'destructive' })
     } finally { setSavingSpecific(false) }
   }
 
@@ -459,37 +495,41 @@ export default function AttendancePage() {
     const { date, schedule, existingSession } = sessionModal
     if (!date || !schedule) return
 
-    let session = existingSession
-    if (!session) {
-      // Create the session first
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: format(date, 'yyyy-MM-dd'),
-          time: schedule.startTime,
-          primaryAgeGroup: schedule.ageGroup,
-          sessionType: schedule.sessionType,
-          scheduleId: schedule.id,
-        }),
-      })
-      if (!res.ok) { toast({ title: 'Erro', variant: 'destructive' }); return }
-      session = await res.json()
-    }
+    try {
+      let session = existingSession
+      if (!session) {
+        // Create the session first
+        const res = await fetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: format(date, 'yyyy-MM-dd'),
+            time: schedule.startTime,
+            primaryAgeGroup: schedule.ageGroup,
+            sessionType: schedule.sessionType,
+            scheduleId: schedule.id,
+          }),
+        })
+        if (!res.ok) { toast({ title: 'Erro', variant: 'destructive' }); return }
+        session = await res.json()
+      }
 
-    const res = await fetch(`/api/attendance/${session!.id}/cancel`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cancelled: !session!.cancelled, cancellationReason: cancelReason || null }),
-    })
-    if (res.ok) {
-      toast({ title: session!.cancelled ? 'Treino reativado' : 'Treino cancelado' })
-      fetchSessions()
-    } else {
-      toast({ title: 'Erro', variant: 'destructive' })
+      const res = await fetch(`/api/attendance/${session!.id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancelled: !session!.cancelled, cancellationReason: cancelReason || null }),
+      })
+      if (res.ok) {
+        toast({ title: session!.cancelled ? 'Treino reativado' : 'Treino cancelado' })
+        fetchSessions()
+      } else {
+        toast({ title: 'Erro', variant: 'destructive' })
+      }
+      setSessionModal({ open: false, date: null, schedule: null, existingSession: null })
+      setCancelReason('')
+    } catch {
+      toast({ title: 'Erro de ligação ao cancelar treino', variant: 'destructive' })
     }
-    setSessionModal({ open: false, date: null, schedule: null, existingSession: null })
-    setCancelReason('')
   }
 
   // ── Attendance grid ───────────────────────────────────────────────────────
@@ -606,7 +646,7 @@ export default function AttendancePage() {
             </Button>
             <div>
               <h1 className="text-lg font-semibold">
-                {format(new Date(gridSession.date), "EEEE, d 'de' MMMM yyyy", { locale: pt })}
+                {format(sessionDateOnly(gridSession.date), "EEEE, d 'de' MMMM yyyy", { locale: pt })}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {ageGroupLabel(gridSession.primaryAgeGroup)} · {gridSession.time ?? ''}

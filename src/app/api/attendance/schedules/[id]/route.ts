@@ -48,6 +48,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if ((error as { code?: string })?.code === 'P2025') {
       return NextResponse.json({ error: 'Horário não encontrado' }, { status: 404 })
     }
+    if ((error as { code?: string })?.code === 'P2002') {
+      return NextResponse.json({ error: 'Já existe um horário para este escalão neste dia e hora.' }, { status: 409 })
+    }
     logger.error('Schedules [id] PUT error:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

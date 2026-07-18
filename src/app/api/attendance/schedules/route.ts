@@ -67,6 +67,11 @@ export async function POST(req: Request) {
     })
     return NextResponse.json(schedule, { status: 201 })
   } catch (error) {
+    // BUG-045: dois administradores em abas diferentes (ou duplo-clique) podiam criar 2
+    // horários para o mesmo dia+hora+escalão+época — agora bloqueado por @@unique no schema.
+    if ((error as { code?: string })?.code === 'P2002') {
+      return NextResponse.json({ error: 'Já existe um horário para este escalão neste dia e hora.' }, { status: 409 })
+    }
     logger.error('Schedules POST error:', error)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
   }

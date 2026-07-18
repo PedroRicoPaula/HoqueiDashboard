@@ -345,7 +345,8 @@ export default function DirectionPage() {
     fetch('/api/athletes?ageGroup=SENIORS')
       .then((r) => r.ok ? r.json() : [])
       .then((data: SeniorAthlete[]) => setSeniorAthletes(data))
-  }, [can])
+      .catch(() => toast({ title: 'Erro ao carregar atletas', variant: 'destructive' }))
+  }, [can, toast])
 
   // ─── Form helpers ───────────────────────────────────────────────────────────
 
