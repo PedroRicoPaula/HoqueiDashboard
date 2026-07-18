@@ -224,6 +224,8 @@ export async function POST(req: Request) {
 ```
 Aplica-se ao Stripe SDK e a qualquer outro cliente que leia env vars obrigatórias no construtor.
 
+**Stripe especificamente (2026-07-18):** usar sempre `getStripe()` de `src/lib/stripe.ts` em vez de repetir `new Stripe(...)` — é só uma factory (chamada dentro do handler, continua a respeitar a regra acima), mas centraliza a `apiVersion` para não divergir entre ficheiros. Usado em `register`, `stripe/webhook`, `billing/cancel`, `billing/reactivate`, `platform/clubs/[id]/send-payment-link`.
+
 ### Error Handling nas APIs
 ```typescript
 // Sempre distinguir erros Prisma conhecidos:

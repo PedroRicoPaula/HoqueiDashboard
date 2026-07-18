@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
 import { activateClubFromSession } from '@/lib/clubActivation'
-import Stripe from 'stripe'
+import { getStripe } from '@/lib/stripe'
+import type Stripe from 'stripe'
 
 export async function POST(req: Request) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
+  const stripe = getStripe()
   const sig = req.headers.get('stripe-signature')
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
 
@@ -93,9 +94,13 @@ export async function POST(req: Request) {
         const clubId = subscription.metadata?.clubId
         if (!clubId) break
 
+        // Estado final é SUSPENDED (não CANCELLED) — é o mesmo estado usado pelo
+        // cancelamento self-serve (/api/billing/cancel), para partilhar toda a
+        // lógica já existente de reactivação, guard de eliminação ao fim de 1 ano
+        // e mensagem de login bloqueado.
         await prisma.club.update({
           where: { id: clubId },
-          data: { status: 'CANCELLED', statusChangedAt: new Date() },
+          data: { status: 'SUSPENDED', statusChangedAt: new Date() },
         })
 
         await logAudit(req, null, clubId, 'SUBSCRIPTION_CANCELLED', 'Club', clubId, {

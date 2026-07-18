@@ -15,6 +15,7 @@ export async function activateClubFromSession(session: Stripe.Checkout.Session) 
     where: { id: clubId },
     data: {
       status: 'ACTIVE',
+      isFreeClub: false, // cobre o upgrade de clube grátis → pago via /api/platform/clubs/[id]/send-payment-link
       ...(session.subscription ? { stripeSubscriptionId: session.subscription as string } : {}),
       stripePriceId,
     },

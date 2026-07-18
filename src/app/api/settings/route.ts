@@ -17,7 +17,7 @@ const updateSchema = z.object({
 // necessários no cliente e não devem ser lidos por um utilizador não-admin (ver PATCH).
 const CLUB_SELECT = {
   id: true, name: true, slug: true, email: true, country: true, language: true,
-  logoUrl: true, primaryColor: true, status: true, createdAt: true, updatedAt: true,
+  logoUrl: true, primaryColor: true, status: true, isFreeClub: true, createdAt: true, updatedAt: true,
 }
 
 export async function GET(req: Request) {

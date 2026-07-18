@@ -11,11 +11,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useSeasonStore } from '@/store/seasonStore'
 import { useDashT } from '@/hooks/useDashT'
-import { Loader2, Settings, Upload, X, Euro, CalendarDays } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Settings, Upload, X, Euro, CalendarDays, ShieldAlert, FileDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const COLOR_PRESETS = [
@@ -51,11 +55,17 @@ export default function SettingsPage() {
   const t = useDashT()
   const { user, setAuth, permissions } = useAuthStore()
   const { selectedSeasonId } = useSeasonStore()
+  const router = useRouter()
   const [loading, setLoading]           = useState(false)
   const [fetching, setFetching]         = useState(true)
   const [logoUrl, setLogoUrl]           = useState<string | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Subscription state
+  const [clubMeta, setClubMeta] = useState<{ isFreeClub: boolean; status: string } | null>(null)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   // Season fees state
   const [allSeasons, setAllSeasons]         = useState<Season[]>([])
@@ -98,9 +108,29 @@ export default function SettingsPage() {
         setValue('country', data.country ?? 'pt')
         setValue('primaryColor', data.primaryColor ?? '142 71% 45%')
         setLogoUrl(data.logoUrl ?? null)
+        setClubMeta({ isFreeClub: !!data.isFreeClub, status: data.status ?? 'ACTIVE' })
       })
       .finally(() => setFetching(false))
   }, [setValue])
+
+  const handleCancelSubscription = async () => {
+    setCancelling(true)
+    try {
+      const res = await fetch('/api/billing/cancel', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: t('common.error'), description: json.error, variant: 'destructive' })
+        return
+      }
+      useAuthStore.getState().logout()
+      router.push('/login?cancelled=1')
+    } catch {
+      toast({ title: t('common.error'), variant: 'destructive' })
+    } finally {
+      setCancelling(false)
+      setCancelOpen(false)
+    }
+  }
 
   // Load seasons for fee configuration
   const loadSeasons = useCallback(async () => {
@@ -468,6 +498,59 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Subscription card — only for paid clubs (free clubs have no subscription to cancel) */}
+      {clubMeta && !clubMeta.isFreeClub && (
+        <Card className="border-red-100">
+          <CardHeader>
+            <CardTitle className="text-red-700">Subscrição</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-gray-500">
+              Cancelar a subscrição suspende o acesso de todos os utilizadores deste clube de imediato.
+              Os dados não são eliminados — pode reativar a qualquer momento voltando a pagar a mensalidade.
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={() => setCancelOpen(true)}
+              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-700">
+              Cancelar subscrição
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={cancelOpen} onOpenChange={(o) => !cancelling && setCancelOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <ShieldAlert className="h-5 w-5" /> Cancelar subscrição
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                O acesso de <strong>todos os utilizadores</strong> deste clube é suspenso de imediato.
+                Deixa de ser cobrado a partir de agora.
+              </span>
+              <span className="block">
+                Os dados ficam guardados — não são eliminados. Para voltar a aceder basta reativar
+                a subscrição a partir do ecrã de login, quando quiser.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2 text-sm text-amber-800">
+            <FileDown className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>
+              Recomendamos exportar os dados antes de cancelar (não é obrigatório).{' '}
+              <Link href="/reports" className="underline font-medium">Ir para Relatórios</Link>
+            </span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancelling}>Voltar</Button>
+            <Button variant="destructive" onClick={handleCancelSubscription} disabled={cancelling}>
+              {cancelling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Cancelar subscrição
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

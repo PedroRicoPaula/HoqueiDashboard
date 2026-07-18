@@ -73,6 +73,7 @@
   - Clube grátis: requer `status === 'SUSPENDED'`
   - Clube pago: requer `status === 'SUSPENDED'` + `statusChangedAt < NOW() - 1 ano`
   - Elimina em cascade (Prisma `onDelete: Cascade` em todos os modelos tenanted)
+- **Enviar link de pagamento (2026-07-18)**: botão só visível em clubes `isFreeClub && status === 'ACTIVE'`. Dialog com escolha de plano (Principal €59/mês ou Teste €3/mês) → cria/reutiliza `stripeCustomerId`, gera Stripe Checkout e envia email ao clube (`paymentLinkEmailHtml`, `src/lib/email.ts`) com o link — o clube paga com o próprio cartão, não o do super admin. Activação (`ACTIVE` + `isFreeClub: false`) acontece no webhook `checkout.session.completed` via `src/lib/clubActivation.ts`, igual ao registo normal.
 - **Sidebar de estatísticas**: breakdown por estado, por país (pagos ativos), faturação mensal/anual/grátis
 
 ### APIs
@@ -81,10 +82,13 @@
 | POST | `/api/platform/clubs` | Criar clube grátis + admin |
 | PATCH | `/api/platform/clubs/[id]/status` | Alterar estado (ACTIVE/SUSPENDED) |
 | DELETE | `/api/platform/clubs/[id]` | Eliminar clube (com validação elegibilidade) |
+| POST | `/api/platform/clubs/[id]/send-payment-link` | (2026-07-18) Enviar email com Stripe Checkout a um clube grátis; `{ plan: 'monthly' \| 'test' }` |
 
 Todas as rotas exigem `user.isSuperAdmin` — qualquer outro utilizador recebe 403.  
 `POST /api/platform/clubs` tem rate limiting: 20 req/hora por super admin (`checkRateLimit`).  
-Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB_STATUS` (captura `previousStatus`/`newStatus`), `DELETE_CLUB` (snapshot de atletha/user count antes do cascade delete).
+Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB_STATUS` (captura `previousStatus`/`newStatus`), `DELETE_CLUB` (snapshot de atletha/user count antes do cascade delete), `PAYMENT_LINK_SENT` (plano escolhido + se o email foi enviado com sucesso).
+
+> **Bug corrigido em 2026-07-18**: `PlatformClubs.tsx` fazia `useState(initialClubs)` uma única vez — depois de `router.refresh()` (ex: criar um clube novo), os cards de estatística do server component actualizavam mas a tabela de clubes ficava desactualizada até um reload manual da página. Fix: `useEffect(() => setClubs(initialClubs), [initialClubs])` a re-sincronizar sempre que o prop muda.
 
 ### Ficheiros chave
 - `src/app/platform/layout.tsx` — nav simples com link "Clubes" e logout
@@ -117,6 +121,7 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 - Overscroll whitespace corrigido — `overscroll-contain` no `<main>` do dashboard layout
 - Audit log em cada PATCH
 - Logo do clube renderizado via `next/image` (`Sidebar.tsx`, `settings/page.tsx`) — hosts externos (R2) têm de estar em `images.remotePatterns` no `next.config.mjs`, **separado** do `img-src` do CSP (um permite o browser carregar a imagem, o outro permite ao `/_next/image` pedi-la para otimizar). Ver BUG-028 em `docs/ISSUES-BACKLOG.md`.
+- **Card "Subscrição" (2026-07-18)** — só visível para clubes não-grátis (`isFreeClub: false`). Botão "Cancelar subscrição" abre dialog com aviso a recomendar (não obrigar) exportar dados antes (link para `/reports`); confirmar chama `POST /api/billing/cancel`, que cancela a subscrição no Stripe **imediatamente**, marca o clube `SUSPENDED`, invalida a sessão de **todos** os utilizadores do clube (`tokenVersion` incrementado em massa) e limpa o cookie de quem fez o pedido — redirect para `/login?cancelled=1`. Ver `docs/AUTH-SECURITY.md` para o ciclo de vida completo (cancelamento → suspensão → reativação).
 
 ---
 
@@ -812,7 +817,9 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 **Status:** ✅ funcional  
 **Páginas:** `/login`, `/setup`, `/forgot-password`, `/reset-password`  
 **APIs:**
-- `POST /api/auth/login` → autenticar, set cookie `hm_token`; resposta inclui `clubPrimaryColor` (HSL string do preset do clube)
+- `POST /api/auth/login` → autenticar, set cookie `hm_token`; resposta inclui `clubPrimaryColor` (HSL string do preset do clube). Se o clube não estiver `ACTIVE`, devolve 403 com `{ error, status, canReactivate }` — `canReactivate` só `true` para clubes pagos em `SUSPENDED`/`PAST_DUE` (nunca clubes grátis); o frontend (`src/app/login/page.tsx`) mostra um botão "Reativar subscrição" inline quando `true`
+- `POST /api/billing/cancel` → (2026-07-18, autenticado `isAdmin`) cancelamento self-serve — ver `docs/AUTH-SECURITY.md`
+- `POST /api/billing/reactivate` → (2026-07-18, público, rate limited 10/hora/IP) reabre Stripe Checkout para um clube `SUSPENDED`/`PAST_DUE` reutilizando o `stripeCustomerId` existente — ver `docs/AUTH-SECURITY.md`
 - `POST /api/auth/logout` → clear cookie, increment tokenVersion, redirect 302 para `/` (middleware redireciona para `/{locale}` da landing — não devolve JSON; suporta native form POST do platform layout e fetch do Sidebar)
 - `GET /api/auth/me` → devolver user + permissions
 - `POST /api/auth/change-password` → mudar password (rate limited: 5/15min)
@@ -827,10 +834,10 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 - Rate limit: 3 pedidos por email / 15 min (protege contra spam)
 
 ### Email Transacional (`src/lib/email.ts`)
-- Usa Resend REST API diretamente (sem SDK — evita dependências extras)
-- Funções: `sendWelcomeEmail(to, clubName, tempPassword)`, `sendPasswordResetEmail(to, resetLink)`
-- `from:` configurado para `noreply@hoqueimanager.com` (necessita domínio verificado no Resend)
-- Email de boas-vindas enviado pelo webhook Stripe após `checkout.session.completed`
+- Usa Resend REST API diretamente (sem SDK — evita dependências extras), função genérica `sendEmail({to, subject, html, from?})`
+- Templates HTML: `resetPasswordEmailHtml(name, resetUrl)`, `paymentLinkEmailHtml(clubName, checkoutUrl, planLabel, priceText)` (novo, 2026-07-18 — usado por `/api/platform/clubs/[id]/send-payment-link`). Ambos partilham `emailShell()` interno (cabeçalho/rodapé comuns) — redesenhados em 2026-07-18 para o mesmo estilo visual
+- `from:` configurado via `EMAIL_FROM` (necessita domínio verificado no Resend); fallback `onboarding@resend.dev`
+- **Não existe email de boas-vindas** — removido em 2026-07-17 quando o registo passou a definir a password logo no formulário (ver regra 13 do CLAUDE.md); `sendWelcomeEmail`/`sendPasswordResetEmail` (nomes antigos) já não existem no código
 
 ### Notas
 - `/setup` serve para criar o primeiro utilizador em ambiente limpo

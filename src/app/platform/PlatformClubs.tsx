@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, ShieldOff, ShieldCheck, Trash2, AlertTriangle } from 'lucide-react'
+import { Plus, Loader2, ShieldOff, ShieldCheck, Trash2, AlertTriangle, CreditCard } from 'lucide-react'
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
@@ -60,10 +60,16 @@ function canDelete(club: Club): boolean {
 export default function PlatformClubs({ initialClubs }: Props) {
   const router = useRouter()
   const [clubs, setClubs] = useState<Club[]>(initialClubs)
+  // router.refresh() (após criar clube, etc.) re-executa o server component e passa um
+  // initialClubs novo, mas useState só lê o valor inicial uma vez — sem isto a tabela
+  // nunca reflectia clubes criados, só as stats do servidor (achado em teste ao vivo).
+  useEffect(() => { setClubs(initialClubs) }, [initialClubs])
   const [createOpen, setCreateOpen] = useState(false)
   const [suspendTarget, setSuspendTarget] = useState<Club | null>(null)
   const [activateTarget, setActivateTarget] = useState<Club | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Club | null>(null)
+  const [paymentTarget, setPaymentTarget] = useState<Club | null>(null)
+  const [paymentPlan, setPaymentPlan] = useState<'monthly' | 'test'>('monthly')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -120,6 +126,28 @@ export default function PlatformClubs({ initialClubs }: Props) {
       ))
       setSuspendTarget(null)
       setActivateTarget(null)
+    } catch {
+      setError('Erro de ligação')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ─── Send payment link (free club → paid) ──────────────────────────────────
+
+  const handleSendPaymentLink = async () => {
+    if (!paymentTarget) return
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/platform/clubs/${paymentTarget.id}/send-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: paymentPlan }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error ?? 'Erro ao enviar link de pagamento'); return }
+      setPaymentTarget(null)
     } catch {
       setError('Erro de ligação')
     } finally {
@@ -199,6 +227,15 @@ export default function PlatformClubs({ initialClubs }: Props) {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
+                        {club.isFreeClub && club.status === 'ACTIVE' && (
+                          <button
+                            title="Enviar link de pagamento"
+                            onClick={() => { setError(''); setPaymentPlan('monthly'); setPaymentTarget(club) }}
+                            className="p-1.5 rounded hover:bg-blue-100 text-blue-600 transition-colors"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </button>
+                        )}
                         {canSuspend(club) && (
                           <button
                             title="Suspender"
@@ -360,6 +397,38 @@ export default function PlatformClubs({ initialClubs }: Props) {
             <Button disabled={saving} onClick={() => activateTarget && changeStatus(activateTarget.id, 'ACTIVE')}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Ativar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Send Payment Link ───────────────────────────────────────── */}
+      <Dialog open={!!paymentTarget} onOpenChange={(o) => { if (!o) setPaymentTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar link de pagamento</DialogTitle>
+            <DialogDescription>
+              Envia um email para <strong>{paymentTarget?.email}</strong> com um link de Stripe Checkout.
+              O clube paga com o próprio cartão; depois de confirmado, o clube deixa de ser grátis e é
+              reencaminhado para o login para entrar com as credenciais que já tem.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Plano</Label>
+            <Select value={paymentPlan} onValueChange={(v) => setPaymentPlan(v as 'monthly' | 'test')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">Plano Principal — €59/mês</SelectItem>
+                <SelectItem value="test">Plano de Teste — €3/mês</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentTarget(null)}>Cancelar</Button>
+            <Button disabled={saving} onClick={handleSendPaymentLink}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Enviar link
             </Button>
           </DialogFooter>
         </DialogContent>

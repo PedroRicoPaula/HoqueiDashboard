@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       where: { email },
       include: {
         permissions: true,
-        club: { select: { status: true, name: true, language: true, logoUrl: true, primaryColor: true } },
+        club: { select: { status: true, name: true, language: true, logoUrl: true, primaryColor: true, isFreeClub: true } },
       },
     })
 
@@ -42,8 +42,18 @@ export async function POST(req: Request) {
 
     // Block login for clubs that are not active (unless super admin)
     if (!user.isSuperAdmin && user.club && user.club.status !== 'ACTIVE') {
+      const status = user.club.status
+      const messages: Record<string, string> = {
+        SUSPENDED: 'A subscrição deste clube foi cancelada e o acesso está suspenso.',
+        PAST_DUE: 'O pagamento deste clube está em atraso e o acesso está suspenso.',
+        CANCELLED: 'A subscrição deste clube foi cancelada e o acesso está suspenso.',
+        PENDING_PAYMENT: 'O pagamento deste clube ainda não foi confirmado.',
+      }
+      // Reativação self-serve só faz sentido para clubes pagos suspensos/em atraso —
+      // clubes grátis não têm Stripe customer associado, é preciso contactar o suporte.
+      const canReactivate = !user.club.isFreeClub && (status === 'SUSPENDED' || status === 'PAST_DUE')
       return NextResponse.json(
-        { error: 'Subscrição inativa. Verifique o seu plano em hoqueimanager.com.' },
+        { error: messages[status] ?? 'Subscrição inativa. Verifique o seu plano em hoqueimanager.com.', status, canReactivate },
         { status: 403 }
       )
     }
