@@ -99,3 +99,41 @@ export function paymentLinkEmailHtml(clubName: string, checkoutUrl: string, plan
     </div>`
   return emailShell({ title: 'Ativar Pagamento', badgeIcon: '💳', badgeColor: '#16a34a', bodyHtml: body })
 }
+
+export function trialWelcomeEmailHtml(clubName: string, monthlyUrl: string, yearlyUrl: string): string {
+  const body = `
+    <p style="color:#374151;margin:0 0 20px;font-size:15px;line-height:1.6">Olá <strong>${escHtml(clubName)}</strong>,</p>
+    <p style="color:#374151;margin:0 0 20px;font-size:15px;line-height:1.6">Bem-vindo ao HoqueiManager! Obrigado por experimentares a plataforma.</p>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 18px;margin-bottom:24px">
+      <p style="color:#1e40af;font-weight:600;font-size:15px;margin:0">🎉 Tens 14 dias de acesso completo, sem cartão de crédito.</p>
+    </div>
+    <p style="color:#374151;margin:0 0 16px;font-size:15px;line-height:1.6">Se quiseres activar já um plano (a qualquer momento — inclusive depois, nas Definições do clube):</p>
+    <a href="${escHtml(monthlyUrl)}" style="display:block;background:#16a34a;color:#fff;text-align:center;padding:14px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:10px">
+      Mensal — €59/mês →
+    </a>
+    <a href="${escHtml(yearlyUrl)}" style="display:block;background:#fff;color:#16a34a;text-align:center;padding:14px 24px;border-radius:10px;text-decoration:none;font-weight:600;font-size:15px;border:2px solid #16a34a;margin-bottom:24px">
+      Anual — €590/ano (2 meses grátis) →
+    </a>
+    <div style="background:#f9fafb;border-radius:10px;padding:14px 16px">
+      <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.5">
+        Obrigado por escolheres o HoqueiManager para o teu clube. Qualquer dúvida, é só responder a este email.
+      </p>
+    </div>`
+  return emailShell({ title: 'Bem-vindo ao HoqueiManager', badgeIcon: '👋', badgeColor: '#2563eb', bodyHtml: body })
+}
+
+export function paidWelcomeEmailHtml(clubName: string, planLabel: string): string {
+  const body = `
+    <p style="color:#374151;margin:0 0 20px;font-size:15px;line-height:1.6">Olá <strong>${escHtml(clubName)}</strong>,</p>
+    <p style="color:#374151;margin:0 0 20px;font-size:15px;line-height:1.6">Bem-vindo ao HoqueiManager! O teu pagamento foi confirmado com sucesso.</p>
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 18px;margin-bottom:24px;text-align:center">
+      <span style="color:#166534;font-weight:600;font-size:15px">Plano activo: ${escHtml(planLabel)}</span>
+    </div>
+    <p style="color:#374151;margin:0 0 24px;font-size:15px;line-height:1.6">Obrigado por confiares no HoqueiManager para o dia-a-dia do teu clube. Já podes entrar e começar a usar tudo.</p>
+    <div style="background:#f9fafb;border-radius:10px;padding:14px 16px">
+      <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.5">
+        Vais receber também um recibo de pagamento em separado, enviado pela Stripe. Qualquer dúvida, é só responder a este email.
+      </p>
+    </div>`
+  return emailShell({ title: 'Pagamento confirmado', badgeIcon: '🎉', badgeColor: '#16a34a', bodyHtml: body })
+}
