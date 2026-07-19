@@ -17,6 +17,19 @@
 
 ---
 
+## ✅ Resolvido — Free trial de 14 dias + fix de MRR (2026-07-19)
+
+> Pedido do utilizador: adicionar free trial de 14 dias ao registo, self-serve upgrade em Definições, e reportou dois problemas encontrados em uso real em produção.
+
+### ~~[BUG-046] MRR do superadmin somava clubes em trial como se pagassem €59~~ ✅ RESOLVIDO 2026-07-19
+**Encontrado:** 2026-07-19, ao implementar o free trial. `src/app/platform/page.tsx` — fallback antigo `!c.stripePriceId` classificava como "mensal" qualquer clube pago sem `stripePriceId` gravado, sem distinguir "clube legado com subscrição real mas sem price_id" de "clube em trial, price_id null, €0 pago". Corrigido: `monthlyActiveClubs` passa a exigir também `stripeSubscriptionId`; trial e plano de teste (€3) ganham buckets próprios, visíveis mas fora do MRR/ARR oficial.
+**Nota:** confirmado ao vivo pelo utilizador antes do fix — pagamento real de €3 (plano de teste) não aparecia no MRR, que ficava a €0.
+
+### ~~[UX-006] Eliminação de clube em `/platform` só tinha o popup do browser como confirmação~~ ✅ RESOLVIDO 2026-07-19
+**Encontrado:** 2026-07-19, reportado pelo utilizador. `PlatformClubs.tsx` — o dialog de eliminação permanente não exigia nenhuma confirmação textual, só o `confirm()` nativo do browser. Adicionado campo de texto que exige o email exacto (case-insensitive) do clube antes de activar o botão "Eliminar para sempre".
+
+---
+
 ## ✅ Resolvido — Correcção completa do backlog + landing/marketing (2026-07-18)
 
 > Pedido do utilizador: verificar o que realmente falta corrigir (confirmando contra o código e o git log, não assumir cego) e corrigir tudo antes de mais testes. Dos 19 itens encontrados nas duas rondas anteriores (auditoria de 4 agentes + revisão de marketing), 17 foram corrigidos nesta ronda — os 2 restantes ([UX-004], [UX-005]) ficam de fora porque são decisões de produto/design pendentes, não bugs.
