@@ -220,6 +220,9 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
+      // Obrigatório pela Stripe quando se passa um customer existente + tax_id_collection —
+      // sem isto o Checkout falha com "Tax ID collection requires updating business name".
+      customer_update: { name: 'auto' },
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],

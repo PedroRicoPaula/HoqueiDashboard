@@ -17,6 +17,19 @@
 
 ---
 
+## ✅ Resolvido — Checkout com NIF em produção + eliminação de clube pago (2026-07-19)
+
+> Reportado pelo utilizador em conta de teste real em produção: erro 500 ao tentar pagar mensal/anual, e pedido para simplificar a regra de eliminação de clubes suspensos no superadmin.
+
+### ~~[BUG-047] Checkout falhava com 500 em produção após activar `tax_id_collection`~~ ✅ RESOLVIDO 2026-07-19
+**Encontrado:** 2026-07-19, ao vivo em produção — `POST /api/billing/subscribe` (e os outros 4 pontos de checkout) devolvia 500. Log da Stripe: `"Tax ID collection requires updating business name on the customer. To enable tax ID collection for an existing customer, please set customer_update[name] to auto."` — a Stripe exige `customer_update: { name: 'auto' }` sempre que `tax_id_collection` é activado numa Checkout Session que reutiliza um `customer` já existente (os 5 pontos de checkout do projecto passam sempre um `customer` existente/recém-criado, nunca deixam a Stripe criar um novo). Corrigido nos 5: `register`, `billing/subscribe`, `billing/reactivate`, `billing/checkout-link/[clubId]`, `platform/clubs/[id]/send-payment-link`.
+**Nota:** só apanhado em produção porque as chaves Stripe placeholder do `.env.local` falhavam antes de chegar a este ponto específico da API — não reproduzível em dev local sem chaves reais.
+
+### ~~[UX-007] Clube pago suspenso só era eliminável 1 ano depois~~ ✅ RESOLVIDO 2026-07-19
+**Encontrado:** 2026-07-19, reportado pelo utilizador ao tentar apagar uma conta de teste criada por registo normal (não pela via grátis do superadmin) e já suspensa. `src/app/api/platform/clubs/[id]/route.ts` tinha uma regra assimétrica: clubes grátis eram elimináveis assim que `SUSPENDED`, clubes pagos só 1 ano depois (`statusChangedAt`). O utilizador argumentou, correctamente, que `SUSPENDED` já significa "não está a ser pago" independentemente de como o clube nasceu — não há razão para tratar diferente. Regra unificada: qualquer clube `SUSPENDED` é eliminável de imediato (a confirmação por email no dialog, adicionada na ronda anterior, continua a ser a salvaguarda contra eliminação acidental).
+
+---
+
 ## ✅ Resolvido — Landing atualizada com free trial + login/registo multilanguage (2026-07-19)
 
 > Pedido do utilizador: landing "toda bem atualizada" com o free trial visível, e garantir que login/registo também são multilingue (não só a landing).

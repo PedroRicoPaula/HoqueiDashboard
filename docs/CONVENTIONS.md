@@ -230,6 +230,8 @@ Aplica-se ao Stripe SDK e a qualquer outro cliente que leia env vars obrigatóri
 
 **Todo `checkout.sessions.create` leva `tax_id_collection: { enabled: true }`** (2026-07-19) — permite ao cliente introduzir o próprio NIF/contribuinte no Checkout; a Stripe grava-o no `Customer` e mostra-o automaticamente na fatura gerada. Aplicado aos 5 pontos de criação de sessão (`register`, `billing/reactivate`, `billing/subscribe`, `billing/checkout-link/[clubId]`, `platform/clubs/[id]/send-payment-link`) — qualquer novo ponto de checkout tem de incluir o mesmo campo. O NIF do próprio HoqueiManager (emissor) não é código — configura-se uma vez em Stripe Dashboard → Settings → Business → Tax details (ver `CLAUDE.md`, tarefas manuais).
 
+**`tax_id_collection` exige `customer_update: { name: 'auto' }` quando a sessão reutiliza um `customer` existente** (BUG-047, 2026-07-19, só apanhado em produção) — sem isto a Stripe rejeita com 400 (`"Tax ID collection requires updating business name on the customer"`), que a API devolvia como 500 genérico. Os 5 pontos de checkout do projecto passam sempre um `customer` (novo ou existente), nunca deixam a Stripe criar um anónimo — por isso os 5 precisam sempre deste campo a par do `tax_id_collection`.
+
 ### Error Handling nas APIs
 ```typescript
 // Sempre distinguir erros Prisma conhecidos:
