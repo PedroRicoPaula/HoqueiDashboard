@@ -221,8 +221,9 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       // Obrigatório pela Stripe quando se passa um customer existente + tax_id_collection —
-      // sem isto o Checkout falha com "Tax ID collection requires updating business name".
-      customer_update: { name: 'auto' },
+      // sem name falha com "requires updating business name", sem address com "no valid
+      // address on the provided customer" (customers sem morada, caso comum aqui).
+      customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],

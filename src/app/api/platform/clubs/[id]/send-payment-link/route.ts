@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_update: { name: 'auto' },
+      customer_update: { name: 'auto', address: 'auto' },
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
