@@ -373,6 +373,26 @@ labels.materialStates[item.state] ?? MATERIAL_STATE_LABELS[item.state] ?? item.s
 const MONTHS = labels.monthsFull?.slice(1) ?? MONTHS_FALLBACK
 ```
 
+---
+
+## Auth pages i18n (2026-07-19)
+
+`/login`, `/forgot-password`, `/reset-password`, `/register/complete` também não vivem sob `[locale]/` (URL fica `/login`, não `/pt/login` — mudar isso implicaria reescrever o `middleware.ts` matcher e todos os redirects hardcoded `/login` espalhados pelo projecto, considerado desproporcional só para i18n). Usam `useAuthT()` (`src/hooks/useAuthT.ts`), terceiro hook de i18n do projecto a par de `useDashT`/`useDashLabels`, com uma diferença chave: **estas páginas são pré-autenticação, não há `clubLanguage` no Zustand store ainda**.
+
+```typescript
+import { useAuthT } from '@/hooks/useAuthT'
+const { t, locale, setLocale } = useAuthT()
+// t('login.title'), t('forgotPassword.submit')
+```
+
+Fonte do idioma, por ordem de prioridade: `?lang=` na query string (handoff vindo da landing — todos os links `/login` na landing e todos os `success_url` do Stripe que apontam para `/login` incluem `&lang=${locale}`/`&lang=${club.language}`) → `localStorage['hm-locale']` → `navigator.language` → `'pt'`. Chaves em `messages/auth/{pt,en,es,fr,it}.json`.
+
+**Estado partilhado via `useSyncExternalStore`, não `useState` local** — várias destas páginas montam o hook em componentes separados (ex: `LoginPage` e `LoginForm`, este último dentro de um `<Suspense>`); com `useState` cada instância teria o seu próprio idioma e o `AuthLanguageSwitcher` só mudaria o texto de um dos dois. `useAuthT` usa um store module-level com `subscribe`/`getSnapshot`, partilhado por todas as chamadas ao hook na página — confirmado ao vivo via Playwright (trocar de ES para EN no switcher actualiza título, labels e placeholders em simultâneo).
+
+`AuthLanguageSwitcher` (`src/components/auth/AuthLanguageSwitcher.tsx`) é o equivalente destas páginas ao `LanguageSwitcher` da landing — mesma UI, mas chama `setLocale()` do hook em vez de trocar o segmento `[locale]` da URL.
+
+**Limitação conhecida, não resolvida**: mensagens de erro devolvidas pela própria API (`json.error`) continuam em português fixo (as rotas `/api/auth/login`, `/api/register`, etc. não são i18n) — só o texto estático das páginas (labels, títulos, toasts genéricos como "erro de ligação") está traduzido.
+
 ### `getDateLocale(lang)` — locale para date-fns
 ```typescript
 import { getDateLocale } from '@/lib/date-locale'

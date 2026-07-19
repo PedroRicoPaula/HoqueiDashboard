@@ -11,9 +11,24 @@
 **Encontrado:** 2026-07-17 (auditoria dashboard). `attendance/page.tsx:140-142,1047,1297-1300` — restrição só de frontend (sem constraint no schema nem validação no servidor) que esconde "Novo Horário" assim que cada escalão tem um horário. `docs/MODULES.md:683` documenta como intencional, mas a generalidade dos clubes treina cada escalão 2-3×/semana em dias diferentes.
 **Decisão pendente:** confirmar com o dono do produto antes de mais clubes fazerem o setup inicial — se não for intencional, bloqueia onboarding real logo no primeiro dia. Nota 2026-07-18: BUG-045 (abaixo, resolvido) adicionou uma unique constraint que impede duplicar o mesmo dia+hora, mas **não** limita quantos horários diferentes um escalão pode ter — não prejudica esta decisão em aberto.
 
-### [UX-005] Secção "Features" da landing só mostra 6 dos 12 módulos vendidos
-**Encontrado:** 2026-07-18, ronda de marketing/landing. `src/app/[locale]/page.tsx:30` (`featureKeys`) mostra Atletas, Sócios, Materiais&Têxteis, Treinos&Tática, Viagens, Financeiro. Não aparecem: Patrocinadores, Direção (inclui folha salarial), Assiduidade, Admin/Permissões, Épocas. `pricing.features` já diz correctamente "Todos os 12 módulos" — só a vitrine visual undersells o produto. Screenshots (`public/screenshots/{fees,athletes}-preview.png`) também só mostram 2 dos 12 módulos, e estão datados de 20 de junho — anteriores à feature de Season Membership e ao redesign de Definições.
-**Decisão pendente:** produto ou design — não é bug, é oportunidade de marketing.
+### [UX-005b] Screenshots da landing (`public/screenshots/{fees,athletes}-preview.png`) desactualizados
+**Encontrado:** 2026-07-18, resíduo de [UX-005] (abaixo, resolvido). Só mostram 2 dos 12 módulos e são anteriores à feature de Season Membership e ao redesign de Definições (datados de 20 de junho).
+**Decisão pendente:** produto/design — recapturar screenshots, não é bug de código.
+
+---
+
+## ✅ Resolvido — Landing atualizada com free trial + login/registo multilanguage (2026-07-19)
+
+> Pedido do utilizador: landing "toda bem atualizada" com o free trial visível, e garantir que login/registo também são multilingue (não só a landing).
+
+### ~~[UX-005] Secção "Features" da landing só mostra 6 dos 12 módulos vendidos~~ ✅ RESOLVIDO 2026-07-19
+**Encontrado:** 2026-07-18, ronda de marketing/landing. `src/app/[locale]/page.tsx` (`featureKeys`) mostrava só Atletas, Sócios, Materiais&Têxteis, Treinos&Tática, Viagens, Financeiro — apesar do subtítulo já dizer corretamente "12 módulos integrados". Adicionados os 6 em falta (Mensalidades, Patrocinadores, Direção, Assiduidade, Relatórios, Permissões) nos 5 idiomas. Screenshots desactualizados ficam como item separado, [UX-005b] acima.
+
+### ~~[FEAT] Free trial ausente da mensagem da landing~~ ✅ RESOLVIDO 2026-07-19
+A landing tinha o free trial de 14 dias implementado no backend (ronda anterior) mas invisível na própria landing — hero, pricing e FAQ não o mencionavam. Adicionado: subtítulo do hero menciona "14 dias grátis, sem cartão"; link dedicado sob o card de preço (`/${locale}/register?plan=trial`, pré-seleciona o plano no passo 2 do registo); nova pergunta na FAQ. 5 idiomas.
+
+### ~~[FEAT] `/login`, `/forgot-password`, `/reset-password`, `/register/complete` só em português~~ ✅ RESOLVIDO 2026-07-19
+Estas 4 páginas não vivem sob `[locale]/` (a landing e o registo já eram multilingue) — tinham todo o texto hardcoded em PT. Novo hook `useAuthT()` (`src/hooks/useAuthT.ts`) + `messages/auth/{pt,en,es,fr,it}.json` + `AuthLanguageSwitcher`. Idioma detectado por `?lang=` (handoff da landing e dos `success_url` do Stripe) → `localStorage` → idioma do browser → PT. Ver `docs/CONVENTIONS.md` → "Auth pages i18n" para o padrão completo, incluindo a correção de um bug de estado não partilhado entre `LoginPage`/`LoginForm` apanhado ainda durante esta ronda (useState local não sincronizava as duas instâncias do hook — resolvido com `useSyncExternalStore`, testado ao vivo via Playwright).
 
 ---
 

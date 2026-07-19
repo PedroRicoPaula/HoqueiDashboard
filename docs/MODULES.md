@@ -16,12 +16,13 @@
 - **Hero**: tipo responsivo (`text-4xl sm:text-5xl lg:text-6xl`), botão CTA full-width em mobile, login como CTA secundário visível apenas em mobile
 - **Social proof**: grid com `divide-x divide-y` e bordas — aspecto de card table em vez de espaço aberto
 - **How it works**: cards com border em mobile, step circles com sombra verde
-- **Features**: `group-hover` no ícone, sombra suave verde em hover
-- **Pricing** (`PricingToggle.tsx`): badge `-17%` sempre visível no tab anual (não só quando selecionado), badge "Clube completo" acima do card
+- **Features (2026-07-19: 12/12 módulos)**: `group-hover` no ícone, sombra suave verde em hover. `featureKeys` mostra os 12 módulos vendidos (Atletas, Sócios, Mensalidades, Materiais&Têxteis, Patrocinadores, Viagens, Direção, Treinos&Tática, Assiduidade, Financeiro, Relatórios, Permissões) — antes só mostrava 6, ver [UX-005] resolvido em `docs/ISSUES-BACKLOG.md`. Screenshots (`ProductScreenshots.tsx`, abaixo) continuam desactualizados — [UX-005b], ainda aberto.
+- **Pricing** (`PricingToggle.tsx`): badge `-17%` sempre visível no tab anual (não só quando selecionado), badge "Clube completo" acima do card. Link `trialCta` sob o card aponta para `/${locale}/register?plan=trial` — pré-seleciona o plano trial no passo 2 do registo (lido de `window.location.search`, não `useSearchParams`, mesmo padrão do resto do projecto)
 - **CTA final**: anéis decorativos de fundo, gradiente `from-green-600 to-green-700`
 - **Footer**: duas linhas — (1) logo + links nav; (2) copyright + "Feito por Pedro Paula" + locale switcher
 - **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
-- Messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
+- **Free trial na mensagem (2026-07-19)**: `hero.ctaSub` menciona "14 dias grátis, sem cartão de crédito" (antes só falava em cancelamento); FAQ ganhou pergunta dedicada ao trial, primeiro item da lista, nos 5 idiomas
+- Todos os links `/login` da landing (nav, hero mobile, footer) levam `?lang=${locale}` — handoff de idioma para o `/login`, que não vive sob `[locale]/` (ver módulo 15 abaixo)
 - Registo 2 passos: (1) dados do clube **+ password/confirmar password**, (2) seleção de plano (Mensal / Anual / **Teste grátis 14 dias**); mensagens de validação i18n
 - `POST /api/register` → rate limited (5/hora/IP) → valida `password`/`confirmPassword` (`min(8)` + iguais)
   - **Mensal/Anual**: cria `Club` (PENDING_PAYMENT) + `User` admin com a hash da password já definida (sem placeholder) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
@@ -38,7 +39,7 @@
 - `src/app/[locale]/layout.tsx` — NextIntlClientProvider + CookieBanner
 - `src/app/[locale]/page.tsx` — landing page (Server Component)
 - `src/app/[locale]/register/page.tsx` — wizard 2 passos (Client Component)
-- `src/app/register/complete/page.tsx` — confirmação de pagamento + login automático (fora de `[locale]`, hardcoded PT como `/login`)
+- `src/app/register/complete/page.tsx` — confirmação de pagamento + login automático (fora de `[locale]`, multilingue via `useAuthT()` desde 2026-07-19 — ver módulo 15)
 - `src/lib/clubActivation.ts` — `activateClubFromSession()` partilhado entre `/api/register/complete` e o webhook
 - `src/app/[locale]/privacy/page.tsx` — Política de Privacidade
 - `src/app/[locale]/terms/page.tsx` — Termos de Utilização
@@ -855,3 +856,9 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 - Rate limit em change-password: 5 req / 15 min por IP
 - Login rate limit: 10 req / 15 min por IP
 - Login bem-sucedido: `user.lastLoginAt` atualizado via `prisma.user.update` (em paralelo com `logAudit`)
+
+### i18n (2026-07-19)
+`/login`, `/forgot-password`, `/reset-password` e `/register/complete` (módulo 0) eram as únicas páginas públicas 100% em português fixo — a landing e o registo já eram multilingue desde a criação. Passaram a usar `useAuthT()` (`src/hooks/useAuthT.ts`) + `messages/auth/{pt,en,es,fr,it}.json` + `<AuthLanguageSwitcher>` (`src/components/auth/AuthLanguageSwitcher.tsx`). Detalhe completo do padrão (incluindo por que não usam next-intl directamente) em `docs/CONVENTIONS.md` → "Auth pages i18n".
+- Handoff de idioma: `?lang=` nos links `/login` da landing e nos `success_url` que a Stripe usa para voltar ao `/login` (`billing/reactivate`, `billing/checkout-link`, `platform/clubs/[id]/send-payment-link` — todos usam `club.language`); `success_url` de `/api/register` para `/register/complete` usa `language` do formulário
+- Fallback sem `?lang=`: `localStorage['hm-locale']` → `navigator.language` → `pt`
+- Mensagens de erro devolvidas pela própria API (`json.error`) continuam em português fixo — só o texto estático das páginas está traduzido (limitação conhecida, documentada em CONVENTIONS.md)
