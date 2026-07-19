@@ -1,0 +1,59 @@
+{
+  "login": {
+    "tagline": "Gestione per club di hockey su pista",
+    "registeredBanner": "Registrazione completata! Accedi con l'email e la password impostate.",
+    "reactivatedBanner": "Pagamento confermato! Il club è stato riattivato — accedi con le tue credenziali.",
+    "upgradedBanner": "Pagamento confermato! Accedi con le tue credenziali abituali.",
+    "cancelledBanner": "L'abbonamento è stato annullato. Puoi riattivarlo quando vuoi effettuando nuovamente l'accesso.",
+    "suspendedCanReactivate": "Riattiva ora pagando la quota per recuperare l'accesso.",
+    "suspendedNoReactivate": "Contatta il supporto per recuperare l'accesso.",
+    "reactivateButton": "Riattiva abbonamento",
+    "title": "Accedi",
+    "subtitle": "Inserisci le tue credenziali per accedere al sistema",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "submit": "Accedi",
+    "forgotLink": "Password dimenticata",
+    "backHome": "Pagina principale",
+    "errorTitle": "Errore di accesso",
+    "errorGeneric": "Errore",
+    "errorConnection": "Errore di connessione. Riprova.",
+    "emailInvalid": "Email non valida",
+    "passwordTooShort": "La password deve avere almeno 8 caratteri",
+    "credentialsInvalid": "Credenziali non valide"
+  },
+  "forgotPassword": {
+    "title": "Recupera Accesso",
+    "subtitle": "Inserisci la tua email per ricevere le istruzioni di reimpostazione",
+    "emailInvalidToast": "Email non valida",
+    "genericError": "Errore durante la richiesta. Riprova.",
+    "connectionError": "Errore di connessione. Riprova.",
+    "sentMessage": "Se questa email è registrata, riceverai le istruzioni a breve. Controlla anche lo spam.",
+    "backToLogin": "Torna al login",
+    "emailLabel": "Email",
+    "submit": "Invia istruzioni"
+  },
+  "resetPassword": {
+    "title": "Nuova Password",
+    "subtitle": "Inserisci e conferma la nuova password",
+    "invalidLink": "Link non valido o scaduto.",
+    "requestNewLink": "Richiedi nuovo link",
+    "minChars": "Minimo 8 caratteri",
+    "mismatch": "Le password non coincidono",
+    "connectionError": "Errore di connessione. Riprova.",
+    "successToast": "Password reimpostata! Ora puoi accedere.",
+    "newPasswordLabel": "Nuova password",
+    "confirmPasswordLabel": "Conferma password",
+    "passwordPlaceholder": "Minimo 8 caratteri",
+    "confirmPlaceholder": "Ripeti password",
+    "submit": "Reimposta Password",
+    "backToLogin": "Torna al login"
+  },
+  "registerComplete": {
+    "missingSession": "Manca l'identificazione del pagamento.",
+    "genericError": "Errore nella conferma della registrazione",
+    "errorHelp": "Se il pagamento è stato completato, puoi accedere direttamente con l'email e la password impostate.",
+    "goToLogin": "Vai al login",
+    "loadingMessage": "Conferma del pagamento e preparazione della dashboard..."
+  }
+}

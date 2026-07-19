@@ -224,7 +224,7 @@ export async function POST(req: Request) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { clubId: club.id, userId: user.id },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/register/complete?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/register/complete?session_id={CHECKOUT_SESSION_ID}&lang=${language}`,
       cancel_url: `${process.env.NEXT_PUBLIC_LANDING_URL ?? 'https://hoqueimanager.com'}/${language}/register?cancelled=1`,
       subscription_data: {
         metadata: { clubId: club.id },

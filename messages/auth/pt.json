@@ -1,0 +1,59 @@
+{
+  "login": {
+    "tagline": "Gestão para clubes de hóquei em patins",
+    "registeredBanner": "Registo completo! Entre com o email e a palavra-passe que definiu.",
+    "reactivatedBanner": "Pagamento confirmado! O clube foi reativado — entre com as suas credenciais.",
+    "upgradedBanner": "Pagamento confirmado! Entre com as suas credenciais habituais.",
+    "cancelledBanner": "A subscrição foi cancelada. Pode reativar quando quiser voltando a entrar.",
+    "suspendedCanReactivate": "Reative agora pagando a mensalidade para recuperar o acesso.",
+    "suspendedNoReactivate": "Contacte o suporte para reativar o acesso.",
+    "reactivateButton": "Reativar subscrição",
+    "title": "Entrar",
+    "subtitle": "Introduza as suas credenciais para aceder ao sistema",
+    "emailLabel": "Email",
+    "passwordLabel": "Palavra-passe",
+    "submit": "Entrar",
+    "forgotLink": "Esqueci a palavra-passe",
+    "backHome": "Página principal",
+    "errorTitle": "Erro ao entrar",
+    "errorGeneric": "Erro",
+    "errorConnection": "Erro de conexão. Tente novamente.",
+    "emailInvalid": "Email inválido",
+    "passwordTooShort": "Palavra-passe deve ter pelo menos 8 caracteres",
+    "credentialsInvalid": "Credenciais inválidas"
+  },
+  "forgotPassword": {
+    "title": "Recuperar Acesso",
+    "subtitle": "Introduza o seu email para receber instruções de redefinição",
+    "emailInvalidToast": "Email inválido",
+    "genericError": "Erro ao pedir redefinição. Tente novamente.",
+    "connectionError": "Erro de ligação. Tente novamente.",
+    "sentMessage": "Se este email estiver registado, receberá as instruções em breve. Verifique também o spam.",
+    "backToLogin": "Voltar ao login",
+    "emailLabel": "Email",
+    "submit": "Enviar instruções"
+  },
+  "resetPassword": {
+    "title": "Nova Palavra-passe",
+    "subtitle": "Introduza e confirme a sua nova palavra-passe",
+    "invalidLink": "Link inválido ou expirado.",
+    "requestNewLink": "Pedir novo link",
+    "minChars": "Mínimo 8 caracteres",
+    "mismatch": "As palavras-passe não coincidem",
+    "connectionError": "Erro de ligação. Tente novamente.",
+    "successToast": "Palavra-passe redefinida! Pode fazer login.",
+    "newPasswordLabel": "Nova palavra-passe",
+    "confirmPasswordLabel": "Confirmar palavra-passe",
+    "passwordPlaceholder": "Mínimo 8 caracteres",
+    "confirmPlaceholder": "Repetir palavra-passe",
+    "submit": "Redefinir Palavra-passe",
+    "backToLogin": "Voltar ao login"
+  },
+  "registerComplete": {
+    "missingSession": "Falta a identificação do pagamento.",
+    "genericError": "Erro ao confirmar registo",
+    "errorHelp": "Se o pagamento foi concluído, pode entrar diretamente com o email e a palavra-passe que definiu.",
+    "goToLogin": "Ir para o login",
+    "loadingMessage": "A confirmar pagamento e a preparar o seu dashboard..."
+  }
+}

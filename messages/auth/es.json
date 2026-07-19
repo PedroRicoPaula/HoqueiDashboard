@@ -1,0 +1,59 @@
+{
+  "login": {
+    "tagline": "Gestión para clubes de hockey sobre patines",
+    "registeredBanner": "¡Registro completo! Inicia sesión con el email y la contraseña que definiste.",
+    "reactivatedBanner": "¡Pago confirmado! El club ha sido reactivado — inicia sesión con tus credenciales.",
+    "upgradedBanner": "¡Pago confirmado! Inicia sesión con tus credenciales habituales.",
+    "cancelledBanner": "La suscripción ha sido cancelada. Puedes reactivarla cuando quieras volviendo a iniciar sesión.",
+    "suspendedCanReactivate": "Reactiva ahora pagando la mensualidad para recuperar el acceso.",
+    "suspendedNoReactivate": "Contacta con soporte para recuperar el acceso.",
+    "reactivateButton": "Reactivar suscripción",
+    "title": "Iniciar sesión",
+    "subtitle": "Introduce tus credenciales para acceder al sistema",
+    "emailLabel": "Email",
+    "passwordLabel": "Contraseña",
+    "submit": "Entrar",
+    "forgotLink": "Olvidé mi contraseña",
+    "backHome": "Página principal",
+    "errorTitle": "Error al entrar",
+    "errorGeneric": "Error",
+    "errorConnection": "Error de conexión. Inténtalo de nuevo.",
+    "emailInvalid": "Email inválido",
+    "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "credentialsInvalid": "Credenciales inválidas"
+  },
+  "forgotPassword": {
+    "title": "Recuperar Acceso",
+    "subtitle": "Introduce tu email para recibir instrucciones de restablecimiento",
+    "emailInvalidToast": "Email inválido",
+    "genericError": "Error al solicitar el restablecimiento. Inténtalo de nuevo.",
+    "connectionError": "Error de conexión. Inténtalo de nuevo.",
+    "sentMessage": "Si este email está registrado, recibirás las instrucciones en breve. Revisa también el spam.",
+    "backToLogin": "Volver al login",
+    "emailLabel": "Email",
+    "submit": "Enviar instrucciones"
+  },
+  "resetPassword": {
+    "title": "Nueva Contraseña",
+    "subtitle": "Introduce y confirma tu nueva contraseña",
+    "invalidLink": "Enlace inválido o caducado.",
+    "requestNewLink": "Solicitar nuevo enlace",
+    "minChars": "Mínimo 8 caracteres",
+    "mismatch": "Las contraseñas no coinciden",
+    "connectionError": "Error de conexión. Inténtalo de nuevo.",
+    "successToast": "¡Contraseña restablecida! Ya puedes iniciar sesión.",
+    "newPasswordLabel": "Nueva contraseña",
+    "confirmPasswordLabel": "Confirmar contraseña",
+    "passwordPlaceholder": "Mínimo 8 caracteres",
+    "confirmPlaceholder": "Repetir contraseña",
+    "submit": "Restablecer Contraseña",
+    "backToLogin": "Volver al login"
+  },
+  "registerComplete": {
+    "missingSession": "Falta la identificación del pago.",
+    "genericError": "Error al confirmar el registro",
+    "errorHelp": "Si el pago se completó, puedes iniciar sesión directamente con el email y la contraseña que definiste.",
+    "goToLogin": "Ir al login",
+    "loadingMessage": "Confirmando el pago y preparando tu panel..."
+  }
+}

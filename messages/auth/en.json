@@ -1,0 +1,59 @@
+{
+  "login": {
+    "tagline": "Management for roller hockey clubs",
+    "registeredBanner": "Registration complete! Log in with the email and password you set.",
+    "reactivatedBanner": "Payment confirmed! Your club has been reactivated — log in with your credentials.",
+    "upgradedBanner": "Payment confirmed! Log in with your usual credentials.",
+    "cancelledBanner": "The subscription has been cancelled. You can reactivate whenever you like by logging in.",
+    "suspendedCanReactivate": "Reactivate now by paying to regain access.",
+    "suspendedNoReactivate": "Contact support to regain access.",
+    "reactivateButton": "Reactivate subscription",
+    "title": "Log in",
+    "subtitle": "Enter your credentials to access the system",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "submit": "Log in",
+    "forgotLink": "Forgot your password?",
+    "backHome": "Home page",
+    "errorTitle": "Login error",
+    "errorGeneric": "Error",
+    "errorConnection": "Connection error. Please try again.",
+    "emailInvalid": "Invalid email",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "credentialsInvalid": "Invalid credentials"
+  },
+  "forgotPassword": {
+    "title": "Recover Access",
+    "subtitle": "Enter your email to receive reset instructions",
+    "emailInvalidToast": "Invalid email",
+    "genericError": "Error requesting reset. Please try again.",
+    "connectionError": "Connection error. Please try again.",
+    "sentMessage": "If this email is registered, you'll receive instructions shortly. Check your spam folder too.",
+    "backToLogin": "Back to login",
+    "emailLabel": "Email",
+    "submit": "Send instructions"
+  },
+  "resetPassword": {
+    "title": "New Password",
+    "subtitle": "Enter and confirm your new password",
+    "invalidLink": "Invalid or expired link.",
+    "requestNewLink": "Request new link",
+    "minChars": "Minimum 8 characters",
+    "mismatch": "Passwords do not match",
+    "connectionError": "Connection error. Please try again.",
+    "successToast": "Password reset! You can now log in.",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm password",
+    "passwordPlaceholder": "Minimum 8 characters",
+    "confirmPlaceholder": "Repeat password",
+    "submit": "Reset Password",
+    "backToLogin": "Back to login"
+  },
+  "registerComplete": {
+    "missingSession": "Missing payment identification.",
+    "genericError": "Error confirming registration",
+    "errorHelp": "If the payment was completed, you can log in directly with the email and password you set.",
+    "goToLogin": "Go to login",
+    "loadingMessage": "Confirming payment and preparing your dashboard..."
+  }
+}

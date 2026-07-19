@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -12,20 +12,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/store/authStore'
 import { useToast } from '@/hooks/use-toast'
+import { useAuthT } from '@/hooks/useAuthT'
+import { AuthLanguageSwitcher } from '@/components/auth/AuthLanguageSwitcher'
 import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react'
 
-const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(8, 'Palavra-passe deve ter pelo menos 8 caracteres'),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
+type LoginForm = { email: string; password: string }
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setAuth } = useAuthStore()
   const { toast } = useToast()
+  const { t } = useAuthT()
   const [loading, setLoading] = useState(false)
   const [reactivating, setReactivating] = useState(false)
   const [suspended, setSuspended] = useState<{ message: string; email: string; canReactivate: boolean } | null>(null)
@@ -40,6 +38,11 @@ function LoginForm() {
       .then(data => { if (data.needsSetup) router.replace('/setup') })
       .catch(() => {})
   }, [router])
+
+  const loginSchema = useMemo(() => z.object({
+    email: z.string().email(t('login.emailInvalid')),
+    password: z.string().min(8, t('login.passwordTooShort')),
+  }), [t])
 
   const {
     register,
@@ -67,8 +70,8 @@ function LoginForm() {
           return
         }
         toast({
-          title: 'Erro ao entrar',
-          description: json.error || 'Credenciais inválidas',
+          title: t('login.errorTitle'),
+          description: json.error || t('login.credentialsInvalid'),
           variant: 'destructive',
         })
         return
@@ -79,8 +82,8 @@ function LoginForm() {
       router.push(json.redirectTo ?? '/')
     } catch {
       toast({
-        title: 'Erro',
-        description: 'Erro de conexão. Tente novamente.',
+        title: t('login.errorGeneric'),
+        description: t('login.errorConnection'),
         variant: 'destructive',
       })
     } finally {
@@ -99,12 +102,12 @@ function LoginForm() {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast({ title: 'Erro', description: json.error, variant: 'destructive' })
+        toast({ title: t('login.errorGeneric'), description: json.error, variant: 'destructive' })
         return
       }
       window.location.href = json.checkoutUrl
     } catch {
-      toast({ title: 'Erro', description: 'Erro de conexão. Tente novamente.', variant: 'destructive' })
+      toast({ title: t('login.errorGeneric'), description: t('login.errorConnection'), variant: 'destructive' })
     } finally {
       setReactivating(false)
     }
@@ -114,22 +117,22 @@ function LoginForm() {
     <>
       {registered && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Registo completo! Entre com o email e a palavra-passe que definiu.
+          {t('login.registeredBanner')}
         </div>
       )}
       {reactivated && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Pagamento confirmado! O clube foi reativado — entre com as suas credenciais.
+          {t('login.reactivatedBanner')}
         </div>
       )}
       {upgraded && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-800 text-sm text-center">
-          Pagamento confirmado! Entre com as suas credenciais habituais.
+          {t('login.upgradedBanner')}
         </div>
       )}
       {cancelled && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-sm text-center">
-          A subscrição foi cancelada. Pode reativar quando quiser voltando a entrar.
+          {t('login.cancelledBanner')}
         </div>
       )}
 
@@ -141,14 +144,14 @@ function LoginForm() {
               <p className="font-medium">{suspended.message}</p>
               {suspended.canReactivate ? (
                 <>
-                  <p className="text-red-700">Reative agora pagando a mensalidade para recuperar o acesso.</p>
+                  <p className="text-red-700">{t('login.suspendedCanReactivate')}</p>
                   <Button type="button" size="sm" disabled={reactivating} onClick={handleReactivate} className="bg-red-600 hover:bg-red-700">
                     {reactivating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Reativar subscrição
+                    {t('login.reactivateButton')}
                   </Button>
                 </>
               ) : (
-                <p className="text-red-700">Contacte o suporte para reativar o acesso.</p>
+                <p className="text-red-700">{t('login.suspendedNoReactivate')}</p>
               )}
             </div>
           </div>
@@ -157,13 +160,13 @@ function LoginForm() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Entrar</CardTitle>
-          <CardDescription>Introduza as suas credenciais para aceder ao sistema</CardDescription>
+          <CardTitle>{t('login.title')}</CardTitle>
+          <CardDescription>{t('login.subtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('login.emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -177,7 +180,7 @@ function LoginForm() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="password">Palavra-passe</Label>
+              <Label htmlFor="password">{t('login.passwordLabel')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -192,12 +195,12 @@ function LoginForm() {
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Entrar
+              {t('login.submit')}
             </Button>
 
             <div className="text-center">
               <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-green-600 transition-colors">
-                Esqueci a palavra-passe
+                {t('login.forgotLink')}
               </Link>
             </div>
           </form>
@@ -208,15 +211,21 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t, locale, setLocale } = useAuthT()
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md px-4">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-full bg-green-600 flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-lg">HM</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">HoqueiManager</h1>
-          <p className="text-gray-500 mt-1">Gestão para clubes de hóquei em patins</p>
+          <p className="text-gray-500 mt-1">{t('login.tagline')}</p>
+        </div>
+
+        <div className="mb-6">
+          <AuthLanguageSwitcher locale={locale} onChange={setLocale} />
         </div>
 
         <Suspense fallback={<div className="h-64" />}>
@@ -224,9 +233,9 @@ export default function LoginPage() {
         </Suspense>
 
         <div className="text-center mt-6">
-          <Link href="/pt" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+          <Link href={`/${locale}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
             <ArrowLeft className="h-3.5 w-3.5" />
-            Página principal
+            {t('login.backHome')}
           </Link>
         </div>
       </div>

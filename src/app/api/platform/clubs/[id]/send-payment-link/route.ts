@@ -59,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { clubId: club.id },
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?upgraded=1`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?upgraded=1&lang=${club.language}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
       subscription_data: { metadata: { clubId: club.id } },
       tax_id_collection: { enabled: true },

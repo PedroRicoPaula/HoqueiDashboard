@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -41,6 +41,15 @@ export default function RegisterPage() {
     confirmPassword: '',
   })
 
+  // Lido de window.location.search (não useSearchParams) para não obrigar a página a um
+  // boundary de Suspense — mesmo padrão já usado em /settings para o toast de ?upgraded=1.
+  useEffect(() => {
+    const planParam = new URLSearchParams(window.location.search).get('plan')
+    if (planParam === 'trial' || planParam === 'yearly' || planParam === 'monthly') {
+      setPlan(planParam)
+    }
+  }, [])
+
   function update(field: keyof ClubForm, value: string) {
     setForm(f => ({ ...f, [field]: value }))
   }
@@ -64,7 +73,7 @@ export default function RegisterPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Erro desconhecido')
+        setError(data.error ?? t('unknownError'))
         return
       }
       if (plan === 'trial') {
@@ -75,7 +84,7 @@ export default function RegisterPage() {
       }
       window.location.href = data.checkoutUrl
     } catch {
-      setError('Erro de ligação. Tenta novamente.')
+      setError(t('connectionError'))
     } finally {
       setLoading(false)
     }

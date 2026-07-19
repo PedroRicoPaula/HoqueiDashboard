@@ -4,12 +4,14 @@ import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
+import { useAuthT } from '@/hooks/useAuthT'
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 function CompleteInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { setAuth } = useAuthStore()
+  const { t } = useAuthT()
   const [status, setStatus] = useState<'loading' | 'error'>('loading')
   const [error, setError] = useState<string | null>(null)
 
@@ -17,7 +19,7 @@ function CompleteInner() {
     const sessionId = searchParams.get('session_id')
     if (!sessionId) {
       setStatus('error')
-      setError('Falta a identificação do pagamento.')
+      setError(t('registerComplete.missingSession'))
       return
     }
 
@@ -28,7 +30,7 @@ function CompleteInner() {
     })
       .then(async (res) => {
         const json = await res.json()
-        if (!res.ok) throw new Error(json.error ?? 'Erro ao confirmar registo')
+        if (!res.ok) throw new Error(json.error ?? t('registerComplete.genericError'))
         setAuth(json.user, json.permissions)
         router.push(json.redirectTo ?? '/')
       })
@@ -44,11 +46,9 @@ function CompleteInner() {
       <div className="text-center py-4">
         <XCircle className="h-10 w-10 text-red-500 mx-auto mb-4" />
         <p className="text-sm text-red-600 mb-4">{error}</p>
-        <p className="text-sm text-gray-500 mb-4">
-          Se o pagamento foi concluído, pode entrar diretamente com o email e a palavra-passe que definiu.
-        </p>
+        <p className="text-sm text-gray-500 mb-4">{t('registerComplete.errorHelp')}</p>
         <Link href="/login" className="text-sm text-green-600 hover:underline">
-          Ir para o login
+          {t('registerComplete.goToLogin')}
         </Link>
       </div>
     )
@@ -57,7 +57,7 @@ function CompleteInner() {
   return (
     <div className="text-center py-8">
       <Loader2 className="h-10 w-10 text-green-600 mx-auto mb-4 animate-spin" />
-      <p className="text-sm text-gray-600">A confirmar pagamento e a preparar o seu dashboard...</p>
+      <p className="text-sm text-gray-600">{t('registerComplete.loadingMessage')}</p>
     </div>
   )
 }

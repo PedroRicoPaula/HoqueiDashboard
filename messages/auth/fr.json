@@ -1,0 +1,59 @@
+{
+  "login": {
+    "tagline": "Gestion pour clubs de hockey sur patins à roulettes",
+    "registeredBanner": "Inscription terminée ! Connectez-vous avec l'email et le mot de passe définis.",
+    "reactivatedBanner": "Paiement confirmé ! Le club a été réactivé — connectez-vous avec vos identifiants.",
+    "upgradedBanner": "Paiement confirmé ! Connectez-vous avec vos identifiants habituels.",
+    "cancelledBanner": "L'abonnement a été annulé. Vous pouvez le réactiver à tout moment en vous reconnectant.",
+    "suspendedCanReactivate": "Réactivez maintenant en payant la mensualité pour retrouver l'accès.",
+    "suspendedNoReactivate": "Contactez le support pour retrouver l'accès.",
+    "reactivateButton": "Réactiver l'abonnement",
+    "title": "Connexion",
+    "subtitle": "Saisissez vos identifiants pour accéder au système",
+    "emailLabel": "Email",
+    "passwordLabel": "Mot de passe",
+    "submit": "Se connecter",
+    "forgotLink": "Mot de passe oublié",
+    "backHome": "Page d'accueil",
+    "errorTitle": "Erreur de connexion",
+    "errorGeneric": "Erreur",
+    "errorConnection": "Erreur de connexion. Veuillez réessayer.",
+    "emailInvalid": "Email invalide",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "credentialsInvalid": "Identifiants invalides"
+  },
+  "forgotPassword": {
+    "title": "Récupérer l'accès",
+    "subtitle": "Saisissez votre email pour recevoir les instructions de réinitialisation",
+    "emailInvalidToast": "Email invalide",
+    "genericError": "Erreur lors de la demande de réinitialisation. Veuillez réessayer.",
+    "connectionError": "Erreur de connexion. Veuillez réessayer.",
+    "sentMessage": "Si cet email est enregistré, vous recevrez les instructions sous peu. Vérifiez aussi vos spams.",
+    "backToLogin": "Retour à la connexion",
+    "emailLabel": "Email",
+    "submit": "Envoyer les instructions"
+  },
+  "resetPassword": {
+    "title": "Nouveau mot de passe",
+    "subtitle": "Saisissez et confirmez votre nouveau mot de passe",
+    "invalidLink": "Lien invalide ou expiré.",
+    "requestNewLink": "Demander un nouveau lien",
+    "minChars": "Minimum 8 caractères",
+    "mismatch": "Les mots de passe ne correspondent pas",
+    "connectionError": "Erreur de connexion. Veuillez réessayer.",
+    "successToast": "Mot de passe réinitialisé ! Vous pouvez vous connecter.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "passwordPlaceholder": "Minimum 8 caractères",
+    "confirmPlaceholder": "Répéter le mot de passe",
+    "submit": "Réinitialiser le mot de passe",
+    "backToLogin": "Retour à la connexion"
+  },
+  "registerComplete": {
+    "missingSession": "Identification du paiement manquante.",
+    "genericError": "Erreur lors de la confirmation de l'inscription",
+    "errorHelp": "Si le paiement a été effectué, vous pouvez vous connecter directement avec l'email et le mot de passe définis.",
+    "goToLogin": "Aller à la connexion",
+    "loadingMessage": "Confirmation du paiement et préparation de votre tableau de bord..."
+  }
+}
