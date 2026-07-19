@@ -8,7 +8,7 @@
     "title": "Votre club,\nbien géré",
     "subtitle": "Athlètes, membres, matériel, voyages, entraînements et plus encore — tout sur une plateforme conçue pour les clubs de hockey sur patins.",
     "cta": "Commencer maintenant",
-    "ctaSub": "Annulez quand vous voulez. Sans engagement.",
+    "ctaSub": "14 jours gratuits, sans carte bancaire. Annulez quand vous voulez.",
     "demo": "Voir la démo"
   },
   "howItWorks": {
@@ -44,21 +44,45 @@
         "title": "Membres",
         "desc": "Gestion des cotisations mensuelles avec calendrier visuel et suivi des paiements."
       },
+      "fees": {
+        "title": "Cotisations",
+        "desc": "Calendrier des paiements par athlète, mois par mois, avec le solde dû toujours visible."
+      },
       "materials": {
         "title": "Matériel & Textiles",
         "desc": "Inventaire des équipements par catégorie, état et athlète attribué."
       },
-      "training": {
-        "title": "Entraînements & Tactique",
-        "desc": "Calendrier d'assiduité et tableau tactique numérique avec animations."
+      "sponsors": {
+        "title": "Sponsors",
+        "desc": "Contrats, montants et dates de renouvellement organisés en un seul endroit."
       },
       "travel": {
         "title": "Voyages",
         "desc": "Logistique complète : transport, chauffeurs, repas et liste de convoqués."
       },
+      "direction": {
+        "title": "Direction",
+        "desc": "Postes, contacts et fiche de paie du comité directeur, avec calendrier des paiements."
+      },
+      "training": {
+        "title": "Entraînements & Tactique",
+        "desc": "Calendrier des entraînements et tableau tactique numérique avec animations."
+      },
+      "attendance": {
+        "title": "Assiduité",
+        "desc": "Suivi de présence par entraînement, catégorie par catégorie, avec statistiques automatiques."
+      },
       "finance": {
         "title": "Finance",
         "desc": "Tableau de bord avec revenus, dépenses et solde net en temps réel."
+      },
+      "reports": {
+        "title": "Rapports",
+        "desc": "Exports CSV financiers et opérationnels prêts pour la comptabilité."
+      },
+      "admin": {
+        "title": "Permissions",
+        "desc": "Contrôle granulaire de ce que chaque utilisateur peut voir et faire, avec journal d'audit."
       }
     }
   },
@@ -103,7 +127,8 @@
       "Mises à jour incluses"
     ],
     "cta": "Commencer maintenant",
-    "guarantee": "Annulez à tout moment. Sans pénalités ni engagement."
+    "guarantee": "Annulez à tout moment. Sans pénalités ni engagement.",
+    "trialCta": "Pas prêt à décider ? Commencez avec 14 jours gratuits, sans carte →"
   },
   "preview": {
     "badge": "Le vrai produit",
@@ -122,6 +147,10 @@
   "faq": {
     "title": "Questions fréquentes",
     "items": [
+      {
+        "q": "Puis-je essayer avant de payer ?",
+        "a": "Oui. L'essai gratuit vous donne 14 jours d'accès complet au tableau de bord, sans carte bancaire. Passé les 14 jours, choisissez un plan dans les Paramètres quand vous voulez — sans choix de votre part, l'accès est suspendu, sans prélèvement automatique."
+      },
       {
         "q": "Puis-je annuler à tout moment ?",
         "a": "Oui. Pas de contrat. Vous pouvez annuler votre abonnement à tout moment depuis les Paramètres — l'accès est suspendu immédiatement et la facturation s'arrête. Vos données sont conservées et vous pouvez réactiver quand vous voulez."
@@ -200,6 +229,8 @@
     },
     "trial": "Essai gratuit — 14 jours",
     "trialNote": "Sans carte bancaire. Choisissez un plan à tout moment dans les Paramètres.",
-    "startTrial": "Commencer l'essai gratuit"
+    "startTrial": "Commencer l'essai gratuit",
+    "unknownError": "Erreur inconnue",
+    "connectionError": "Erreur de connexion. Veuillez réessayer."
   }
 }

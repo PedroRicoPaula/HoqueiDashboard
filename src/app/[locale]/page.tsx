@@ -4,6 +4,7 @@ import Image from 'next/image'
 import {
   Users, UserCheck, Package, Brain, Plane, BarChart3,
   ArrowRight, Shield, Globe, Zap, MapPin, CheckCircle2,
+  Wallet, Handshake, ClipboardList, CalendarCheck, FileBarChart, ShieldCheck,
 } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher'
 import { PricingToggle } from '@/components/landing/PricingToggle'
@@ -21,13 +22,22 @@ export default async function LandingPage({
   const featureIcons = {
     athletes: Users,
     members: UserCheck,
+    fees: Wallet,
     materials: Package,
-    training: Brain,
+    sponsors: Handshake,
     travel: Plane,
+    direction: ClipboardList,
+    training: Brain,
+    attendance: CalendarCheck,
     finance: BarChart3,
+    reports: FileBarChart,
+    admin: ShieldCheck,
   } as const
 
-  const featureKeys = ['athletes', 'members', 'materials', 'training', 'travel', 'finance'] as const
+  const featureKeys = [
+    'athletes', 'members', 'fees', 'materials', 'sponsors', 'travel',
+    'direction', 'training', 'attendance', 'finance', 'reports', 'admin',
+  ] as const
 
   const socialIcons = [Shield, Globe, Zap, MapPin]
 
@@ -52,7 +62,7 @@ export default async function LandingPage({
               <LanguageSwitcher />
             </div>
             <Link
-              href="/login"
+              href={`/login?lang=${locale}`}
               className="hidden sm:inline text-sm text-gray-500 hover:text-gray-900 transition-colors font-medium"
             >
               {t('nav.login')}
@@ -89,7 +99,7 @@ export default async function LandingPage({
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link
-              href="/login"
+              href={`/login?lang=${locale}`}
               className="w-full sm:w-auto inline-flex items-center justify-center text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors sm:hidden"
             >
               {t('nav.login')} →
@@ -246,7 +256,7 @@ export default async function LandingPage({
             <div className="flex items-center gap-6">
               <Link href={`/${locale}/privacy`} className="hover:text-white transition-colors">{t('footer.privacy')}</Link>
               <Link href={`/${locale}/terms`} className="hover:text-white transition-colors">{t('footer.terms')}</Link>
-              <Link href="/login" className="hover:text-white transition-colors">{t('nav.login')}</Link>
+              <Link href={`/login?lang=${locale}`} className="hover:text-white transition-colors">{t('nav.login')}</Link>
             </div>
           </div>
 

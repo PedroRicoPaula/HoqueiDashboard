@@ -8,7 +8,7 @@
     "title": "Your club,\nwell managed",
     "subtitle": "Athletes, members, equipment, travel, training and more — all in one platform built for roller hockey clubs.",
     "cta": "Get started",
-    "ctaSub": "Cancel anytime. No long-term contracts.",
+    "ctaSub": "14 days free, no credit card required. Cancel anytime.",
     "demo": "View demo"
   },
   "howItWorks": {
@@ -44,21 +44,45 @@
         "title": "Members",
         "desc": "Monthly membership fee management with visual calendar and payment tracking."
       },
+      "fees": {
+        "title": "Monthly Fees",
+        "desc": "Payment calendar per athlete, month by month, with outstanding balances always visible."
+      },
       "materials": {
         "title": "Equipment & Textiles",
         "desc": "Inventory by category, condition and assigned athlete."
       },
-      "training": {
-        "title": "Training & Tactics",
-        "desc": "Attendance calendar and digital tactical board with animations."
+      "sponsors": {
+        "title": "Sponsors",
+        "desc": "Contracts, amounts and renewal dates organized in one place."
       },
       "travel": {
         "title": "Travel",
         "desc": "Full logistics: transport, drivers, meals and squad list."
       },
+      "direction": {
+        "title": "Board",
+        "desc": "Roles, contacts and board payroll, with a payment calendar."
+      },
+      "training": {
+        "title": "Training & Tactics",
+        "desc": "Training calendar and digital tactical board with animations."
+      },
+      "attendance": {
+        "title": "Attendance",
+        "desc": "Attendance tracking per training session, by age group, with automatic statistics."
+      },
       "finance": {
         "title": "Finance",
         "desc": "Dashboard with revenue, expenses and net balance in real time."
+      },
+      "reports": {
+        "title": "Reports",
+        "desc": "Financial and operational CSV exports ready for accounting."
+      },
+      "admin": {
+        "title": "Permissions",
+        "desc": "Granular control over what each user can see and do, with an audit log."
       }
     }
   },
@@ -103,7 +127,8 @@
       "Updates included"
     ],
     "cta": "Get started",
-    "guarantee": "Cancel anytime. No penalties or long-term commitment."
+    "guarantee": "Cancel anytime. No penalties or long-term commitment.",
+    "trialCta": "Not ready to decide? Start with 14 days free, no card required →"
   },
   "preview": {
     "badge": "The real product",
@@ -122,6 +147,10 @@
   "faq": {
     "title": "Frequently asked questions",
     "items": [
+      {
+        "q": "Can I try it before paying?",
+        "a": "Yes. The free trial gives you 14 days of full dashboard access, no credit card required. After the 14 days, choose a plan from Settings whenever you like — if you don't, access is suspended, with no automatic charge."
+      },
       {
         "q": "Can I cancel at any time?",
         "a": "Yes. No contracts. You can cancel your subscription at any time from Settings — access is suspended immediately and billing stops. Your data is kept and you can reactivate whenever you want."
@@ -200,6 +229,8 @@
     },
     "trial": "Free trial — 14 days",
     "trialNote": "No credit card required. Choose a plan anytime from Settings.",
-    "startTrial": "Start free trial"
+    "startTrial": "Start free trial",
+    "unknownError": "Unknown error",
+    "connectionError": "Connection error. Please try again."
   }
 }

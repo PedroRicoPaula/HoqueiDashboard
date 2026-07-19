@@ -79,6 +79,13 @@ export function PricingToggle() {
         </Link>
         <p className="text-xs text-gray-400 mt-4 text-center">{t('guarantee')}</p>
       </div>
+
+      <Link
+        href={`/${locale}/register?plan=trial`}
+        className="block mt-6 text-sm text-green-700 hover:text-green-800 font-medium text-center transition-colors"
+      >
+        {t('trialCta')}
+      </Link>
     </div>
   )
 }

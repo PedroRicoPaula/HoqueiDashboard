@@ -8,7 +8,7 @@
     "title": "Il tuo club,\nben gestito",
     "subtitle": "Atleti, soci, materiali, viaggi, allenamenti e altro — tutto in una piattaforma costruita per i club di hockey su pattini.",
     "cta": "Inizia ora",
-    "ctaSub": "Annulla quando vuoi. Nessun contratto a lungo termine.",
+    "ctaSub": "14 giorni gratis, senza carta di credito. Annulla quando vuoi.",
     "demo": "Guarda la demo"
   },
   "howItWorks": {
@@ -44,21 +44,45 @@
         "title": "Soci",
         "desc": "Gestione delle quote mensili con calendario visivo e controllo dei pagamenti."
       },
+      "fees": {
+        "title": "Quote mensili",
+        "desc": "Calendario dei pagamenti per atleta, mese per mese, con lo stato del debito sempre visibile."
+      },
       "materials": {
         "title": "Materiali & Tessili",
         "desc": "Inventario delle attrezzature per categoria, stato e atleta assegnato."
       },
-      "training": {
-        "title": "Allenamenti & Tattica",
-        "desc": "Calendario presenze e lavagna tattica digitale con animazioni."
+      "sponsors": {
+        "title": "Sponsor",
+        "desc": "Contratti, importi e date di rinnovo organizzati in un unico posto."
       },
       "travel": {
         "title": "Trasferte",
         "desc": "Logistica completa: trasporto, autisti, pasti e lista dei convocati."
       },
+      "direction": {
+        "title": "Direttivo",
+        "desc": "Cariche, contatti e libro paga del direttivo, con calendario dei pagamenti."
+      },
+      "training": {
+        "title": "Allenamenti & Tattica",
+        "desc": "Calendario allenamenti e lavagna tattica digitale con animazioni."
+      },
+      "attendance": {
+        "title": "Presenze",
+        "desc": "Registro presenze per allenamento, categoria per categoria, con statistiche automatiche."
+      },
       "finance": {
         "title": "Finanze",
         "desc": "Dashboard con entrate, spese e saldo netto in tempo reale."
+      },
+      "reports": {
+        "title": "Report",
+        "desc": "Esportazioni CSV finanziarie e operative pronte per la contabilità."
+      },
+      "admin": {
+        "title": "Permessi",
+        "desc": "Controllo granulare di cosa ogni utente può vedere e fare, con log di controllo."
       }
     }
   },
@@ -103,7 +127,8 @@
       "Aggiornamenti inclusi"
     ],
     "cta": "Inizia ora",
-    "guarantee": "Annulla in qualsiasi momento. Nessuna penale né contratto."
+    "guarantee": "Annulla in qualsiasi momento. Nessuna penale né contratto.",
+    "trialCta": "Non vuoi decidere subito? Inizia con 14 giorni gratis, senza carta →"
   },
   "preview": {
     "badge": "Il prodotto reale",
@@ -122,6 +147,10 @@
   "faq": {
     "title": "Domande frequenti",
     "items": [
+      {
+        "q": "Posso provarlo prima di pagare?",
+        "a": "Sì. La prova gratuita ti dà 14 giorni di accesso completo alla dashboard, senza carta di credito. Trascorsi i 14 giorni, scegli un piano dalle Impostazioni quando vuoi — se non lo scegli, l'accesso viene sospeso, senza addebito automatico."
+      },
       {
         "q": "Posso cancellare in qualsiasi momento?",
         "a": "Sì. Nessun contratto. Puoi cancellare l'abbonamento in qualsiasi momento dalle Impostazioni — l'accesso viene sospeso immediatamente e smetti di pagare. I dati restano salvati e puoi riattivare quando vuoi."
@@ -200,6 +229,8 @@
     },
     "trial": "Prova gratuita — 14 giorni",
     "trialNote": "Senza carta di credito. Scegli un piano in qualsiasi momento dalle Impostazioni.",
-    "startTrial": "Inizia la prova gratuita"
+    "startTrial": "Inizia la prova gratuita",
+    "unknownError": "Errore sconosciuto",
+    "connectionError": "Errore di connessione. Riprova."
   }
 }

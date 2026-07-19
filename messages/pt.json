@@ -8,7 +8,7 @@
     "title": "O teu clube,\nbem gerido",
     "subtitle": "Atletas, sócios, materiais, viagens, treinos e muito mais — tudo numa plataforma feita para clubes de hóquei em patins.",
     "cta": "Começar agora",
-    "ctaSub": "Cancela quando quiseres. Sem contratos de permanência.",
+    "ctaSub": "14 dias grátis, sem cartão de crédito. Cancela quando quiseres.",
     "demo": "Ver demonstração"
   },
   "howItWorks": {
@@ -44,21 +44,45 @@
         "title": "Sócios",
         "desc": "Gestão de quotas mensais com calendário visual e controlo de pagamentos."
       },
+      "fees": {
+        "title": "Mensalidades",
+        "desc": "Calendário de pagamentos por atleta, mês a mês, com estado de dívida sempre visível."
+      },
       "materials": {
         "title": "Materiais & Têxteis",
         "desc": "Inventário de equipamentos por categoria, estado e atleta atribuído."
       },
-      "training": {
-        "title": "Treinos & Tática",
-        "desc": "Calendário de assiduidade e quadro tático digital com animações."
+      "sponsors": {
+        "title": "Patrocinadores",
+        "desc": "Contratos, valores e datas de renovação organizados num só lugar."
       },
       "travel": {
         "title": "Viagens",
         "desc": "Logística completa: transporte, condutores, refeições e convocados."
       },
+      "direction": {
+        "title": "Direção",
+        "desc": "Cargos, contactos e folha salarial da direção, com calendário de pagamentos."
+      },
+      "training": {
+        "title": "Treinos & Tática",
+        "desc": "Calendário de treinos e quadro tático digital com animações."
+      },
+      "attendance": {
+        "title": "Assiduidade",
+        "desc": "Registo de presenças por treino, escalão a escalão, com estatísticas automáticas."
+      },
       "finance": {
         "title": "Financeiro",
         "desc": "Dashboard com receitas, despesas e saldo líquido em tempo real."
+      },
+      "reports": {
+        "title": "Relatórios",
+        "desc": "Exportações CSV financeiras e operacionais prontas para a contabilidade."
+      },
+      "admin": {
+        "title": "Permissões",
+        "desc": "Controlo granular do que cada utilizador pode ver e fazer, com registo de auditoria."
       }
     }
   },
@@ -103,7 +127,8 @@
       "Atualizações incluídas"
     ],
     "cta": "Começar agora",
-    "guarantee": "Cancela a qualquer momento. Sem penalizações ou contratos."
+    "guarantee": "Cancela a qualquer momento. Sem penalizações ou contratos.",
+    "trialCta": "Não queres decidir já? Começa com 14 dias grátis, sem cartão →"
   },
   "preview": {
     "badge": "O produto real",
@@ -122,6 +147,10 @@
   "faq": {
     "title": "Perguntas frequentes",
     "items": [
+      {
+        "q": "Posso testar antes de pagar?",
+        "a": "Sim. O teste grátis dá-te 14 dias de acesso total ao dashboard, sem pedir cartão de crédito. Ao fim dos 14 dias, escolhes um plano nas Definições quando quiseres — se não escolheres, o acesso fica suspenso, sem cobrança automática."
+      },
       {
         "q": "Posso cancelar a qualquer altura?",
         "a": "Sim. Não há contratos. Podes cancelar a subscrição a qualquer momento nas Definições — o acesso é suspenso de imediato e deixas de ser cobrado. Os dados ficam guardados e podes reativar quando quiseres."
@@ -200,6 +229,8 @@
     },
     "trial": "Teste grátis — 14 dias",
     "trialNote": "Sem cartão de crédito. Escolhe um plano a qualquer momento nas Definições.",
-    "startTrial": "Começar teste grátis"
+    "startTrial": "Começar teste grátis",
+    "unknownError": "Erro desconhecido",
+    "connectionError": "Erro de ligação. Tenta novamente."
   }
 }
