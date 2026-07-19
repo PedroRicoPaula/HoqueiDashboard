@@ -68,6 +68,7 @@ export default function PlatformClubs({ initialClubs }: Props) {
   const [suspendTarget, setSuspendTarget] = useState<Club | null>(null)
   const [activateTarget, setActivateTarget] = useState<Club | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Club | null>(null)
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('')
   const [paymentTarget, setPaymentTarget] = useState<Club | null>(null)
   const [paymentPlan, setPaymentPlan] = useState<'monthly' | 'test'>('monthly')
   const [saving, setSaving] = useState(false)
@@ -257,7 +258,7 @@ export default function PlatformClubs({ initialClubs }: Props) {
                         {canDelete(club) && (
                           <button
                             title="Eliminar clube"
-                            onClick={() => { setError(''); setDeleteTarget(club) }}
+                            onClick={() => { setError(''); setDeleteConfirmEmail(''); setDeleteTarget(club) }}
                             className="p-1.5 rounded hover:bg-red-100 text-red-600 transition-colors"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -444,10 +445,18 @@ export default function PlatformClubs({ initialClubs }: Props) {
               eliminados: atletas, sócios, mensalidades, materiais, patrocinadores, viagens, treinos e utilizadores.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1">
+            <Label>Para confirmar, escreve o email do clube: <span className="font-mono text-xs">{deleteTarget?.email}</span></Label>
+            <Input value={deleteConfirmEmail} onChange={(e) => setDeleteConfirmEmail(e.target.value)} placeholder={deleteTarget?.email} autoComplete="off" />
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
-            <Button variant="destructive" disabled={saving} onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>
+            <Button
+              variant="destructive"
+              disabled={saving || deleteConfirmEmail.trim().toLowerCase() !== deleteTarget?.email.toLowerCase()}
+              onClick={() => deleteTarget && handleDelete(deleteTarget.id)}
+            >
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Eliminar para sempre
             </Button>

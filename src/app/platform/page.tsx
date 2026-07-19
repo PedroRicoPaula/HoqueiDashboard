@@ -61,10 +61,18 @@ export default async function PlatformPage() {
   const paidActiveClubs = activeClubs.filter(c => !c.isFreeClub)
   const freeActiveClubs = activeClubs.filter(c => c.isFreeClub)
   const pastDueClubs = clubs.filter(c => c.status === 'PAST_DUE')
+  // Trial: ACTIVE, não-grátis, sem stripeSubscriptionId (ainda não pagou) — ver /api/register.
+  const trialActiveClubs = paidActiveClubs.filter(c => !c.stripeSubscriptionId && c.trialEndsAt)
+  // Teste: plano €3 interno (ver STRIPE_PRICE_TEST) — receita real mas não entra no MRR/ARR
+  // "a sério", para não distorcer a métrica ao misturar com o plano principal de €59/€590.
+  const testActiveClubs = paidActiveClubs.filter(c => c.stripePriceId === process.env.STRIPE_PRICE_TEST)
 
-  // MRR excludes free clubs
+  // MRR exclui clubes grátis, em trial (pagam €0) e o plano de teste (€3, ver acima).
   const monthlyActiveClubs = paidActiveClubs.filter(c =>
-    c.stripePriceId === process.env.STRIPE_PRICE_MONTHLY || !c.stripePriceId
+    c.stripePriceId === process.env.STRIPE_PRICE_MONTHLY ||
+    // Legado: clubes pagos anteriores ao tracking de stripePriceId — têm subscrição real,
+    // só não ficou o price_id gravado. Distingue-se de trial pela presença de stripeSubscriptionId.
+    (!c.stripePriceId && !!c.stripeSubscriptionId)
   )
   const yearlyActiveClubs = paidActiveClubs.filter(c =>
     c.stripePriceId === process.env.STRIPE_PRICE_YEARLY
@@ -74,6 +82,7 @@ export default async function PlatformPage() {
     yearlyActiveClubs.length * prices.yearlyMonthlyEquiv
   )
   const arr = mrr * 12
+  const testMrr = testActiveClubs.length * 3
 
   // Country distribution (paid active only)
   const countryMap: Record<string, number> = {}
@@ -91,6 +100,8 @@ export default async function PlatformPage() {
     language: c.language,
     status: c.status,
     isFreeClub: c.isFreeClub,
+    trialEndsAt: c.trialEndsAt?.toISOString() ?? null,
+    hasActiveSubscription: !!c.stripeSubscriptionId,
     statusChangedAt: c.statusChangedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
     _count: c._count,
@@ -114,6 +125,7 @@ export default async function PlatformPage() {
           <p className="text-xs text-gray-400 mt-1">
             {clubs.length} total · {pastDueClubs.length} em atraso
             {freeActiveClubs.length > 0 && ` · ${freeActiveClubs.length} grátis`}
+            {trialActiveClubs.length > 0 && ` · ${trialActiveClubs.length} em teste`}
           </p>
         </div>
 
@@ -196,6 +208,18 @@ export default async function PlatformPage() {
                 <span className="text-gray-500">Plano anual</span>
                 <span className="font-medium">{yearlyActiveClubs.length} clubes</span>
               </div>
+              {testActiveClubs.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Teste (€3)</span>
+                  <span className="font-medium text-amber-600">{testActiveClubs.length} clubes · €{testMrr}</span>
+                </div>
+              )}
+              {trialActiveClubs.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Em teste grátis</span>
+                  <span className="font-medium text-blue-600">{trialActiveClubs.length} clubes</span>
+                </div>
+              )}
               {freeActiveClubs.length > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Grátis</span>
@@ -206,6 +230,9 @@ export default async function PlatformPage() {
                 <span>MRR total</span>
                 <span className="text-green-700">€{mrr}</span>
               </div>
+              {testMrr > 0 && (
+                <p className="text-xs text-gray-400">+ €{testMrr} de plano de teste (não incluído no MRR oficial)</p>
+              )}
             </div>
           </div>
         </div>
