@@ -3,9 +3,9 @@
 
 ## Identidade do Projeto
 **Nome:** HoqueiManager — plataforma SaaS multi-tenant para clubes de hóquei em patins  
-**URL produção:** https://hoqueimanager.com (landing) + https://app.hoqueimanager.com (dashboard)  
+**URL produção:** https://hoqueimanager.com — domínio único, landing e dashboard no mesmo host (decisão 2026-07-19; sem subdomínio `app.`)  
 **Repositório:** branch `main` → Vercel (deploy automático no push)  
-**Data última auditoria:** 2026-07-18
+**Data última auditoria:** 2026-07-19
 
 > ⚠️ ARQUITECTURA MULTI-TENANT — cada clube é um tenant isolado. Ver regras críticas abaixo.
 
@@ -24,7 +24,7 @@
 | State | Zustand | ^5.0.11 |
 | Validações | Zod v4 | ^4.3.6 |
 | i18n | `next-intl` | ^3.26.5 |
-| Billing | `stripe` | ^17.7.0 |
+| Billing | `stripe` | ^20.2.0 (API `2025-12-15.clover`, fixa ao que o webhook de produção usa — ver regra 15) |
 | Testes | Vitest | ^4.1.5 |
 
 ---
@@ -323,10 +323,21 @@ messages/                      # Traduções next-intl
 - ✅ **ToS + FAQ (5 idiomas) corrigidos** — já não prometem "acesso até fim do período pago" ao cancelar (contradizia o cancelamento imediato construído na sessão anterior); card "Subscrição" em `/settings` migrado para o sistema de traduções (`useDashT`)
 - ✅ **Verificação**: `npm test` 67/67, `npx tsc --noEmit` + `eslint` limpos. Testado ao vivo: `Quota.seasonId` gravado correctamente após criar uma quota real; `TrainingSchedule` duplicado devolve 409 com mensagem clara; `AuditLog.clubId` preenchido num login novo (confirmado por query directa à BD); card "Subscrição" renderiza texto traduzido sem chaves em bruto; atleta isento sem nenhum "✗" no histórico
 
+### Alinhamento da versão da API Stripe com produção (2026-07-19)
+> Descoberto ao configurar o webhook de produção na Stripe: a conta tem a `apiVersion` presa a `2025-12-15.clover` (não editável por endpoint), enquanto o código estava fixo em `2025-02-24.acacia` — 3 versões maiores de diferença (`acacia` → `basil` → `clover`). O webhook recebia os eventos e validava a assinatura sem problema (isso é independente da API version), mas dois campos lidos directamente do payload já não existiam na forma esperada.
+- ✅ **Pacote `stripe` actualizado `^17.7.0` → `^20.2.0`** — versão exacta cujo `LatestApiVersion` é `2025-12-15.clover`, confirmada por inspecção directa do pacote (não assumida), para bater certo com o que a conta de produção envia
+- ✅ **`src/app/api/stripe/webhook/route.ts` corrigido para a nova forma dos campos**: `invoice.subscription` → `invoice.parent?.subscription_details?.subscription`; `subscription.current_period_end` → `subscription.items.data[0]?.current_period_end` (subscrições agora suportam vários items com períodos diferentes, o campo saiu do topo)
+- ✅ **2 instâncias de `new Stripe(...)` que faltavam consolidar** (`register/complete/route.ts`, `platform/page.tsx`) migradas para `getStripe()` — a limpeza de 2026-07-18 não as tinha apanhado
+- ✅ **Verificação**: `npx tsc --noEmit` apanhou as 2 quebras de tipo reais (`Invoice.subscription`/`current_period_end` deixaram de existir nos tipos do SDK novo) antes de chegarem a produção; `npm test` 67/67, `eslint` limpo
+- ⚠️ **Nota para o futuro**: subir o pacote `stripe` sem verificar a `apiVersion` do webhook de produção primeiro quebra isto outra vez, silenciosamente (compila, mas os handlers deixam de encontrar os campos certos em runtime). Ver `docs/CONVENTIONS.md` → secção Stripe.
+
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed
-- ⏳ Criar produtos Stripe (preços mensais €59, anuais €590 e teste €3/mês) e preencher `STRIPE_PRICE_MONTHLY`/`STRIPE_PRICE_YEARLY`/`STRIPE_PRICE_TEST` no `.env` — o `.env.local` actual tem as 3 como `price_placeholder_*`, o que faz qualquer chamada Stripe (registo, cancelamento, reactivação, envio de link de pagamento) falhar com `StripeAuthenticationError` de forma controlada (sem crash) até isto ser preenchido
-- ⏳ Preencher `RESEND_API_KEY` no `.env` (Resend.com → API Keys)
-- ⏳ Deploy Vercel + env vars produção + webhook Stripe produção
-- ⏳ Registar `hoqueimanager.com` + apontar DNS para Vercel
+- ✅ DNS `hoqueimanager.com`/`www` apontado à Vercel via Cloudflare (A `76.76.21.21` + CNAME, "DNS only"/sem proxy) — confirmado 2026-07-19
+- ✅ Domínio Resend `hoqueimanager.com` verificado (DKIM/SPF/MX na Cloudflare) — `EMAIL_FROM` pode usar `noreply@hoqueimanager.com`
+- ✅ Env vars de produção na Vercel: `DATABASE_URL`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_LANDING_URL`, `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`, `RESEND_API_KEY` — todas confirmadas presentes 2026-07-19
+- ✅ Webhook de produção criado na Stripe (`https://hoqueimanager.com/api/stripe/webhook`, sem `www` — a Stripe não segue redirects), os 4 eventos correctos (`checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`)
+- ⏳ `STRIPE_PRICE_TEST` — falta criar o produto/preço de teste (€3/mês) na Stripe e adicionar a env var na Vercel; só bloqueia a funcionalidade de super admin "enviar link de pagamento" com plano de teste, não o core do produto
+- ⏳ Confirmar `Redeploy` na Vercel depois de todas as env vars entrarem (só entram em vigor num build novo)
+- ⏳ Testar o webhook em produção com um pagamento real ou "Enviar webhook de teste" da Stripe, para confirmar que os campos restruturados (`invoice.parent.subscription_details.subscription`) chegam como esperado
 - ✅ `public/logoHD.svg` + `public/logoHD.png` + `public/logo.png` criados (logo HD, ícone PWA 512×512)

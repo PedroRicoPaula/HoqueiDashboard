@@ -368,7 +368,7 @@ ChunkLoadError ocorre quando o browser tem chunks cacheados de um deploy anterio
 - **`POST /api/platform/clubs/[id]/send-payment-link`** (super admin apenas) — só para clubes `isFreeClub`. Cria/reutiliza `stripeCustomerId`, gera Stripe Checkout (plano `monthly`/`STRIPE_PRICE_MONTHLY` ou `test`/`STRIPE_PRICE_TEST`) e envia por email — **o clube paga com o próprio cartão**, não o do super admin. A activação (`ACTIVE` + `isFreeClub: false`) é feita pelo webhook `checkout.session.completed` via `clubActivation.ts`, exactamente como no registo normal — a rota em si só cria a sessão e envia o email, não activa nada directamente.
 - **`POST /api/auth/login`** devolve `{error, status, canReactivate}` em 403 quando o clube não está `ACTIVE`. `canReactivate` só é `true` para clubes pagos em `SUSPENDED`/`PAST_DUE` — nunca para clubes grátis (que não têm `stripeCustomerId` utilizável para reactivação self-serve).
 - Nenhuma das 3 rotas novas chama `validateCsrf` manualmente — cobertas automaticamente pelo middleware (`/api/*` não excluído do matcher). `/api/billing/reactivate` é a única rota pública deste grupo; a proteção contra abuso é o rate limit por IP, não autenticação.
-- `src/lib/stripe.ts` (novo) centraliza `getStripe()` — antes duplicado (`new Stripe(...)` inline) em `register/route.ts`, `stripe/webhook/route.ts` e `platform/page.tsx`.
+- `src/lib/stripe.ts` centraliza `getStripe()` — antes duplicado (`new Stripe(...)` inline) em vários ficheiros; consolidado por completo em 2026-07-19 (`register/complete/route.ts` e `platform/page.tsx` ainda tinham instâncias próprias, encontradas ao alinhar a `apiVersion` — ver `docs/CONVENTIONS.md`).
 
 ### Achados de segurança — Auditoria 2026-07-18 (ainda por corrigir, ver `docs/ISSUES-BACKLOG.md`)
 
