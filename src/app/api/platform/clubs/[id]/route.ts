@@ -5,8 +5,6 @@ import { logger } from '@/lib/logger'
 import { logAudit } from '@/lib/audit'
 import { checkRateLimit } from '@/lib/rateLimit'
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
-
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getUserFromRequest(req)
@@ -30,29 +28,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Clube não encontrado' }, { status: 404 })
     }
 
-    if (club.isFreeClub) {
-      if (club.status !== 'SUSPENDED') {
-        return NextResponse.json(
-          { error: 'O clube grátis tem de estar suspenso para ser eliminado' },
-          { status: 422 }
-        )
-      }
-    } else {
-      if (club.status !== 'SUSPENDED') {
-        return NextResponse.json(
-          { error: 'O clube pago tem de estar suspenso para ser eliminado' },
-          { status: 422 }
-        )
-      }
-      const changedAt = club.statusChangedAt ?? club.updatedAt
-      const ageMs = Date.now() - changedAt.getTime()
-      if (ageMs < ONE_YEAR_MS) {
-        const daysLeft = Math.ceil((ONE_YEAR_MS - ageMs) / (24 * 60 * 60 * 1000))
-        return NextResponse.json(
-          { error: `O clube pago só pode ser eliminado após 1 ano em atraso. Faltam ${daysLeft} dia(s).` },
-          { status: 422 }
-        )
-      }
+    // SUSPENDED já significa "não está a ser pago" independentemente de como o clube
+    // nasceu (grátis via superadmin, registo pago normal, trial expirado) — não há
+    // razão para esperar 1 ano nos clubes pagos quando o grátis é eliminável de imediato.
+    if (club.status !== 'SUSPENDED') {
+      return NextResponse.json(
+        { error: 'O clube tem de estar suspenso para ser eliminado' },
+        { status: 422 }
+      )
     }
 
     // Snapshot details before cascade delete (for audit trail after the fact)

@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select'
 import { Plus, Loader2, ShieldOff, ShieldCheck, Trash2, AlertTriangle, CreditCard } from 'lucide-react'
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE:           { label: 'Ativo',                 color: 'bg-green-100 text-green-700' },
@@ -50,11 +49,7 @@ function canActivate(club: Club): boolean {
 }
 
 function canDelete(club: Club): boolean {
-  if (club.status !== 'SUSPENDED') return false
-  if (club.isFreeClub) return true
-  const changedAt = club.statusChangedAt ? new Date(club.statusChangedAt).getTime() : null
-  if (!changedAt) return false
-  return Date.now() - changedAt >= ONE_YEAR_MS
+  return club.status === 'SUSPENDED'
 }
 
 export default function PlatformClubs({ initialClubs }: Props) {
@@ -369,7 +364,7 @@ export default function PlatformClubs({ initialClubs }: Props) {
               Tens a certeza que queres suspender <strong>{suspendTarget?.name}</strong>?
               {suspendTarget?.isFreeClub
                 ? ' O clube ficará inacessível e poderá ser eliminado.'
-                : ' O clube ficará inacessível. Só podes fazer isto porque tem pagamento em atraso.'}
+                : ' O clube ficará inacessível e poderá ser eliminado. Só podes fazer isto porque tem pagamento em atraso.'}
             </DialogDescription>
           </DialogHeader>
           {error && <p className="text-sm text-red-600">{error}</p>}

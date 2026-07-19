@@ -72,9 +72,8 @@
 - **Alterar estado**: botão por linha; regras de negócio:
   - Clube grátis: ACTIVE ↔ SUSPENDED livremente
   - Clube pago: só SUSPENDED a partir de PAST_DUE; ACTIVE só a partir de SUSPENDED
-- **Eliminar clube**: botão por linha; regras de elegibilidade:
-  - Clube grátis: requer `status === 'SUSPENDED'`
-  - Clube pago: requer `status === 'SUSPENDED'` + `statusChangedAt < NOW() - 1 ano`
+- **Eliminar clube**: botão por linha; elegibilidade (regra unificada 2026-07-19, antes exigia 1 ano `SUSPENDED` só para clubes pagos — removido a pedido do utilizador, `SUSPENDED` já significa "não paga" seja qual for a origem do clube):
+  - Qualquer clube (grátis ou pago): requer `status === 'SUSPENDED'`
   - Elimina em cascade (Prisma `onDelete: Cascade` em todos os modelos tenanted)
   - **Confirmação por email (2026-07-19)**: dialog exige escrever o email exacto do clube antes de activar "Eliminar para sempre" (`deleteConfirmEmail` comparado case-insensitive com `deleteTarget.email`) — antes bastava um clique no dialog, sem nenhuma fricção extra para uma acção irreversível
 - **Enviar link de pagamento (2026-07-18)**: botão só visível em clubes `isFreeClub && status === 'ACTIVE'`. Dialog com escolha de plano (Principal €59/mês ou Teste €3/mês) → cria/reutiliza `stripeCustomerId`, gera Stripe Checkout e envia email ao clube (`paymentLinkEmailHtml`, `src/lib/email.ts`) com o link — o clube paga com o próprio cartão, não o do super admin. Activação (`ACTIVE` + `isFreeClub: false`) acontece no webhook `checkout.session.completed` via `src/lib/clubActivation.ts`, igual ao registo normal.
