@@ -63,9 +63,10 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Subscription state
-  const [clubMeta, setClubMeta] = useState<{ isFreeClub: boolean; status: string } | null>(null)
+  const [clubMeta, setClubMeta] = useState<{ isFreeClub: boolean; status: string; trialEndsAt: string | null; hasActiveSubscription: boolean } | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [subscribing, setSubscribing] = useState<'monthly' | 'yearly' | null>(null)
 
   // Season fees state
   const [allSeasons, setAllSeasons]         = useState<Season[]>([])
@@ -98,6 +99,16 @@ export default function SettingsPage() {
 
   const selectedColor = watch('primaryColor')
 
+  // Volta de /api/billing/subscribe com pagamento confirmado — window.location em vez de
+  // useSearchParams para não obrigar a página toda a um boundary de Suspense por causa disto.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('upgraded') === '1') {
+      toast({ title: 'Pagamento confirmado! O teu plano já está activo.' })
+      window.history.replaceState(null, '', '/settings')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Load club settings
   useEffect(() => {
     fetch('/api/settings')
@@ -108,10 +119,35 @@ export default function SettingsPage() {
         setValue('country', data.country ?? 'pt')
         setValue('primaryColor', data.primaryColor ?? '142 71% 45%')
         setLogoUrl(data.logoUrl ?? null)
-        setClubMeta({ isFreeClub: !!data.isFreeClub, status: data.status ?? 'ACTIVE' })
+        setClubMeta({
+          isFreeClub: !!data.isFreeClub,
+          status: data.status ?? 'ACTIVE',
+          trialEndsAt: data.trialEndsAt ?? null,
+          hasActiveSubscription: !!data.hasActiveSubscription,
+        })
       })
       .finally(() => setFetching(false))
   }, [setValue])
+
+  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
+    setSubscribing(plan)
+    try {
+      const res = await fetch('/api/billing/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast({ title: t('common.error'), description: json.error, variant: 'destructive' })
+        return
+      }
+      window.location.href = json.checkoutUrl
+    } catch {
+      toast({ title: t('common.error'), variant: 'destructive' })
+      setSubscribing(null)
+    }
+  }
 
   const handleCancelSubscription = async () => {
     setCancelling(true)
@@ -499,8 +535,43 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Subscription card — only for paid clubs (free clubs have no subscription to cancel) */}
-      {clubMeta && !clubMeta.isFreeClub && (
+      {/* Plan card — trial clubs or paid clubs without an active subscription yet (e.g. self-cancelled and reactivating manually) */}
+      {clubMeta && !clubMeta.isFreeClub && !clubMeta.hasActiveSubscription && (() => {
+        const trialDaysLeft = clubMeta.trialEndsAt
+          ? Math.max(0, Math.ceil((new Date(clubMeta.trialEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+          : null
+        return (
+          <Card className="border-green-200">
+            <CardHeader>
+              <CardTitle>Plano</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {trialDaysLeft !== null ? (
+                <p className="text-sm text-gray-600">
+                  {trialDaysLeft > 0
+                    ? <>Estás em <strong>teste grátis</strong> — faltam <strong>{trialDaysLeft} {trialDaysLeft === 1 ? 'dia' : 'dias'}</strong>. Escolhe um plano antes de acabar para não perderes o acesso.</>
+                    : <>O teu teste grátis terminou. Escolhe um plano para continuares a ter acesso.</>}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600">Escolhe um plano para activar o acesso.</p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button type="button" onClick={() => handleSubscribe('monthly')} disabled={subscribing !== null}>
+                  {subscribing === 'monthly' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Mensal — €59/mês
+                </Button>
+                <Button type="button" variant="outline" onClick={() => handleSubscribe('yearly')} disabled={subscribing !== null}>
+                  {subscribing === 'yearly' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Anual — €590/ano
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
+
+      {/* Subscription card — only for clubs with an active paid subscription */}
+      {clubMeta && !clubMeta.isFreeClub && clubMeta.hasActiveSubscription && (
         <Card className="border-red-100">
           <CardHeader>
             <CardTitle className="text-red-700">{t('settings.subscription.title')}</CardTitle>

@@ -18,6 +18,7 @@ const updateSchema = z.object({
 const CLUB_SELECT = {
   id: true, name: true, slug: true, email: true, country: true, language: true,
   logoUrl: true, primaryColor: true, status: true, isFreeClub: true, createdAt: true, updatedAt: true,
+  trialEndsAt: true,
 }
 
 export async function GET(req: Request) {
@@ -28,10 +29,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
   }
 
-  const club = await db.club.findUnique({ where: { id: clubId }, select: CLUB_SELECT })
+  const club = await db.club.findUnique({
+    where: { id: clubId },
+    select: { ...CLUB_SELECT, stripeSubscriptionId: true },
+  })
   if (!club) return NextResponse.json({ error: 'Clube não encontrado' }, { status: 404 })
 
-  return NextResponse.json(club)
+  // hasActiveSubscription em vez de expor o stripeSubscriptionId em si (regra da linha acima).
+  const { stripeSubscriptionId, ...rest } = club
+  return NextResponse.json({ ...rest, hasActiveSubscription: !!stripeSubscriptionId })
 }
 
 export async function PATCH(req: Request) {

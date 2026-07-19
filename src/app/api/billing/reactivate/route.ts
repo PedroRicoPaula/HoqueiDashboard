@@ -42,15 +42,19 @@ export async function POST(req: Request) {
     if (club.status !== 'SUSPENDED' && club.status !== 'PAST_DUE') {
       return NextResponse.json({ error: 'Este clube não está suspenso' }, { status: 422 })
     }
-    if (!club.stripeCustomerId) {
-      return NextResponse.json({ error: 'Contacte o suporte para reativar este clube' }, { status: 422 })
-    }
 
     const stripe = getStripe()
+    // Clube nunca chegou a pagar (trial expirado sem escolher plano) — não tem
+    // stripeCustomerId ainda. Cria-se aqui, tal como em send-payment-link/billing-subscribe.
+    const customerId = club.stripeCustomerId
+      ?? (await stripe.customers.create({ name: club.name, email: club.email })).id
+    if (!club.stripeCustomerId) {
+      await prisma.club.update({ where: { id: club.id }, data: { stripeCustomerId: customerId } })
+    }
     const priceId = club.stripePriceId ?? process.env.STRIPE_PRICE_MONTHLY!
 
     const session = await stripe.checkout.sessions.create({
-      customer: club.stripeCustomerId,
+      customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
