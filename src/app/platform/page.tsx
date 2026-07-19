@@ -3,7 +3,7 @@ import { getUserFromRequest } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { Building2, Users, DollarSign, TrendingUp, Globe } from 'lucide-react'
-import Stripe from 'stripe'
+import { getStripe } from '@/lib/stripe'
 import { logger } from '@/lib/logger'
 import PlatformClubs from './PlatformClubs'
 
@@ -26,7 +26,7 @@ async function getPrices(): Promise<{ monthly: number; yearlyMonthlyEquiv: numbe
     return priceCache
   }
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
+    const stripe = getStripe()
     const [monthlyPrice, yearlyPrice] = await Promise.all([
       stripe.prices.retrieve(process.env.STRIPE_PRICE_MONTHLY!),
       stripe.prices.retrieve(process.env.STRIPE_PRICE_YEARLY!),

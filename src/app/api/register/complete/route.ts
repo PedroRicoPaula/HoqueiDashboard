@@ -5,12 +5,9 @@ import { activateClubFromSession } from '@/lib/clubActivation'
 import { logger } from '@/lib/logger'
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 import { logAudit } from '@/lib/audit'
-import Stripe from 'stripe'
+import { getStripe } from '@/lib/stripe'
+import type Stripe from 'stripe'
 import { z } from 'zod'
-
-function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-02-24.acacia' })
-}
 
 const completeSchema = z.object({
   sessionId: z.string().min(1),

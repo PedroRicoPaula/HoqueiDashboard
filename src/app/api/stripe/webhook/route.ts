@@ -46,18 +46,23 @@ export async function POST(req: Request) {
 
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice
-        const sub = invoice.subscription
+        // API 2025-12-15.clover: invoice.subscription foi substituído por
+        // invoice.parent.subscription_details.subscription.
+        const sub = invoice.parent?.subscription_details?.subscription
         if (!sub) break
 
         const subscription = await stripe.subscriptions.retrieve(sub as string)
         const clubId = subscription.metadata?.clubId
         if (!clubId) break
 
+        // API 2025-12-15.clover: current_period_end saiu do topo da subscription
+        // (que agora pode ter vários items com períodos diferentes) para cada item.
+        const periodEnd = subscription.items.data[0]?.current_period_end
         await prisma.club.update({
           where: { id: clubId },
           data: {
             status: 'ACTIVE',
-            stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            ...(periodEnd ? { stripeCurrentPeriodEnd: new Date(periodEnd * 1000) } : {}),
           },
         })
 
@@ -70,7 +75,7 @@ export async function POST(req: Request) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice
-        const sub = invoice.subscription
+        const sub = invoice.parent?.subscription_details?.subscription
         if (!sub) break
 
         const subscription = await stripe.subscriptions.retrieve(sub as string)
