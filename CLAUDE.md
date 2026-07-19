@@ -84,6 +84,7 @@ CRON_SECRET                     → string aleatória ≥16 chars — protege /a
     - **`POST /api/auth/login`** devolve `{error, status, canReactivate}` quando o clube não está `ACTIVE` — `canReactivate` só é `true` para clubes pagos em `SUSPENDED`/`PAST_DUE` (nunca para clubes grátis). O frontend (`src/app/login/page.tsx`) mostra um formulário inline de reactivação quando `canReactivate` é `true`.
     - **Eliminação permanente continua igual**: só clubes `SUSPENDED` há ≥1 ano (`statusChangedAt`), botão em `/platform` (`src/app/api/platform/clubs/[id]/route.ts`, `DELETE`). Não há eliminação automática — sempre acção manual do super admin.
     - `src/lib/stripe.ts` centraliza `getStripe()` — usar sempre este helper, não instanciar `new Stripe(...)` directamente nas rotas.
+    - **NIF/contribuinte (2026-07-19)**: todo `checkout.sessions.create` leva `tax_id_collection: { enabled: true }` — cliente pode preencher o próprio NIF, aparece na fatura Stripe gerada. Ver `docs/CONVENTIONS.md` → secção Stripe. O NIF do emissor (HoqueiManager) é config manual da conta Stripe, não código — ver tarefas manuais pendentes abaixo.
 
 ---
 
@@ -353,6 +354,7 @@ messages/                      # Traduções next-intl
 - ✅ Webhook de produção criado na Stripe (`https://hoqueimanager.com/api/stripe/webhook`, sem `www` — a Stripe não segue redirects), os 4 eventos correctos (`checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`)
 - ✅ `STRIPE_PRICE_TEST` criado (€3/mês) e configurado na Vercel — confirmado 2026-07-19
 - ✅ Deploy em produção feito; pagamento real testado ao vivo com o plano de teste (€3) — confirmado 2026-07-19 pelo utilizador ("está tudo a funcionar os pagamentos e o envio de email")
-- ⏳ **`CRON_SECRET`** (novo, 2026-07-19) — falta gerar uma string aleatória ≥16 chars e adicionar na Vercel; sem isto `/api/cron/trial-sweep` fica sempre a devolver 401 e nenhum trial expirado é suspenso automaticamente. Gerar com `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`
-- ⏳ Confirmar no dashboard da Stripe (Settings → Billing → Emails) que "Email customers about successful payments" está activo — é a Stripe que envia o recibo/fatura de cada pagamento, não é código nosso
+- ✅ `CRON_SECRET` gerado e adicionado na Vercel — confirmado 2026-07-19
+- ✅ Confirmado no dashboard da Stripe que "Email customers about successful payments" está activo — confirmado 2026-07-19
 - ✅ `public/logoHD.svg` + `public/logoHD.png` + `public/logo.png` criados (logo HD, ícone PWA 512×512)
+- ⏳ **NIF/contribuinte do HoqueiManager (emissor) nas facturas** (novo, 2026-07-19) — `tax_id_collection` já activo no código (cliente pode preencher o próprio NIF no Checkout, ver regra 15), mas o NIF do próprio HoqueiManager só aparece na fatura depois de configurado manualmente em Stripe Dashboard → Settings → Business → Tax details (adicionar "Tax ID" = NIF PT). Sem isto o emissor não sai identificado na fatura, só o cliente.

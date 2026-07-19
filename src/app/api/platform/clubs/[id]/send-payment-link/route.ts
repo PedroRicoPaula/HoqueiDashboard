@@ -62,6 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/login?upgraded=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
       subscription_data: { metadata: { clubId: club.id } },
+      tax_id_collection: { enabled: true },
     })
 
     if (!session.url) {

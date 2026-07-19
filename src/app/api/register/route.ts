@@ -229,6 +229,7 @@ export async function POST(req: Request) {
       subscription_data: {
         metadata: { clubId: club.id },
       },
+      tax_id_collection: { enabled: true },
     })
 
     return NextResponse.json({ checkoutUrl: session.url })

@@ -56,6 +56,7 @@ export async function POST(req: Request) {
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings?upgraded=1`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings`,
       subscription_data: { metadata: { clubId: club.id } },
+      tax_id_collection: { enabled: true },
     })
 
     if (!session.url) {
