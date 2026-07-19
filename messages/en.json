@@ -65,10 +65,22 @@
   "social": {
     "title": "Built specifically for roller hockey",
     "stats": [
-      { "value": "12", "label": "Integrated modules" },
-      { "value": "5", "label": "Available languages" },
-      { "value": "∞", "label": "Athletes & members" },
-      { "value": "€0", "label": "Setup cost" }
+      {
+        "value": "12",
+        "label": "Integrated modules"
+      },
+      {
+        "value": "5",
+        "label": "Available languages"
+      },
+      {
+        "value": "∞",
+        "label": "Athletes & members"
+      },
+      {
+        "value": "€0",
+        "label": "Setup cost"
+      }
     ]
   },
   "pricing": {
@@ -185,6 +197,9 @@
       "en": "English",
       "fr": "Français",
       "it": "Italiano"
-    }
+    },
+    "trial": "Free trial — 14 days",
+    "trialNote": "No credit card required. Choose a plan anytime from Settings.",
+    "startTrial": "Start free trial"
   }
 }

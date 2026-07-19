@@ -65,10 +65,22 @@
   "social": {
     "title": "Conçu spécifiquement pour le hockey sur patins",
     "stats": [
-      { "value": "12", "label": "Modules intégrés" },
-      { "value": "5", "label": "Langues disponibles" },
-      { "value": "∞", "label": "Athlètes et membres" },
-      { "value": "0€", "label": "Frais d'installation" }
+      {
+        "value": "12",
+        "label": "Modules intégrés"
+      },
+      {
+        "value": "5",
+        "label": "Langues disponibles"
+      },
+      {
+        "value": "∞",
+        "label": "Athlètes et membres"
+      },
+      {
+        "value": "0€",
+        "label": "Frais d'installation"
+      }
     ]
   },
   "pricing": {
@@ -185,6 +197,9 @@
       "en": "English",
       "fr": "Français",
       "it": "Italiano"
-    }
+    },
+    "trial": "Essai gratuit — 14 jours",
+    "trialNote": "Sans carte bancaire. Choisissez un plan à tout moment dans les Paramètres.",
+    "startTrial": "Commencer l'essai gratuit"
   }
 }

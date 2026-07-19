@@ -65,10 +65,22 @@
   "social": {
     "title": "Feito especificamente para hóquei em patins",
     "stats": [
-      { "value": "12", "label": "Módulos integrados" },
-      { "value": "5", "label": "Idiomas disponíveis" },
-      { "value": "∞", "label": "Atletas e sócios" },
-      { "value": "0€", "label": "Custo de instalação" }
+      {
+        "value": "12",
+        "label": "Módulos integrados"
+      },
+      {
+        "value": "5",
+        "label": "Idiomas disponíveis"
+      },
+      {
+        "value": "∞",
+        "label": "Atletas e sócios"
+      },
+      {
+        "value": "0€",
+        "label": "Custo de instalação"
+      }
     ]
   },
   "pricing": {
@@ -185,6 +197,9 @@
       "en": "English",
       "fr": "Français",
       "it": "Italiano"
-    }
+    },
+    "trial": "Teste grátis — 14 dias",
+    "trialNote": "Sem cartão de crédito. Escolhe um plano a qualquer momento nas Definições.",
+    "startTrial": "Começar teste grátis"
   }
 }

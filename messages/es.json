@@ -65,10 +65,22 @@
   "social": {
     "title": "Hecho específicamente para hockey sobre patines",
     "stats": [
-      { "value": "12", "label": "Módulos integrados" },
-      { "value": "5", "label": "Idiomas disponibles" },
-      { "value": "∞", "label": "Atletas y socios" },
-      { "value": "0€", "label": "Coste de instalación" }
+      {
+        "value": "12",
+        "label": "Módulos integrados"
+      },
+      {
+        "value": "5",
+        "label": "Idiomas disponibles"
+      },
+      {
+        "value": "∞",
+        "label": "Atletas y socios"
+      },
+      {
+        "value": "0€",
+        "label": "Coste de instalación"
+      }
     ]
   },
   "pricing": {
@@ -185,6 +197,9 @@
       "en": "English",
       "fr": "Français",
       "it": "Italiano"
-    }
+    },
+    "trial": "Prueba gratis — 14 días",
+    "trialNote": "Sin tarjeta de crédito. Elige un plan cuando quieras en Ajustes.",
+    "startTrial": "Empezar prueba gratis"
   }
 }

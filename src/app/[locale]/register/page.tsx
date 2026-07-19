@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useAuthStore } from '@/store/authStore'
 
 type Step = 1 | 2
 
@@ -18,15 +19,17 @@ interface ClubForm {
 
 const COUNTRIES = ['pt', 'es', 'fr', 'it', 'other'] as const
 const LANGUAGES = ['pt', 'es', 'en', 'fr', 'it'] as const
-const PLANS = ['monthly', 'yearly'] as const
+const PLANS = ['monthly', 'yearly', 'trial'] as const
 
 export default function RegisterPage() {
   const t = useTranslations('register')
   const params = useParams()
+  const router = useRouter()
+  const { setAuth } = useAuthStore()
   const locale = (params?.locale as string) ?? 'pt'
 
   const [step, setStep] = useState<Step>(1)
-  const [plan, setPlan] = useState<'monthly' | 'yearly'>('monthly')
+  const [plan, setPlan] = useState<'monthly' | 'yearly' | 'trial'>('monthly')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<ClubForm>({
@@ -62,6 +65,12 @@ export default function RegisterPage() {
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Erro desconhecido')
+        return
+      }
+      if (plan === 'trial') {
+        // Sem Stripe — o registo já fez login automático (cookie hm_token definido).
+        setAuth(data.user, data.permissions)
+        router.push(data.redirectTo ?? '/')
         return
       }
       window.location.href = data.checkoutUrl
@@ -206,13 +215,16 @@ export default function RegisterPage() {
                   </button>
                 ))}
               </div>
+              {plan === 'trial' && (
+                <p className="text-xs text-gray-400 mb-4 -mt-3">{t('trialNote')}</p>
+              )}
               {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
               <button
                 onClick={handleCheckout}
                 disabled={loading}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-3 rounded-xl font-semibold transition-colors"
               >
-                {loading ? t('processing') : t('checkout')}
+                {loading ? t('processing') : plan === 'trial' ? t('startTrial') : t('checkout')}
               </button>
               <button
                 onClick={() => { setError(null); setStep(1) }}

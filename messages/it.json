@@ -65,10 +65,22 @@
   "social": {
     "title": "Costruito specificamente per l'hockey su pista",
     "stats": [
-      { "value": "12", "label": "Moduli integrati" },
-      { "value": "5", "label": "Lingue disponibili" },
-      { "value": "∞", "label": "Atleti e soci" },
-      { "value": "0€", "label": "Costo di installazione" }
+      {
+        "value": "12",
+        "label": "Moduli integrati"
+      },
+      {
+        "value": "5",
+        "label": "Lingue disponibili"
+      },
+      {
+        "value": "∞",
+        "label": "Atleti e soci"
+      },
+      {
+        "value": "0€",
+        "label": "Costo di installazione"
+      }
     ]
   },
   "pricing": {
@@ -185,6 +197,9 @@
       "en": "English",
       "fr": "Français",
       "it": "Italiano"
-    }
+    },
+    "trial": "Prova gratuita — 14 giorni",
+    "trialNote": "Senza carta di credito. Scegli un piano in qualsiasi momento dalle Impostazioni.",
+    "startTrial": "Inizia la prova gratuita"
   }
 }

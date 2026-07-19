@@ -26,6 +26,7 @@ model Club {
   stripeCurrentPeriodEnd DateTime?
   isFreeClub             Boolean           @default(false)
   statusChangedAt        DateTime?
+  trialEndsAt            DateTime?         // registo via plano "trial" (14 dias, sem Stripe) — sweep diário suspende quem passar disto sem stripeSubscriptionId
   registerCompletedAt    DateTime?         // trava de uso único de POST /api/register/complete — ver ficheiro da rota
   users                  User[]
   athletes               Athlete[]
