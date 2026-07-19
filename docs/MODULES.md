@@ -21,9 +21,11 @@
 - **CTA final**: anéis decorativos de fundo, gradiente `from-green-600 to-green-700`
 - **Footer**: duas linhas — (1) logo + links nav; (2) copyright + "Feito por Pedro Paula" + locale switcher
 - **Secção "O produto real"** (`ProductScreenshots.tsx`): fundo escuro, tabs Mensalidades/Atletas, imagens reais do dashboard (`/screenshots/fees-preview.png`, `/screenshots/athletes-preview.png`), frame de browser fake. Usa `<img>` tag (não `next/image`) porque os ficheiros são estáticos em `public/`.
-- Sem trial — messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
-- Registo 2 passos: (1) dados do clube **+ password/confirmar password**, (2) seleção de plano; mensagens de validação i18n
-- `POST /api/register` → rate limited (5/hora/IP) → valida `password`/`confirmPassword` (`min(8)` + iguais) → cria `Club` (PENDING_PAYMENT) + `User` admin com a hash da password já definida (sem placeholder) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
+- Messaging honesto: "Cancela quando quiseres. Sem contratos de permanência." em todos os 5 idiomas
+- Registo 2 passos: (1) dados do clube **+ password/confirmar password**, (2) seleção de plano (Mensal / Anual / **Teste grátis 14 dias**); mensagens de validação i18n
+- `POST /api/register` → rate limited (5/hora/IP) → valida `password`/`confirmPassword` (`min(8)` + iguais)
+  - **Mensal/Anual**: cria `Club` (PENDING_PAYMENT) + `User` admin com a hash da password já definida (sem placeholder) + `Stripe Checkout Session`. Audit log com ação `REGISTER`.
+  - **Trial (2026-07-19)**: ramo totalmente separado, nunca toca na Stripe — cria `Club` já `ACTIVE` com `trialEndsAt = now + 14 dias`, login automático (mesmo contrato JSON do resto do registo, cookie `hm_token` já definido na resposta). Envia email de boas-vindas com os 2 links de pagamento (`GET /api/billing/checkout-link/[clubId]`, gerados on-demand para nunca expirarem). Ver `docs/AUTH-SECURITY.md` → "Free trial de 14 dias".
 - **Login automático pós-pagamento (2026-07-17):** `success_url` do Checkout aponta para `/register/complete?session_id={CHECKOUT_SESSION_ID}` — página fora de `[locale]`/`(dashboard)`. `POST /api/register/complete` confirma `payment_status === 'paid'` **directo no Stripe** (não espera pelo webhook — evita a corrida entre o browser voltar e o webhook assíncrono chegar), activa o clube via `src/lib/clubActivation.ts` e devolve o mesmo contrato JSON de `/api/auth/login` (`{user, permissions, redirectTo}` + cookie `hm_token`). A página cliente chama `setAuth()` e entra logo no dashboard — sem passar pelo login. Em cancelamento redireciona para `NEXT_PUBLIC_LANDING_URL/{locale}/register?cancelled=1` (fallback: `hoqueimanager.com`)
 - **Fecho de replay (2026-07-18, segurança):** reabrir o mesmo `success_url` (link antigo, refresh, etc.) emitia um token novo de cada vez — nada impedia reusar o mesmo `session_id`. `Club.registerCompletedAt` é gravado atomicamente via `db.club.updateMany({ where: { id, registerCompletedAt: null }, data: { registerCompletedAt: new Date() } })` — o próprio campo `null` no `where` funciona como claim; se `count === 0`, alguém já activou este clube e o pedido é rejeitado, sem emitir token. O claim acontece **antes** de qualquer token ser emitido.
 - **Webhook como backstop:** `checkout.session.completed` chama o mesmo `activateClubFromSession()` (idempotente — não importa qual dos dois activa primeiro) só para o caso de o browser nunca voltar ao `success_url`. Já não cria `PasswordResetToken` nem envia email — a password já existe desde o registo. `RESEND_API_KEY` deixou de ser necessário para o onboarding, só para `/forgot-password`.
@@ -60,7 +62,7 @@
 
 ### Funcionalidades
 - **Stats 4-colunas**: clubes ativos (pagos), total utilizadores, MRR, ARR
-- **MRR/ARR real**: distingue planos mensais vs anuais via `stripePriceId`; exclui clubes grátis (`isFreeClub: true`); valores dos preços vêm da API Stripe (`stripe.prices.retrieve`), não hardcoded
+- **MRR/ARR real**: distingue planos mensais vs anuais via `stripePriceId`; exclui clubes grátis (`isFreeClub: true`), clubes em trial (`!stripeSubscriptionId`, ver secção 0d abaixo) e o plano de teste €3 (`STRIPE_PRICE_TEST`) — estes dois últimos têm buckets próprios visíveis na sidebar ("Em teste grátis", "Teste (€3)") mas não entram no MRR/ARR oficial (fix 2026-07-19: caíam no bucket "mensal" por um fallback `!stripePriceId` que não os distinguia de clubes pagos legados sem `price_id` gravado). Valores dos preços vêm da API Stripe (`stripe.prices.retrieve`), não hardcoded
 - **Tabela interativa de clubes** (`PlatformClubs.tsx` — Client Component): nome, email, país, estado, atletas, data de registo
   - Badge "Grátis" em clubes `isFreeClub`
   - Status com cores: ACTIVE (verde), PENDING_PAYMENT (amarelo), PAST_DUE (laranja), CANCELLED (cinzento), SUSPENDED (vermelho)
@@ -73,6 +75,7 @@
   - Clube grátis: requer `status === 'SUSPENDED'`
   - Clube pago: requer `status === 'SUSPENDED'` + `statusChangedAt < NOW() - 1 ano`
   - Elimina em cascade (Prisma `onDelete: Cascade` em todos os modelos tenanted)
+  - **Confirmação por email (2026-07-19)**: dialog exige escrever o email exacto do clube antes de activar "Eliminar para sempre" (`deleteConfirmEmail` comparado case-insensitive com `deleteTarget.email`) — antes bastava um clique no dialog, sem nenhuma fricção extra para uma acção irreversível
 - **Enviar link de pagamento (2026-07-18)**: botão só visível em clubes `isFreeClub && status === 'ACTIVE'`. Dialog com escolha de plano (Principal €59/mês ou Teste €3/mês) → cria/reutiliza `stripeCustomerId`, gera Stripe Checkout e envia email ao clube (`paymentLinkEmailHtml`, `src/lib/email.ts`) com o link — o clube paga com o próprio cartão, não o do super admin. Activação (`ACTIVE` + `isFreeClub: false`) acontece no webhook `checkout.session.completed` via `src/lib/clubActivation.ts`, igual ao registo normal.
 - **Sidebar de estatísticas**: breakdown por estado, por país (pagos ativos), faturação mensal/anual/grátis
 
@@ -83,6 +86,8 @@
 | PATCH | `/api/platform/clubs/[id]/status` | Alterar estado (ACTIVE/SUSPENDED) |
 | DELETE | `/api/platform/clubs/[id]` | Eliminar clube (com validação elegibilidade) |
 | POST | `/api/platform/clubs/[id]/send-payment-link` | (2026-07-18) Enviar email com Stripe Checkout a um clube grátis; `{ plan: 'monthly' \| 'test' }` |
+
+`GET /api/cron/trial-sweep` (protegido por `CRON_SECRET`, não por `isSuperAdmin` — é a Vercel que chama, ver `docs/AUTH-SECURITY.md`) também corre neste contexto (suspende trials expirados) mas não é uma rota `/platform` nem tem UI própria.
 
 Todas as rotas exigem `user.isSuperAdmin` — qualquer outro utilizador recebe 403.  
 `POST /api/platform/clubs` tem rate limiting: 20 req/hora por super admin (`checkRateLimit`).  
@@ -107,7 +112,7 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 **Status:** ✅ funcional  
 **Página:** `/settings`  
 **Permissão:** `isAdmin`  
-**APIs:** `GET /api/settings`, `PATCH /api/settings`, `PATCH /api/seasons/[id]` (para guardar tarifas da época)
+**APIs:** `GET /api/settings`, `PATCH /api/settings`, `PATCH /api/seasons/[id]` (para guardar tarifas da época), `POST /api/billing/subscribe`, `POST /api/billing/cancel`
 
 > **Segurança (2026-07-18):** `GET`/`PATCH /api/settings` reescritos para usar `getDbForRequest` + verificação explícita de `isAdmin` — antes qualquer utilizador autenticado (não só admin) conseguia ler e alterar as definições do clube. Rota adicionada a `PROTECTED_ROUTES` em `src/middleware.ts`. `CLUB_SELECT` allowlist explícita no `GET` (nunca expõe `stripeCustomerId`/`stripeSubscriptionId`/etc.).
 
@@ -121,7 +126,8 @@ Todas as operações de escrita têm audit log: `CREATE_FREE_CLUB`, `CHANGE_CLUB
 - Overscroll whitespace corrigido — `overscroll-contain` no `<main>` do dashboard layout
 - Audit log em cada PATCH
 - Logo do clube renderizado via `next/image` (`Sidebar.tsx`, `settings/page.tsx`) — hosts externos (R2) têm de estar em `images.remotePatterns` no `next.config.mjs`, **separado** do `img-src` do CSP (um permite o browser carregar a imagem, o outro permite ao `/_next/image` pedi-la para otimizar). Ver BUG-028 em `docs/ISSUES-BACKLOG.md`.
-- **Card "Subscrição" (2026-07-18)** — só visível para clubes não-grátis (`isFreeClub: false`). Botão "Cancelar subscrição" abre dialog com aviso a recomendar (não obrigar) exportar dados antes (link para `/reports`); confirmar chama `POST /api/billing/cancel`, que cancela a subscrição no Stripe **imediatamente**, marca o clube `SUSPENDED`, invalida a sessão de **todos** os utilizadores do clube (`tokenVersion` incrementado em massa) e limpa o cookie de quem fez o pedido — redirect para `/login?cancelled=1`. Ver `docs/AUTH-SECURITY.md` para o ciclo de vida completo (cancelamento → suspensão → reativação).
+- **Card "Plano" (2026-07-19)** — visível quando o clube não tem subscrição activa (`!hasActiveSubscription`, campo derivado de `!!stripeSubscriptionId` devolvido por `GET /api/settings`, nunca o ID em si): clube em trial (mostra contagem decrescente a partir de `trialEndsAt`) ou pago sem subscrição por qualquer motivo. Botões "Mensal"/"Anual" chamam `POST /api/billing/subscribe`, que cria Stripe Checkout e redirige — `success_url` volta para `/settings?upgraded=1` (toast de confirmação lido de `window.location.search`, não `useSearchParams`, para não obrigar a página a um boundary de Suspense).
+- **Card "Subscrição" (2026-07-18)** — só visível para clubes não-grátis **com** subscrição activa (`!isFreeClub && hasActiveSubscription` — mutuamente exclusivo com o card "Plano" acima). Botão "Cancelar subscrição" abre dialog com aviso a recomendar (não obrigar) exportar dados antes (link para `/reports`); confirmar chama `POST /api/billing/cancel`, que cancela a subscrição no Stripe **imediatamente**, marca o clube `SUSPENDED`, invalida a sessão de **todos** os utilizadores do clube (`tokenVersion` incrementado em massa) e limpa o cookie de quem fez o pedido — redirect para `/login?cancelled=1`. Ver `docs/AUTH-SECURITY.md` para o ciclo de vida completo (cancelamento → suspensão → reativação).
 
 ---
 
@@ -835,9 +841,12 @@ TextileState: STOCK | ASSIGNED | DAMAGED | LOST
 
 ### Email Transacional (`src/lib/email.ts`)
 - Usa Resend REST API diretamente (sem SDK — evita dependências extras), função genérica `sendEmail({to, subject, html, from?})`
-- Templates HTML: `resetPasswordEmailHtml(name, resetUrl)`, `paymentLinkEmailHtml(clubName, checkoutUrl, planLabel, priceText)` (novo, 2026-07-18 — usado por `/api/platform/clubs/[id]/send-payment-link`). Ambos partilham `emailShell()` interno (cabeçalho/rodapé comuns) — redesenhados em 2026-07-18 para o mesmo estilo visual
+- Templates HTML: `resetPasswordEmailHtml(name, resetUrl)`, `paymentLinkEmailHtml(clubName, checkoutUrl, planLabel, priceText)` (2026-07-18 — usado por `/api/platform/clubs/[id]/send-payment-link`), `trialWelcomeEmailHtml(clubName, monthlyUrl, yearlyUrl)` e `paidWelcomeEmailHtml(clubName, planLabel)` (2026-07-19, ver abaixo). Todos partilham `emailShell()` interno (cabeçalho/rodapé comuns)
 - `from:` configurado via `EMAIL_FROM` (necessita domínio verificado no Resend); fallback `onboarding@resend.dev`
-- **Não existe email de boas-vindas** — removido em 2026-07-17 quando o registo passou a definir a password logo no formulário (ver regra 13 do CLAUDE.md); `sendWelcomeEmail`/`sendPasswordResetEmail` (nomes antigos) já não existem no código
+- **Emails de boas-vindas (voltaram, 2026-07-19)**: o email de boas-vindas original foi removido em 2026-07-17 (registo passou a definir a password logo no formulário, não precisava de link de activação). Dois novos, com propósito diferente (agradecer + contexto do plano, não activar conta):
+  - `trialWelcomeEmailHtml`, enviado directo em `POST /api/register` (ramo `plan: "trial"`) — inclui os 2 links de `GET /api/billing/checkout-link/[clubId]` (mensal/anual), gerados on-demand para nunca expirarem dentro dos 14 dias de trial
+  - `paidWelcomeEmailHtml`, enviado de dentro de `activateClubFromSession()` (`src/lib/clubActivation.ts`) — cobre **todos** os caminhos que terminam em pagamento confirmado (registo pago, upgrade de trial via `/api/billing/subscribe`, upgrade de clube grátis via `send-payment-link`) com um único guard: só dispara se o clube não estava já `ACTIVE` com `stripeSubscriptionId` antes do update, para não duplicar quando o webhook e o `/api/register/complete` processam o mesmo evento (ambos podem chegar primeiro, ver nota de idempotência no próprio ficheiro)
+  - O recibo/fatura de cada pagamento é enviado pela própria Stripe (definição da conta, não código nosso) — ver tarefa manual pendente no CLAUDE.md
 
 ### Notas
 - `/setup` serve para criar o primeiro utilizador em ambiente limpo

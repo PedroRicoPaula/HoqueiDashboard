@@ -34,6 +34,12 @@ Club {
   stripeCurrentPeriodEnd DateTime?
   isFreeClub             Boolean    @default(false)  ← criado pelo super admin sem pagamento
   statusChangedAt        DateTime?                   ← timestamp da última mudança de estado manual ou por webhook
+  trialEndsAt            DateTime?  ← migration 20260719140000. Só em clubes registados com plan="trial"
+                                       (POST /api/register salta a Stripe por completo). GET /api/cron/trial-sweep
+                                       (1×/dia, ver docs/AUTH-SECURITY.md) suspende quem passar disto sem
+                                       stripeSubscriptionId. Fica preenchido para sempre como registo histórico
+                                       mesmo depois de pagar — a lógica usa sempre !stripeSubscriptionId, nunca
+                                       trialEndsAt sozinho, para decidir se um clube "ainda está em trial".
   registerCompletedAt    DateTime?  ← migration 20260718090100. Claim atómico (`updateMany` com o próprio
                                        campo NULL no `where`) gravado por `POST /api/register/complete` antes
                                        de emitir qualquer token — fecha replay do `session_id` do Stripe
@@ -45,8 +51,10 @@ Club {
 }
 enum ClubStatus { PENDING_PAYMENT ACTIVE PAST_DUE CANCELLED SUSPENDED }
 ```
-**Ciclo de vida (pago):** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed, seta `statusChangedAt`) → `CANCELLED` (subscription.deleted, seta `statusChangedAt`) → `SUSPENDED` (super admin, seta `statusChangedAt`).  
+**Ciclo de vida (pago, regista já com plano):** `PENDING_PAYMENT` → `ACTIVE` (webhook checkout.session.completed) → `PAST_DUE` (invoice.payment_failed, seta `statusChangedAt`) → `SUSPENDED` (subscription.deleted **ou** cancelamento self-serve, ambos param aqui directamente — ver nota abaixo).  
+**Ciclo de vida (trial, 2026-07-19):** `ACTIVE` com `trialEndsAt` definido, sem `stripeSubscriptionId` → `SUSPENDED` (sweep diário, se não pagar a tempo) **ou** `ACTIVE` com `stripeSubscriptionId` (se escolher/pagar um plano antes, via `/api/billing/subscribe` ou os links do email de boas-vindas).  
 **Ciclo de vida (grátis):** `ACTIVE` ↔ `SUSPENDED` livremente pelo super admin.  
+**Nota (unificação 2026-07-18):** `CANCELLED` continua no enum por compatibilidade histórica mas nenhum fluxo novo o atribui — cancelamento self-serve e falha de pagamento definitiva convergem directamente em `SUSPENDED`, para partilharem toda a lógica de bloqueio de login/reactivação/eliminação ao fim de 1 ano.  
 `statusChangedAt` é usado para aplicar a regra de eliminação de 1 ano em clubes pagos suspensos.
 
 Bloco de login se `club.status !== 'ACTIVE'` (exceto super admin).
@@ -422,6 +430,7 @@ RateLimit {
 | `20260718090100_club_register_completed_at` | Jul 2026 | `Club.registerCompletedAt TIMESTAMP?` — claim atómico anti-replay do registo, ver secção `Club` acima | ✅ aplicada (idem) |
 | `20260718090200_direction_member_num_fpp` | Jul 2026 | `DirectionMember.numFpp TEXT?` — número de sócio da federação, ver secção `DirectionMember` acima | ✅ aplicada (idem) |
 | `20260718100000_training_schedule_unique_slot` | Jul 2026 | `@@unique([clubId, season, ageGroup, dayOfWeek, startTime])` em `TrainingSchedule` — impede duplicar o mesmo dia+hora para o mesmo escalão/época (BUG-045); não impede múltiplos horários por escalão em dias diferentes (decisão de produto separada, ver UX-004). Confirmado sem duplicados existentes antes de aplicar. | ✅ aplicada (via `db push`, ver nota abaixo) |
+| `20260719140000_club_trial_ends_at` | Jul 2026 | `Club.trialEndsAt DateTime?` — free trial de 14 dias no registo público (`plan: "trial"`), ver secção `Club` acima | ✅ aplicada (via `db push`, ver nota abaixo) |
 
 **Nota sobre INFRA-001 (workaround `db push`)**: as 3 migrations acima foram aplicadas localmente com `db push` (workaround já documentado para o histórico de shadow-DB partido), mas também testadas com `npx prisma migrate resolve` + `migrate deploy` (o pipeline real do `npm run build`) numa BD à parte — as 3 aplicaram-se de forma limpa, sem erro. Isto sugere que o problema original do INFRA-001 pode já não se aplicar ao histórico actual de migrations, mas não foi confirmado com um `git clone` + BD 100% de raiz — manter o workaround `db push` documentado até essa confirmação.
 

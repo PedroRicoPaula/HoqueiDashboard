@@ -41,7 +41,7 @@ Super Admin: superadmin@hoqueimanager.com / superadmin123
 ```
 DATABASE_URL                    → Neon PostgreSQL connection string
 JWT_SECRET                      → min 32 chars, sem "change-in-production"
-NEXT_PUBLIC_APP_URL             → https://app.hoqueimanager.com
+NEXT_PUBLIC_APP_URL             → https://hoqueimanager.com (domínio único — sem subdomínio app., decisão 2026-07-19)
 STRIPE_SECRET_KEY               → sk_live_...
 STRIPE_WEBHOOK_SECRET           → whsec_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY → pk_live_...
@@ -56,6 +56,7 @@ R2_SECRET_ACCESS_KEY            → R2 secret key
 R2_PUBLIC_URL                   → public URL do bucket R2
 RESEND_API_KEY                  → re_... (email transacional — boas-vindas + reset password)
 EMAIL_FROM                      → "HoqueiManager <noreply@hoqueimanager.com>" (opcional; fallback: onboarding@resend.dev — requer domínio verificado no Resend para usar endereço custom)
+CRON_SECRET                     → string aleatória ≥16 chars — protege /api/cron/trial-sweep; a Vercel envia-a automaticamente como header Authorization quando definida (ver docs/AUTH-SECURITY.md)
 ```
 
 ---
@@ -331,13 +332,27 @@ messages/                      # Traduções next-intl
 - ✅ **Verificação**: `npx tsc --noEmit` apanhou as 2 quebras de tipo reais (`Invoice.subscription`/`current_period_end` deixaram de existir nos tipos do SDK novo) antes de chegarem a produção; `npm test` 67/67, `eslint` limpo
 - ⚠️ **Nota para o futuro**: subir o pacote `stripe` sem verificar a `apiVersion` do webhook de produção primeiro quebra isto outra vez, silenciosamente (compila, mas os handlers deixam de encontrar os campos certos em runtime). Ver `docs/CONVENTIONS.md` → secção Stripe.
 
+### Free trial de 14 dias, self-serve upgrade e emails transacionais de boas-vindas (2026-07-19)
+> Pedido do utilizador (deploy já em produção): registo público ganha uma 3ª opção — teste grátis de 14 dias sem cartão de crédito — além de mensal/anual (que continuam a pagar já no registo, inalterados). Também: fix do MRR (clubes em trial/teste caíam no bucket errado), confirmação por email antes de eliminar um clube em `/platform`, e emails de boas-vindas (trial e pago).
+- ✅ **`Club.trialEndsAt`** (novo campo, migration `20260719140000_club_trial_ends_at`) — `POST /api/register` com `plan: 'trial'` salta a Stripe por completo: clube nasce `ACTIVE` com `trialEndsAt = now + 14 dias`, login automático, mesmo contrato JSON dos outros fluxos de registo
+- ✅ **`POST /api/billing/subscribe`** (novo, autenticado `isAdmin`) — self-serve: o próprio clube (em trial, ou pago sem subscrição activa por qualquer motivo) escolhe mensal/anual em `/settings`, paga com o seu cartão; `success_url` volta directo para `/settings?upgraded=1` (já tem sessão, ao contrário do registo/reactivate que passam por `/login`)
+- ✅ **Card "Plano" em `/settings`** — só visível sem subscrição activa; mostra contagem decrescente do trial e os 2 botões de plano
+- ✅ **`GET /api/billing/checkout-link/[clubId]?plan=`** (novo, público, rate limited 30/hora/IP) — gera uma sessão Stripe **na hora do clique** e redirige; existe porque Checkout Sessions expiram ao fim de 24h no máximo (limite da própria API Stripe, não contornável) e o link vai num email que pode ser aberto em qualquer um dos 14 dias de trial — uma URL de sessão já criada ficaria morta muito antes disso
+- ✅ **`GET /api/cron/trial-sweep`** (novo, protegido por `CRON_SECRET`, ver Env Vars acima) + `vercel.json` (`0 3 * * *`, 1×/dia — limite do plano Hobby da Vercel) — suspende clubes com `trialEndsAt` passado e sem `stripeSubscriptionId`. Idempotente (`updateMany` só apanha quem ainda está `ACTIVE`), corre mesmo que ninguém tente entrar
+- ✅ **`POST /api/billing/reactivate` já não exige `stripeCustomerId` prévio** — clubes cujo trial expirou nunca chegaram a ter um; a rota cria o customer Stripe na hora, tal como `checkout-link`/`send-payment-link`
+- ✅ **Emails de boas-vindas** (`src/lib/email.ts`): `trialWelcomeEmailHtml` (enviado directo em `/api/register`, com os 2 links de `checkout-link`) e `paidWelcomeEmailHtml` (enviado de dentro de `activateClubFromSession` — cobre registo pago, upgrade de trial e upgrade de clube grátis com **um único guard**: só envia se o clube ainda não estava `ACTIVE` com `stripeSubscriptionId` antes do update, para não duplicar quando o webhook e o `/api/register/complete` chegam os dois, o que é esperado e idempotente para o resto dos campos). Recibo de pagamento em si é a própria Stripe que envia (definição da conta, "Email customers about successful payments" — confirmar que está activada no dashboard da Stripe, não é algo que o código controle)
+- ✅ **Fix MRR em `/platform`**: clubes em trial (sem `stripeSubscriptionId`) e no plano de teste €3 caíam no bucket "mensal" por um fallback antigo (`!stripePriceId` sozinho não distinguia "trial, paga €0" de "clube legado, paga €59 mas sem price_id gravado"). Agora têm buckets próprios ("Em teste grátis", "Teste (€3)"), visíveis mas fora do MRR/ARR oficial
+- ✅ **Fix eliminação de clube em `/platform`**: dialog passa a exigir escrever o email exacto do clube antes de activar o botão "Eliminar para sempre" — antes não tinha nenhuma confirmação além do próprio dialog
+- ✅ **Verificação**: `tsc`/`eslint`/`npm test` (67/67) limpos. Testado ao vivo ponta-a-ponta: registo trial → dashboard directo sem tocar em Stripe → card "Plano" com contagem correcta → sweep (query directa) apanha o trial expirado → login bloqueado com `canReactivate` → reactivate cria customer Stripe on-the-fly (falha só no placeholder local, como esperado) → eliminação em `/platform` com confirmação de email testada ponta-a-ponta
+
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed
 - ✅ DNS `hoqueimanager.com`/`www` apontado à Vercel via Cloudflare (A `76.76.21.21` + CNAME, "DNS only"/sem proxy) — confirmado 2026-07-19
 - ✅ Domínio Resend `hoqueimanager.com` verificado (DKIM/SPF/MX na Cloudflare) — `EMAIL_FROM` pode usar `noreply@hoqueimanager.com`
 - ✅ Env vars de produção na Vercel: `DATABASE_URL`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_LANDING_URL`, `STRIPE_SECRET_KEY` (live), `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL`, `RESEND_API_KEY` — todas confirmadas presentes 2026-07-19
 - ✅ Webhook de produção criado na Stripe (`https://hoqueimanager.com/api/stripe/webhook`, sem `www` — a Stripe não segue redirects), os 4 eventos correctos (`checkout.session.completed`, `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.deleted`)
-- ⏳ `STRIPE_PRICE_TEST` — falta criar o produto/preço de teste (€3/mês) na Stripe e adicionar a env var na Vercel; só bloqueia a funcionalidade de super admin "enviar link de pagamento" com plano de teste, não o core do produto
-- ⏳ Confirmar `Redeploy` na Vercel depois de todas as env vars entrarem (só entram em vigor num build novo)
-- ⏳ Testar o webhook em produção com um pagamento real ou "Enviar webhook de teste" da Stripe, para confirmar que os campos restruturados (`invoice.parent.subscription_details.subscription`) chegam como esperado
+- ✅ `STRIPE_PRICE_TEST` criado (€3/mês) e configurado na Vercel — confirmado 2026-07-19
+- ✅ Deploy em produção feito; pagamento real testado ao vivo com o plano de teste (€3) — confirmado 2026-07-19 pelo utilizador ("está tudo a funcionar os pagamentos e o envio de email")
+- ⏳ **`CRON_SECRET`** (novo, 2026-07-19) — falta gerar uma string aleatória ≥16 chars e adicionar na Vercel; sem isto `/api/cron/trial-sweep` fica sempre a devolver 401 e nenhum trial expirado é suspenso automaticamente. Gerar com `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`
+- ⏳ Confirmar no dashboard da Stripe (Settings → Billing → Emails) que "Email customers about successful payments" está activo — é a Stripe que envia o recibo/fatura de cada pagamento, não é código nosso
 - ✅ `public/logoHD.svg` + `public/logoHD.png` + `public/logo.png` criados (logo HD, ícone PWA 512×512)
