@@ -357,6 +357,15 @@ messages/                      # Traduções next-intl
 - ⚠️ **Limitação conhecida, não resolvida**: mensagens de erro devolvidas pela própria API (`json.error` em `/api/auth/login`, `/api/register`, etc.) continuam em português fixo — só o texto estático das páginas (labels, títulos, toasts genéricos) está traduzido. Localizar as APIs em si ficaria fora do âmbito pedido nesta ronda
 - ✅ **Verificação**: `tsc`/`eslint`/`npm test` (67/67) limpos. Testado ao vivo via Playwright: landing PT mostra hero/pricing/FAQ com trial e as 12 features; link "Entrar" da landing ES leva a `/login?lang=es` já em espanhol; switcher ES→EN muda a página toda incluindo o formulário dentro do Suspense; `/pt/register?plan=trial` chega ao passo 2 já com "Teste grátis — 14 dias" seleccionado e o botão a dizer "Começar teste grátis"
 
+### Marketing da landing: metadata de partilha, copy do hero, idioma mobile, screenshots (2026-07-23)
+> Pedido do utilizador: análise profissional da landing para marketing (feedback dado em chat, sem código), seguido de "podes implementar tudo".
+- ✅ **Metadata OG/Twitter** — `generateMetadata()` em `[locale]/layout.tsx` não tinha `title`/`description`/`openGraph`/`twitter`, só `alternates.languages`; links partilhados (WhatsApp, etc.) saíam sem imagem e com título genérico. Nova `public/og-image.png` (1200×630) + metadata completa por idioma, derivada de `hero.title`/`hero.subtitle`
+- ✅ **`hero.subtitle` reescrito** (5 idiomas) — nomeia a dor real (Excel perdido, não saber quem pagou) em vez de listar módulos
+- ✅ **Idioma em mobile** — `LanguageSwitcherCompact` (ícone `Globe` + dropdown) na nav, antes só existia no rodapé
+- ✅ **Screenshots recapturados** — fecha [UX-005b] em `docs/ISSUES-BACKLOG.md`
+- ⏭️ **Não implementado, deliberadamente**: trocar a secção "social proof" (12 módulos / 5 idiomas / ∞ atletas) por clientes reais — não há clubes reais suficientes ainda para mostrar; fabricar isso seria desonesto. Retomar quando houver 2-3 clubes reais a usar
+- ✅ **Verificação**: `tsc`/`eslint`/`npm test` (67/67) limpos. Testado ao vivo via Playwright: título da página já sai traduzido ("HoqueiManager — O teu clube, bem gerido"), dropdown de idioma funciona em viewport mobile (390px), screenshots capturados contra o clube seed `HC Porto Demo` com dados reais (8 atletas, 42 pagamentos)
+
 ### Tarefas manuais pendentes (não podem ser automatizadas)
 - ⏳ `npm install` + criar DB `hoqueimanager` + `npx prisma migrate dev --name init` + seed
 - ✅ DNS `hoqueimanager.com`/`www` apontado à Vercel via Cloudflare (A `76.76.21.21` + CNAME, "DNS only"/sem proxy) — confirmado 2026-07-19

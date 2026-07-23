@@ -11,9 +11,23 @@
 **Encontrado:** 2026-07-17 (auditoria dashboard). `attendance/page.tsx:140-142,1047,1297-1300` — restrição só de frontend (sem constraint no schema nem validação no servidor) que esconde "Novo Horário" assim que cada escalão tem um horário. `docs/MODULES.md:683` documenta como intencional, mas a generalidade dos clubes treina cada escalão 2-3×/semana em dias diferentes.
 **Decisão pendente:** confirmar com o dono do produto antes de mais clubes fazerem o setup inicial — se não for intencional, bloqueia onboarding real logo no primeiro dia. Nota 2026-07-18: BUG-045 (abaixo, resolvido) adicionou uma unique constraint que impede duplicar o mesmo dia+hora, mas **não** limita quantos horários diferentes um escalão pode ter — não prejudica esta decisão em aberto.
 
-### [UX-005b] Screenshots da landing (`public/screenshots/{fees,athletes}-preview.png`) desactualizados
-**Encontrado:** 2026-07-18, resíduo de [UX-005] (abaixo, resolvido). Só mostram 2 dos 12 módulos e são anteriores à feature de Season Membership e ao redesign de Definições (datados de 20 de junho).
-**Decisão pendente:** produto/design — recapturar screenshots, não é bug de código.
+---
+
+## ✅ Resolvido — Marketing da landing: metadata de partilha, copy do hero, idioma mobile, screenshots (2026-07-23)
+
+> Pedido do utilizador: análise profissional da landing para marketing, depois "podes implementar tudo" sobre as 4 sugestões accionáveis dadas em chat (a 5ª, trocar a secção de "social proof" por clientes reais, ficou de fora — não há ainda clubes reais para mostrar, fabricar isso seria desonesto).
+
+### ~~[UX-005b] Screenshots da landing desactualizados~~ ✅ RESOLVIDO 2026-07-23
+Recapturados via Playwright contra o clube seed `HC Porto Demo` (dev local, dados reais: 8 atletas, 42 pagamentos) — já mostram Season Membership (badge "Ex-atleta") e o dashboard actual. Substituídos `public/screenshots/{fees,athletes}-preview.png` directamente (mesmo nome de ficheiro, sem mudar código).
+
+### ~~[MKT-001] Sem metadata de partilha (OG/Twitter) — links partilhados sem imagem nem título traduzido~~ ✅ RESOLVIDO 2026-07-23
+`generateMetadata()` em `[locale]/layout.tsx` só definia `alternates.languages`. Adicionado `title`/`description` por idioma (via `getTranslations`) + `openGraph` + `twitter:card`. Nova imagem `public/og-image.png` (1200×630, gerada por HTML+Playwright, on-brand com o resto da landing).
+
+### ~~[MKT-002] Hero não nomeava a dor real do utilizador~~ ✅ RESOLVIDO 2026-07-23
+`hero.subtitle` (5 idiomas) passou de uma lista de módulos para nomear directamente a dor concreta (folhas de Excel perdidas, não saber quem já pagou) — este texto também virou a meta `description`, ver [MKT-001].
+
+### ~~[MKT-003] Idioma só mudava no rodapé em mobile~~ ✅ RESOLVIDO 2026-07-23
+Nav da landing tinha o `LanguageSwitcher` em `hidden md:flex` — em mobile não havia forma de mudar idioma acima da dobra. Nova `LanguageSwitcherCompact` (ícone `Globe` + dropdown, `LanguageSwitcher.tsx`) visível em `md:hidden`.
 
 ---
 
