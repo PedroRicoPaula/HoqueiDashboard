@@ -6,7 +6,7 @@ import {
   ArrowRight, Shield, Globe, Zap, MapPin, CheckCircle2,
   Wallet, Handshake, ClipboardList, CalendarCheck, FileBarChart, ShieldCheck,
 } from 'lucide-react'
-import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher'
+import { LanguageSwitcher, LanguageSwitcherCompact } from '@/components/landing/LanguageSwitcher'
 import { PricingToggle } from '@/components/landing/PricingToggle'
 import { FaqAccordion } from '@/components/landing/FaqAccordion'
 import { ProductScreenshots } from '@/components/landing/ProductScreenshots'
@@ -60,6 +60,9 @@ export default async function LandingPage({
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="hidden md:flex">
               <LanguageSwitcher />
+            </div>
+            <div className="md:hidden">
+              <LanguageSwitcherCompact />
             </div>
             <Link
               href={`/login?lang=${locale}`}
